@@ -1,0 +1,31 @@
+[error.notfound]
+one = "内容不存在"
+other = "内容不存在"
+
+[error.internal]
+one = "服务内部错误"
+other = "服务内部错误"
+
+[error.invalidargument]
+one = "请求参数校验失败"
+other = "请求参数校验失败"
+
+[error.unauthorized]
+one = "非授权访问"
+other = "非授权访问"
+
+[error.invalid.token]
+one = "错误的Token格式"
+other = "错误的Token格式"
+
+[error.timeout]
+one = "请求超时"
+other = "请求超时"
+
+[error.logic.vector.db.notmatch.content.db]
+one = "向量数据库与知识库存在差异，建议重新进行初始化"
+other = "向量数据库与知识库存在差异，建议重新进行初始化"
+
+[error.invalid.account]
+one = "用户名或密码错误"
+other = "用户名或密码错误"

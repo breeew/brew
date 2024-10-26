@@ -1,0 +1,43 @@
+[error.notfound]
+one = "Resource does not exist"
+other = "Resource does not exist"
+
+[error.internal]
+one = "Internal system error"
+other = "Internal system error"
+
+[error.invalidargument]
+one = "Invalid arguments"
+other = "Invalid arguments"
+
+[error.invalid.token]
+one = "Invalid token"
+other = "Invalid token"
+
+[error.permission.denied]
+one = "Permission denied"
+other = "Permission denied"
+
+[error.unauthorized]
+one = "Unauthorized"
+other = "Unauthorized"
+
+[error.timeout]
+one = "Request timed out"
+other = "Request timed out"
+
+[error.exist]
+one = "Resource already exist"
+other = "Resource already exist"
+
+[error.forbidden]
+one = "Request forbidden, refresh or try again later"
+other = "Request forbidden, refresh or try again later"
+
+[error.tooManyRequests]
+one = "Request forbidden, Too many requests"
+other = "Request forbidden, Too many requests"
+
+[error.logic.vector.db.notmatch.content.db]
+one = "The vector database differs from the knowledge base, so it is recommended to reinitialize"
+other = "The vector database differs from the knowledge base, so it is recommended to reinitialize"
