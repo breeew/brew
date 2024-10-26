@@ -51,6 +51,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		apiV1.POST("/login/token", Authorization(s.Core), s.AccessLogin)
 		authed := apiV1.Group("")
 		authed.Use(Authorization(s.Core))
+		user := authed.Group("/user")
+		{
+			user.PUT("/profile", s.UpdateUserProfile)
+		}
+
 		space := authed.Group("/space")
 		{
 			space.GET("/list", s.ListUserSpaces)

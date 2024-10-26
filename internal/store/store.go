@@ -105,7 +105,7 @@ type UserStore interface {
 	Create(ctx context.Context, data types.User) error
 	GetUser(ctx context.Context, appid, id string) (*types.User, error)
 	GetByEmail(ctx context.Context, appid, email string) (*types.User, error)
-	Update(ctx context.Context, appid, id string, data types.User) error
+	UpdateUserProfile(ctx context.Context, appid, id, userName, email string) error
 	Delete(ctx context.Context, appid, id string) error
 	ListUsers(ctx context.Context, opts types.ListUserOptions, page, pageSize uint64) ([]types.User, error)
 	Total(ctx context.Context, opts types.ListUserOptions) (int64, error)

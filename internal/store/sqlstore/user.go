@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
@@ -80,15 +81,11 @@ func (s *UserStore) GetByEmail(ctx context.Context, appid, email string) (*types
 }
 
 // Update 更新用户信息
-func (s *UserStore) Update(ctx context.Context, appid, id string, data types.User) error {
+func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, email string) error {
 	query := sq.Update(s.GetTable()).
-		Set("name", data.Name).
-		Set("avatar", data.Avatar).
-		Set("email", data.Email).
-		Set("password", data.Password).
-		Set("salt", data.Salt).
-		Set("source", data.Source).
-		Set("updated_at", data.UpdatedAt).
+		Set("name", userName).
+		Set("email", email).
+		Set("updated_at", time.Now().Unix()).
 		Where(sq.Eq{"appid": appid, "id": id})
 
 	queryString, args, err := query.ToSql()

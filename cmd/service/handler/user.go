@@ -5,12 +5,14 @@ import (
 
 	v1 "github.com/starbx/brew-api/internal/logic/v1"
 	"github.com/starbx/brew-api/internal/response"
+	"github.com/starbx/brew-api/pkg/utils"
 )
 
 type AccessLoginResponse struct {
 	UserName string `json:"user_name"`
 	UserID   string `json:"user_id"`
 	Avatar   string `json:"avatar"`
+	Email    string `json:"email"`
 }
 
 func (s *HttpSrv) AccessLogin(c *gin.Context) {
@@ -25,5 +27,30 @@ func (s *HttpSrv) AccessLogin(c *gin.Context) {
 		UserID:   user.ID,
 		Avatar:   user.Avatar,
 		UserName: user.Name,
+		Email:    user.Email,
 	})
+}
+
+type UpdateUserProfileRequest struct {
+	UserName string `json:"user_name" form:"user_name" binding:"required"`
+	Email    string `json:"email" form:"email" binding:"required"`
+}
+
+func (s *HttpSrv) UpdateUserProfile(c *gin.Context) {
+	var (
+		err error
+		req UpdateUserProfileRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	err = v1.NewAuthedUserLogic(c, s.Core).UpdateUserProfile(req.UserName, req.Email)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, nil)
 }
