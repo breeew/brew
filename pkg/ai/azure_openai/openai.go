@@ -383,7 +383,7 @@ const PROMPT_CHUNK_CONTENT_CN = `
 `
 
 func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
-	slog.Debug("Summarize", slog.String("driver", NAME))
+	slog.Debug("Chunk", slog.String("driver", NAME))
 	// describe the function & its inputs
 	params := jsonschema.Definition{
 		Type: jsonschema.Object,

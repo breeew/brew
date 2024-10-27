@@ -363,30 +363,8 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 	return result, nil
 }
 
-const PROMPT_CHUNK_CONTENT_CN = `
-你是一位RAG技术专家，你需要将用户提供的内容进行分块处理(chunk)，你只对用户提供的内容做分块处理，用户并不是在与你聊天。
-将内容分块的原因是期望embedding的匹配度能够更高，如果你认为用户提供的内容已经足够精简，则可以直接使用原文作为一个块。
-请结合文章整体内容从主题来对用户内容进行分块，一定不能疏漏与块相关的上下文信息，例如时间点、节日、日期等。
-注意：分块一定不能缺乏上下文信息，不能出现主语不明确的语句。
-至少生成1个块，至多生成10个块。
-至多提取5个标签。
-
-### 分块处理过程
-
-1. **解析内容**：首先，理解整个文本的上下文和结构。
-2. **识别关键概念**：找出文本中的重要术语、方法、流程等。
-3. **划分主题**：基于识别的关键概念，将文本划分为不同的主题或部分。
-4. **生成描述**：为每个分块提供详细的描述，说明其在整体内容中的位置和意义。
-
-### 错误的例子
-"将这些事情做完"，这样的结果丢失了上下文，用户会不清楚"这些"指的是什么。
-
-### 检查
-分块结束后，重新检查所有分块，是否与用户所描述内容相关，若不相关则删除该分块。
-`
-
 func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
-	slog.Debug("Summarize", slog.String("driver", NAME))
+	slog.Debug("Chunk", slog.String("driver", NAME))
 	// describe the function & its inputs
 	params := jsonschema.Definition{
 		Type: jsonschema.Object,

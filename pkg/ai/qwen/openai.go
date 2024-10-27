@@ -319,14 +319,14 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 }
 
 func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
-	slog.Debug("Summarize", slog.String("driver", NAME))
+	slog.Debug("Chunk", slog.String("driver", NAME))
 	// describe the function & its inputs
 	params := jsonschema.Definition{
 		Type: jsonschema.Object,
 		Properties: map[string]jsonschema.Definition{
 			"tags": {
 				Type:        jsonschema.Array,
-				Description: "Analyze the user's description to identify tags of relevant key content or technologies, allowing the user to categorize related content later. The values for this field should be organized as an array.",
+				Description: "Analyze the user's description to identify tags of relevant key content or technologies.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
@@ -344,7 +344,7 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 			},
 			"date_time": {
 				Type:        jsonschema.String,
-				Description: "Analyze the time mentioned in the user's content, formatted as year-month-day hour. If you believe there is no time description provided by the user, please leave it empty.",
+				Description: "Analyze the time mentioned in the user's content, formatted as year-month-day hour:minute. If you believe there is no time description provided by the user, please leave it empty.",
 			},
 		},
 		Required: []string{"tags", "title", "chunks"},
