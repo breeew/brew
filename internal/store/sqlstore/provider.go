@@ -66,6 +66,33 @@ func MustSetup(m sqlstore.ConnectConfig, s ...sqlstore.ConnectConfig) func() *Pr
 	}
 }
 
+// func (p *Provider) Install() error {
+// 	for _, tableFile := range []string{
+// 		"access_token.sql",
+// 		"chat_message_ext.sql",
+// 		"chat_message.sql",
+// 		"chat_session.sql",
+// 		"chat_summary.sql",
+// 		"knowledge_chunk.sql",
+// 		"knowledge.sql",
+// 		"resource.sql",
+// 		"space.sql",
+// 		"user_space.sql",
+// 		"user.sql",
+// 		"vectors.sql",
+// 	} {
+// 		sql, err := CreateTableFiles.ReadFile(tableFile)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+
+// 		if _, err = p.GetMaster().Exec(string(sql)); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
+
 func (p *Provider) store() *Stores {
 	return p.stores
 }
