@@ -179,7 +179,7 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 		Properties: map[string]jsonschema.Definition{
 			"querys": {
 				Type:        jsonschema.Array,
-				Description: "将用户可能的查询问题列出在该字段中",
+				Description: "List possible user query questions in this field.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
@@ -190,15 +190,12 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 
 	f := openai.FunctionDefinition{
 		Name:        "enhance_query",
-		Description: "增强用户提问的信息，获取更多相同的提问方式",
+		Description: "Enhance user query information to gather more variations of similar question phrasing.",
 		Parameters:  params,
 	}
 	t := openai.Tool{
 		Type:     openai.ToolTypeFunction,
 		Function: &f,
-	}
-	if prompt == "" {
-		prompt = fmt.Sprintf("%s\n你可以基于以下时间参考表来理解用户的问题：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
 	}
 
 	req := openai.ChatCompletionRequest{

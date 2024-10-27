@@ -174,7 +174,7 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg, ok := <-respChan:
-			slog.Debug("got ai response", slog.Any("msg", msg), slog.Bool("status", ok))
+			// slog.Debug("got ai response", slog.Any("msg", msg), slog.Bool("status", ok))
 			if !ok {
 				done(int32(len(sended)))
 				return nil
@@ -447,7 +447,7 @@ func genChatSessionContextSummary(ctx context.Context, core *core.Core, sessionI
 	slog.Debug("start generating context summary", slog.String("session_id", sessionID), slog.String("msg_id", summaryMessageID), slog.Any("request_message", reqMsg))
 	prompt := core.Cfg().Prompt.ChatSummary
 	if prompt == "" {
-		prompt = ai.PROMPT_SUMMARY_DEFAULT_CN
+		prompt = ai.PROMPT_SUMMARY_DEFAULT_EN
 	}
 
 	queryOpts := core.Srv().AI().NewQuery(ctx, reqMsg)

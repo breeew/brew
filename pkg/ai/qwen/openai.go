@@ -181,22 +181,22 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		Properties: map[string]jsonschema.Definition{
 			"tags": {
 				Type:        jsonschema.Array,
-				Description: "你从用户描述内容中分析出对应关键内容或关键技术的标签，以便用户后续归类相关的内容，需要以数组的形式组织该字段的值",
+				Description: "You analyze the user's description to extract corresponding tags for key content or technologies, allowing the user to categorize related content later. The values for this field should be organized as an array.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
 			},
 			"title": {
 				Type:        jsonschema.String,
-				Description: "为用户提供的内容自动生成标题填入该字段",
+				Description: "Automatically generate a title for the content provided by the user and fill it into this field.",
 			},
 			"summary": {
 				Type:        jsonschema.String,
-				Description: "请将处理后的总结内容填入该字段中",
+				Description: "Please fill this field with the processed summary content.",
 			},
 			"date_time": {
 				Type:        jsonschema.String,
-				Description: "用户内容中提到的时间，时间格式为 year-month-day hour:minute，如果无法提取时间，请留空",
+				Description: "The time mentioned in the user's content, formatted as year-month-day hour:minute. If the time cannot be extracted, please leave it empty.",
 			},
 		},
 		Required: []string{"tags", "title", "summary"},
@@ -204,7 +204,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 
 	f := openai.FunctionDefinition{
 		Name:        SummarizeFuncName,
-		Description: "对文本内容的预处理结果",
+		Description: "The result of the pre-processing of the text content.",
 		Parameters:  params,
 	}
 	t := openai.Tool{
@@ -258,7 +258,7 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 		Properties: map[string]jsonschema.Definition{
 			"querys": {
 				Type:        jsonschema.Array,
-				Description: "将用户可能的查询问题列出在该字段中",
+				Description: "List possible user query questions in this field.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
@@ -269,7 +269,7 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 
 	f := openai.FunctionDefinition{
 		Name:        "enhance_query",
-		Description: "增强用户提问的信息，获取更多相同的提问方式",
+		Description: "Enhance user query information to gather more variations of similar question phrasing.",
 		Parameters:  params,
 	}
 	t := openai.Tool{
@@ -326,25 +326,25 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 		Properties: map[string]jsonschema.Definition{
 			"tags": {
 				Type:        jsonschema.Array,
-				Description: "你从用户描述内容中分析出对应关键内容或关键技术的标签，以便用户后续归类相关的内容，需要以数组的形式组织该字段的值",
+				Description: "Analyze the user's description to identify tags of relevant key content or technologies, allowing the user to categorize related content later. The values for this field should be organized as an array.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
 			},
 			"title": {
 				Type:        jsonschema.String,
-				Description: "为用户提供的内容自动生成标题填入该字段",
+				Description: "Automatically generate a title for the content provided by the user and fill it into this field.",
 			},
 			"chunks": {
 				Type:        jsonschema.Array,
-				Description: "分类好的内容块填入该字段",
+				Description: "Place the categorized content blocks into this field.",
 				Items: &jsonschema.Definition{
 					Type: jsonschema.String,
 				},
 			},
 			"date_time": {
 				Type:        jsonschema.String,
-				Description: "分析用户内容中提到的时间，时间格式为 year-month-day hour:minute，如果你认为用户提供的内容中没有关于时间的描述，请留空",
+				Description: "Analyze the time mentioned in the user's content, formatted as year-month-day hour. If you believe there is no time description provided by the user, please leave it empty.",
 			},
 		},
 		Required: []string{"tags", "title", "chunks"},
@@ -352,7 +352,7 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 
 	f := openai.FunctionDefinition{
 		Name:        "chunk",
-		Description: "对文本内容的分块处理结果",
+		Description: "The result of chunking the text content.",
 		Parameters:  params,
 	}
 	t := openai.Tool{
@@ -361,7 +361,7 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 	}
 	// simulate user asking a question that requires the function
 	dialogue := []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVar(ai.PROMPT_CHUNK_CONTENT_CN)},
+		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVar(ai.PROMPT_CHUNK_CONTENT_EN)},
 		{Role: openai.ChatMessageRoleUser, Content: strings.ReplaceAll(*doc, "\n", "")},
 	}
 	var result ai.ChunkResult

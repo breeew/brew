@@ -64,9 +64,10 @@ func (s *QueryOptions) WithDocsSoltName(name string) *QueryOptions {
 }
 
 const PROMPT_NAMED_SESSION_DEFAULT_CN = `请通过用户对话内容分析该对话的主题，尽可能简短，限制在20个字以内，不要以标点符合结尾。请使用{lang}回复。`
-const PROMPT_NAMED_SESSION_DEFAULT_EN = `Analyze the conversation topic from user dialogue in under 20 words`
+const PROMPT_NAMED_SESSION_DEFAULT_EN = `Please analyze the conversation's topic based on the user's dialogue, keeping it concise and within 20 words without punctuation.`
 
 const PROMPT_SUMMARY_DEFAULT_CN = `请总结以下用户对话，作为后续聊天的上下文信息。`
+const PROMPT_SUMMARY_DEFAULT_EN = `Please summarize the following user conversation as contextual information for future chats.`
 
 const PROMPT_PROCESS_CONTENT_CN = `
 请帮助我对以下用户输入的文本进行预处理。目标是提高文本的质量，以便于后续的embedding处理。请遵循以下步骤：
@@ -176,7 +177,7 @@ const GENERATE_PROMPT_TPL_CN = GENERATE_PROMPT_TPL_NONE_CONTENT_CN + `
 用户使用什么语言与你沟通，你就使用什么语言回复用户，如果你不会该语言则使用英语来与用户交流。
 `
 
-const GENERATE_PROMPT_TPL_EN = `
+const GENERATE_PROMPT_TPL_EN = GENERATE_PROMPT_TPL_NONE_CONTENT_EN + `
 Here’s a reference timeline I’m providing: 
 {time_range}
 You need to use the timeline above to understand any mentioned time in my question (if applicable).
@@ -186,14 +187,17 @@ Please use the "reference materials" to answer my questions.
 Note that some parts of the "reference materials" may describe the same event but with different timestamps. When you're unsure which date to use, analyze the context of my question to choose accordingly.
 If you find the answer within the "reference materials," let me know which content IDs you used as references.
 Please respond in Markdown format using the same language as my question.
-Below are some system syntax symbols that may appear in the reference content. You can ignore these, treating them as strings without semantic interpretation: {symbol}
-My question is: {query}
+Below are some system syntax symbols that may appear in the reference content. You can ignore these, treating them as strings without semantic interpretation: 
+{symbol}
+You must respond in the language used by the user in their most recent question. If you are not proficient in that language, you may respond in English.
 `
 
 const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 你是一位RAG助理，名字叫做Brew，模型为Brew Engine。
 你需要以Markdown的格式回复用户。
 `
+
+const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew, and your model is Brew Engine. You need to respond to users in Markdown format.`
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
 	if s.prompt == "" {
@@ -236,22 +240,20 @@ func (s *EnhanceOptions) WithPrompt(prompt string) *EnhanceOptions {
 }
 
 const PROMPT_ENHANCE_QUERY_CN = `你是一个查询增强器。你必须增强用户的语句，使其与用户可能正在寻找的内容更加相关。
-如果提及时间，请保持对时间的描述，并结合下面的时间表来获取具体的时间，通过括号的形式添加在实践描述后面。
 你可以参考以下时间表来理解用户的问题：
 {time_range}
+如果用户提及时间，你可以根据上面提供的参考时间表来将对时间的描述替换为具体的日期。
 如果提及任何位置，请将其也添加到查询中。
 你需要将用户查询中的一些通用语进行同义词转换，例如"干啥"也可以描述为"做什么"。
 尽量让你的回复尽可能简短。添加到用户的查询中，不要替换它。`
 
-const PROMPT_ENHANCE_QUERY_EN = `You are a query enhancer. Your task is to expand users' statements to make them more relevant to what the user might be looking for.
-If the user mentions a time, retain the time description and include the exact time in parentheses based on the provided schedule. You can reference the following schedule to understand the user's question: {time_range}
-If any location is mentioned, add it to the query as well.
-Incorporate synonyms for general phrases, such as replacing "干啥" with "do what" or "perform what."
-Aim to keep your response as concise as possible. Add to the user's query without replacing it.`
+const PROMPT_ENHANCE_QUERY_EN = `You are a query enhancer. You must enhance the user's statements to make them more relevant to the content the user might be searching for. You can refer to the following timeline to understand the user's question:
+{time_range}
+If the user mentions time, you can replace the time description with specific dates based on the provided reference timeline. If any locations are mentioned, please add them to the query as well. You need to perform synonym transformations on some common phrases in the user's query, such as "干啥" can also be described as "做什么." Keep your responses as brief as possible. Add to the user's query without replacing it.`
 
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
 	if s.prompt == "" {
-		s.prompt = ReplaceVar(PROMPT_ENHANCE_QUERY_CN)
+		s.prompt = ReplaceVar(PROMPT_ENHANCE_QUERY_EN)
 	}
 
 	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
@@ -376,7 +378,7 @@ func BuildRAGQuery(tpl string, docs Docs, query string) string {
 	d := docs.ConvertPassageToPromptText()
 	if d != "" {
 		if tpl == "" {
-			tpl = GENERATE_PROMPT_TPL_CN
+			tpl = GENERATE_PROMPT_TPL_EN
 		}
 		tpl = ReplaceVar(tpl)
 		tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
@@ -388,7 +390,7 @@ func BuildRAGQuery(tpl string, docs Docs, query string) string {
 }
 
 func ReplaceVar(tpl string) string {
-	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNow())
+	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowEN())
 	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
 	return tpl
 }
@@ -402,7 +404,7 @@ type docs struct {
 }
 
 func (d *docs) ConvertPassageToPromptText() string {
-	return convertPassageToPromptText(d.docs)
+	return convertPassageToPromptTextEN(d.docs)
 }
 
 func NewDocs(list []*PassageInfo) Docs {
@@ -413,7 +415,7 @@ func NewDocs(list []*PassageInfo) Docs {
 
 var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 
-func convertPassageToPromptText(docs []*PassageInfo) string {
+func convertPassageToPromptTextCN(docs []*PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
 		if i != 0 {
@@ -425,6 +427,25 @@ func convertPassageToPromptText(docs []*PassageInfo) string {
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
 		s.WriteString("\n内容为：")
+		s.WriteString(v.Content)
+		s.WriteString("\n")
+	}
+
+	return s.String()
+}
+
+func convertPassageToPromptTextEN(docs []*PassageInfo) string {
+	s := strings.Builder{}
+	for i, v := range docs {
+		if i != 0 {
+			s.WriteString("------\n")
+		}
+		s.WriteString("Event Time：")
+		s.WriteString(v.DateTime)
+		s.WriteString("\n")
+		s.WriteString("ID：")
+		s.WriteString(v.ID)
+		s.WriteString("\nContent：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
 	}
@@ -597,6 +618,84 @@ func GenerateTimeListAtNow() string {
 	mst, met = utils.GetMonthStartAndEnd(now.AddDate(0, -1, 0))
 	tpl.WriteString(dateFormat(mst))
 	tpl.WriteString(" 至 ")
+	tpl.WriteString(dateFormat(met))
+
+	return tpl.String()
+}
+
+func GenerateTimeListAtNowEN() string {
+	now := time.Now()
+
+	tpl := strings.Builder{}
+	tpl.WriteString("Today is：")
+	tpl.WriteString(timeFormat(now))
+	tpl.WriteString(" ")
+	tpl.WriteString(now.Weekday().String())
+	tpl.WriteString("\n")
+
+	tpl.WriteString("Tomorrow:")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, 1)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The day after tomorrow: ")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, 2)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("Two days after tomorrow: ")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, 3)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("Yesterday: ")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, -1)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The day before yesterday: ")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, -2)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("Two day before yesterday: ")
+	tpl.WriteString(dateFormat(now.AddDate(0, 0, -3)))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of this week is from: ")
+	wst, wet := utils.GetWeekStartAndEnd(now)
+	tpl.WriteString(dateFormat(wst))
+	tpl.WriteString(" to ")
+	tpl.WriteString(dateFormat(wet))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of next week is from: ")
+	wst, wet = utils.GetWeekStartAndEnd(now.AddDate(0, 0, 7))
+	tpl.WriteString(dateFormat(wst))
+	tpl.WriteString(" to ")
+	tpl.WriteString(dateFormat(wet))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of last week is from: ")
+	wst, wet = utils.GetWeekStartAndEnd(now.AddDate(0, 0, -7))
+	tpl.WriteString(dateFormat(wst))
+	tpl.WriteString(" to ")
+	tpl.WriteString(dateFormat(wet))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of this month is from: ")
+	mst, met := utils.GetMonthStartAndEnd(now)
+	tpl.WriteString(dateFormat(mst))
+	tpl.WriteString(" to ")
+	tpl.WriteString(dateFormat(met))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of next month is from: ")
+	mst, met = utils.GetMonthStartAndEnd(now.AddDate(0, 1, 0))
+	tpl.WriteString(dateFormat(mst))
+	tpl.WriteString(" to ")
+	tpl.WriteString(dateFormat(met))
+	tpl.WriteString("\n")
+
+	tpl.WriteString("The start and end range of last month is from: ")
+	mst, met = utils.GetMonthStartAndEnd(now.AddDate(0, -1, 0))
+	tpl.WriteString(dateFormat(mst))
+	tpl.WriteString(" to ")
 	tpl.WriteString(dateFormat(met))
 
 	return tpl.String()

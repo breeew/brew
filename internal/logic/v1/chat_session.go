@@ -101,7 +101,7 @@ func (l *ChatSessionLogic) NamedSession(sessionID, firstQuery string) (NamedSess
 	tool := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{{Role: types.USER_ROLE_USER, Content: firstQuery}})
 	prompt := l.core.Cfg().Prompt.SessionName
 	if prompt == "" {
-		prompt = ai.PROMPT_NAMED_SESSION_DEFAULT_CN
+		prompt = ai.PROMPT_NAMED_SESSION_DEFAULT_EN
 	}
 	tool.WithPrompt(prompt)
 	resp, err := tool.Query()
@@ -110,8 +110,8 @@ func (l *ChatSessionLogic) NamedSession(sessionID, firstQuery string) (NamedSess
 	}
 
 	title := resp.Message()
-	if len([]rune(title)) > 20 {
-		title = string([]rune(title)[:20])
+	if len([]rune(title)) > 30 {
+		title = string([]rune(title)[:30])
 	}
 
 	if err = l.core.Store().ChatSessionStore().UpdateSessionTitle(l.ctx, sessionID, title); err != nil {

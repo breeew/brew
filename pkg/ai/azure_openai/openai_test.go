@@ -113,10 +113,11 @@ func Test_Generate(t *testing.T) {
 }
 
 func Test_EnhanceQuery(t *testing.T) {
-	query := "what's your name"
+	query := "who are you?"
 
 	d := new()
-	res, err := d.EnhanceQuery(context.Background(), "", query)
+	opts := ai.NewEnhance(context.Background(), d)
+	res, err := opts.EnhanceQuery(query)
 	if err != nil {
 		t.Fatal(err)
 	}

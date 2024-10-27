@@ -194,8 +194,11 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 		Type:     openai.ToolTypeFunction,
 		Function: &f,
 	}
+	// if prompt == "" {
+	// 	prompt = fmt.Sprintf("%s\n你可以基于以下时间参考表来理解用户的问题：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
+	// }
 	if prompt == "" {
-		prompt = fmt.Sprintf("%s\n你可以基于以下时间参考表来理解用户的问题：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
+		prompt = fmt.Sprintf("%s\n：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
 	}
 
 	req := openai.ChatCompletionRequest{

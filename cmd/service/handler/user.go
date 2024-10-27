@@ -32,8 +32,8 @@ func (s *HttpSrv) AccessLogin(c *gin.Context) {
 }
 
 type UpdateUserProfileRequest struct {
-	UserName string `json:"user_name" form:"user_name" binding:"required"`
-	Email    string `json:"email" form:"email" binding:"required"`
+	UserName string `json:"user_name" form:"user_name" binding:"required,max=32"`
+	Email    string `json:"email" form:"email" binding:"required,email"`
 }
 
 func (s *HttpSrv) UpdateUserProfile(c *gin.Context) {
