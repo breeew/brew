@@ -34,6 +34,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
+	github.com/abadojack/whatlanggo v1.0.1 // indirect
 	github.com/avast/retry-go/v4 v4.6.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect

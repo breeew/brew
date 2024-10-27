@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/starbx/brew-api/internal/core"
+	"github.com/starbx/brew-api/pkg/ai"
 	"github.com/starbx/brew-api/pkg/errors"
 	"github.com/starbx/brew-api/pkg/i18n"
 	"github.com/starbx/brew-api/pkg/safe"
@@ -182,8 +183,10 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *RAGDocs, g
 
 	notifyAssistantMessageInitialized(core, aiMessage)
 	// rag docs merge to user request message
-	logic.MargeDocsToUserMessage(core.Cfg().Prompt.Query, docs.Docs, userMessage)
-	return logic.RequestAssistant(ctx, userMessage, aiMessage)
+
+	prompt := ai.BuildRAGQuery("", ai.NewDocs(docs.Docs), "")
+	
+	return logic.RequestAssistant(ctx, prompt, userMessage, aiMessage)
 }
 
 func chatMsgToTextMsg(msg *types.ChatMessage) *types.MessageMeta {

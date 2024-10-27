@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -64,7 +63,8 @@ func (s *QueryOptions) WithDocsSoltName(name string) *QueryOptions {
 	return s
 }
 
-const PROMPT_NAMED_SESSION_DEFAULT_CN = `请通过用户对话内容分析该对话的主题，尽可能简短，限制在20个字以内，不要以标点符合结尾`
+const PROMPT_NAMED_SESSION_DEFAULT_CN = `请通过用户对话内容分析该对话的主题，尽可能简短，限制在20个字以内，不要以标点符合结尾。请使用{lang}回复。`
+const PROMPT_NAMED_SESSION_DEFAULT_EN = `Analyze the conversation topic from user dialogue in under 20 words`
 
 const PROMPT_SUMMARY_DEFAULT_CN = `请总结以下用户对话，作为后续聊天的上下文信息。`
 
@@ -159,7 +159,7 @@ Additionally, some system syntax may appear in the reference content. You can ig
 //
 //	例如参考文本为：XXX事项涉及用户为$hidden[user1]。
 //	你在回答时如果需要回答该用户，可以直接回答“$hidden[user1]”
-const GENERATE_PROMPT_TPL_CN = `
+const GENERATE_PROMPT_TPL_CN = GENERATE_PROMPT_TPL_NONE_CONTENT_CN + `
 我先给你提供一个时间线的参考：
 {time_range}
 你需要结合上述时间线来理解我问题中所提到的时间(如果有)。
@@ -170,11 +170,10 @@ const GENERATE_PROMPT_TPL_CN = `
 你需要结合“参考内容”来回答用户的提问，
 注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
 如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID。
-请你使用我提问时所使用的语言，以Markdown格式回复我。
 以下是参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
 {symbol}
 它们都是系统语法，请不要语义化这些内容。
-我的问题是：{query}
+用户使用什么语言与你沟通，你就使用什么语言回复用户，如果你不会该语言则使用英语来与用户交流。
 `
 
 const GENERATE_PROMPT_TPL_EN = `
@@ -193,14 +192,17 @@ My question is: {query}
 
 const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 你是一位RAG助理，名字叫做Brew，模型为Brew Engine。
-请你使用用户提问所使用的语言，以Markdown格式回复用户。
-如果用户有提供“参考内容”给你时，你需要先试着从参考内容中获取用户想要的答案。
+你需要以Markdown的格式回复用户。
 `
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
 	if s.prompt == "" {
 		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
 	}
+
+	s.prompt = ReplaceVar(s.prompt)
+	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
+
 	if len(s.query) > 0 {
 		if s.query[0].Role != types.USER_ROLE_SYSTEM {
 			s.query = append([]*types.MessageContext{
@@ -333,7 +335,7 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 				return
 			}
 
-			slog.Debug("ai stream response", slog.Any("msg", msg))
+			// slog.Debug("ai stream response", slog.Any("msg", msg))
 
 			if err == io.EOF {
 				flushResponse()

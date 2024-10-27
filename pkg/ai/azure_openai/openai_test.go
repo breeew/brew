@@ -113,7 +113,7 @@ func Test_Generate(t *testing.T) {
 }
 
 func Test_EnhanceQuery(t *testing.T) {
-	query := "我昨天做了哪些工作"
+	query := "what's your name"
 
 	d := new()
 	res, err := d.EnhanceQuery(context.Background(), "", query)

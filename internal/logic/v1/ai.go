@@ -212,22 +212,18 @@ func (s *NormalAssistant) InitAssistantMessage(ctx context.Context, userReqMessa
 	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
 }
 
-func (s *NormalAssistant) MargeDocsToUserMessage(tpl string, docs []*ai.PassageInfo, userMessage *types.ChatMessage) {
-	userMessage.Message = ai.BuildRAGQuery(tpl, ai.NewDocs(docs), userMessage.Message)
-}
-
 // GenSessionContext 生成session上下文
-func (s *NormalAssistant) GenSessionContext(ctx context.Context, reqMsgWithDocs *types.ChatMessage) (*SessionContext, error) {
+func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage) (*SessionContext, error) {
 	// latency := s.core.Metrics().GenContextTimer("GenChatSessionContext")
 	// defer latency.ObserveDuration()
-	return GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx, s.core, reqMsgWithDocs, normalGenMessageCondition, types.GEN_CONTEXT)
+	return GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx, s.core, prompt, reqMsgWithDocs, normalGenMessageCondition, types.GEN_CONTEXT)
 }
 
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *NormalAssistant) RequestAssistant(ctx context.Context, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
-	chatSessionContext, err := s.GenSessionContext(ctx, reqMsgWithDocs)
+func (s *NormalAssistant) RequestAssistant(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
 	if err != nil {
 		return err
 	}
@@ -325,8 +321,7 @@ func isErrorMessage(msg string) bool {
 }
 
 // genChatSessionContextAndSummaryIfExceedsTokenLimit 生成gpt请求上下文
-func GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx context.Context, core *core.Core, reqMsgWithDocs *types.ChatMessage, msgCondition messageCondition, justGenSummary types.SystemContextGenConditionType) (*SessionContext, error) {
-	basePrompt := core.Cfg().Prompt.Base
+func GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx context.Context, core *core.Core, basePrompt string, reqMsgWithDocs *types.ChatMessage, msgCondition messageCondition, justGenSummary types.SystemContextGenConditionType) (*SessionContext, error) {
 	reGen := false
 
 ReGen:
