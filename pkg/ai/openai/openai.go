@@ -44,6 +44,10 @@ func New(token, proxy string, model ai.ModelName) *Driver {
 	}
 }
 
+func (s *Driver) Lang() string {
+	return ai.MODEL_BASE_LANGUAGE_EN
+}
+
 func (s *Driver) embedding(ctx context.Context, title string, content []string) ([][]float32, error) {
 	slog.Debug("Embedding", slog.String("driver", NAME))
 	queryReq := openai.EmbeddingRequest{
@@ -85,16 +89,6 @@ func (s *Driver) EmbeddingForQuery(ctx context.Context, content []string) ([][]f
 
 func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error) {
 	return s.embedding(ctx, title, content)
-}
-
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
-	raw, _ := json.MarshalIndent(docs, "", "  ")
-	b := strings.Builder{}
-	b.WriteString("``` json\n")
-	b.Write(raw)
-	b.WriteString("\n")
-	b.WriteString("```\n")
-	return b.String()
 }
 
 func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (numTokens int, err error) {
@@ -198,7 +192,7 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 	// 	prompt = fmt.Sprintf("%s\n你可以基于以下时间参考表来理解用户的问题：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
 	// }
 	if prompt == "" {
-		prompt = fmt.Sprintf("%s\n：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
+		prompt = fmt.Sprintf("%s\n：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNowCN())
 	}
 
 	req := openai.ChatCompletionRequest{
@@ -335,7 +329,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 
 	// simulate user asking a question that requires the function
 	dialogue := []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVar(ai.PROMPT_PROCESS_CONTENT_EN)},
+		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_EN)},
 		{Role: openai.ChatMessageRoleUser, Content: *doc},
 	}
 	var result ai.SummarizeResult
@@ -406,7 +400,7 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 	}
 	// simulate user asking a question that requires the function
 	dialogue := []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVar(ai.PROMPT_CHUNK_CONTENT_EN)},
+		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_CHUNK_CONTENT_EN)},
 		{Role: openai.ChatMessageRoleUser, Content: strings.ReplaceAll(*doc, "\n", "")},
 	}
 	var result ai.ChunkResult

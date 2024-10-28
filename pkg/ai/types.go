@@ -10,6 +10,7 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
+	"github.com/starbx/brew-api/pkg/mark"
 	"github.com/starbx/brew-api/pkg/safe"
 	"github.com/starbx/brew-api/pkg/types"
 	"github.com/starbx/brew-api/pkg/utils"
@@ -23,10 +24,16 @@ type ModelName struct {
 type Query interface {
 	Query(ctx context.Context, query []*types.MessageContext) (GenerateResponse, error)
 	QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error)
+	Lang
+}
+
+type Lang interface {
+	Lang() string
 }
 
 type Enhance interface {
 	EnhanceQuery(ctx context.Context, prompt, query string) (EnhanceQueryResult, error)
+	Lang() string
 }
 
 func NewQueryOptions(ctx context.Context, driver Query, query []*types.MessageContext) *QueryOptions {
@@ -43,12 +50,12 @@ type QueryOptions struct {
 	ctx          context.Context
 	_driver      Query
 	query        []*types.MessageContext
-	docs         []*PassageInfo
+	docs         []*types.PassageInfo
 	prompt       string
 	docsSoltName string
 }
 
-func (s *QueryOptions) WithDocs(docs []*PassageInfo) *QueryOptions {
+func (s *QueryOptions) WithDocs(docs []*types.PassageInfo) *QueryOptions {
 	s.docs = docs
 	return s
 }
@@ -201,10 +208,15 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
 	if s.prompt == "" {
-		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		switch s._driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		default:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
+		}
 	}
 
-	s.prompt = ReplaceVar(s.prompt)
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
 
 	if len(s.query) > 0 {
@@ -253,15 +265,26 @@ If the user mentions time, you can replace the time description with specific da
 
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
 	if s.prompt == "" {
-		s.prompt = ReplaceVar(PROMPT_ENHANCE_QUERY_EN)
+		switch s._driver.Lang() {
+		case GENERATE_PROMPT_TPL_CN:
+			s.prompt = PROMPT_ENHANCE_QUERY_CN
+		default:
+			s.prompt = PROMPT_ENHANCE_QUERY_EN
+		}
 	}
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 
 	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
 }
 
 func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	if s.prompt == "" {
-		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		switch s._driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		default:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
+		}
 	}
 	if len(s.query) > 0 {
 		if s.query[0].Role != types.USER_ROLE_SYSTEM {
@@ -277,7 +300,7 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	return s._driver.QueryStream(s.ctx, s.query)
 }
 
-func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (chan ResponseChoice, error) {
+func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, marks map[string]string) (chan ResponseChoice, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	respChan := make(chan ResponseChoice, 10)
 	ticker := time.NewTicker(time.Millisecond * 500)
@@ -294,6 +317,10 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 			strs      = strings.Builder{}
 			messageID string
 			mu        sync.Mutex
+
+			maybeMarks  bool
+			machedMarks bool
+			needToMarks = len(marks) > 0
 		)
 
 		flushResponse := func() {
@@ -314,6 +341,9 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					if maybeMarks {
+						continue
+					}
 					flushResponse()
 				}
 			}
@@ -362,8 +392,34 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 				if v.Delta.Content == "" {
 					break
 				}
+				if needToMarks {
+					if !maybeMarks {
+						if strings.Contains(v.Delta.Content, "$") {
+							maybeMarks = true
+							if strs.Len() != 0 {
+								flushResponse()
+							}
+						}
+					} else if !machedMarks && strs.Len() >= 8 && strings.Contains(strs.String(), "$hidden[") {
+						machedMarks = true
+					}
+				}
 
 				strs.WriteString(v.Delta.Content)
+				if machedMarks && strings.Contains(v.Delta.Content, "]") {
+					text, replaced := mark.ResolveHidden(strs.String(), func(fakeValue string) string {
+						real := marks[fakeValue]
+						delete(marks, fakeValue)
+						needToMarks = len(marks) > 0
+						return real
+					})
+					if replaced {
+						strs.Reset()
+						strs.WriteString(text)
+						maybeMarks = false
+						machedMarks = false
+					}
+				}
 				once.Do(func() {
 					messageID = msg.ID
 					// flushResponse() // 快速响应出去
@@ -374,40 +430,71 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 	return respChan, nil
 }
 
-func BuildRAGQuery(tpl string, docs Docs, query string) string {
-	d := docs.ConvertPassageToPromptText()
-	if d != "" {
-		if tpl == "" {
-			tpl = GENERATE_PROMPT_TPL_EN
-		}
-		tpl = ReplaceVar(tpl)
-		tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
-		tpl = strings.ReplaceAll(tpl, "{query}", query)
-		return tpl
+const (
+	MODEL_BASE_LANGUAGE_CN = "CN"
+	MODEL_BASE_LANGUAGE_EN = "EN"
+)
+
+func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
+	d := docs.ConvertPassageToPromptText(driver.Lang())
+	if d == "" {
+		return GENERATE_PROMPT_TPL_NONE_CONTENT_EN
 	}
 
-	return query
+	if tpl == "" {
+		switch driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			tpl = GENERATE_PROMPT_TPL_CN
+		default:
+			tpl = GENERATE_PROMPT_TPL_EN
+		}
+	}
+	tpl = ReplaceVarWithLang(tpl, driver.Lang())
+
+	tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
+	return tpl
 }
 
-func ReplaceVar(tpl string) string {
+func ReplaceVarWithLang(tpl, lang string) string {
+	switch lang {
+	case MODEL_BASE_LANGUAGE_CN:
+		tpl = ReplaceVarCN(tpl)
+	default:
+		tpl = ReplaceVarEN(tpl)
+	}
+	return tpl
+}
+
+func ReplaceVarCN(tpl string) string {
+	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowCN())
+	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
+	return tpl
+}
+
+func ReplaceVarEN(tpl string) string {
 	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowEN())
 	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
 	return tpl
 }
 
 type Docs interface {
-	ConvertPassageToPromptText() string
+	ConvertPassageToPromptText(lang string) string
 }
 
 type docs struct {
-	docs []*PassageInfo
+	docs []*types.PassageInfo
 }
 
-func (d *docs) ConvertPassageToPromptText() string {
-	return convertPassageToPromptTextEN(d.docs)
+func (d *docs) ConvertPassageToPromptText(lang string) string {
+	switch lang {
+	case MODEL_BASE_LANGUAGE_CN:
+		return convertPassageToPromptTextCN(d.docs)
+	default:
+		return convertPassageToPromptTextEN(d.docs)
+	}
 }
 
-func NewDocs(list []*PassageInfo) Docs {
+func NewDocs(list []*types.PassageInfo) Docs {
 	return &docs{
 		docs: list,
 	}
@@ -415,18 +502,18 @@ func NewDocs(list []*PassageInfo) Docs {
 
 var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 
-func convertPassageToPromptTextCN(docs []*PassageInfo) string {
+func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
 		if i != 0 {
 			s.WriteString("------\n")
 		}
-		s.WriteString("下面描述的这件事发生在：")
+		s.WriteString("这件事发生在：")
 		s.WriteString(v.DateTime)
 		s.WriteString("\n")
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
-		s.WriteString("\n内容为：")
+		s.WriteString("\n内容：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
 	}
@@ -434,7 +521,7 @@ func convertPassageToPromptTextCN(docs []*PassageInfo) string {
 	return s.String()
 }
 
-func convertPassageToPromptTextEN(docs []*PassageInfo) string {
+func convertPassageToPromptTextEN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
 		if i != 0 {
@@ -453,7 +540,7 @@ func convertPassageToPromptTextEN(docs []*PassageInfo) string {
 	return s.String()
 }
 
-func convertPassageToPrompt(docs []*PassageInfo) string {
+func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
 	b.WriteString("``` json\n")
@@ -461,17 +548,6 @@ func convertPassageToPrompt(docs []*PassageInfo) string {
 	b.WriteString("\n")
 	b.WriteString("```\n")
 	return b.String()
-}
-
-type PassageInfo struct {
-	ID       string `json:"id"`
-	Content  string `json:"content"`
-	DateTime string `json:"date_time"`
-	SW       Undo   `json:"-"`
-}
-
-type Undo interface {
-	Undo(string) string
 }
 
 type GenerateResponse struct {
@@ -528,7 +604,7 @@ func dateFormat(t time.Time) string {
 }
 
 // TODO i18n
-func GenerateTimeListAtNow() string {
+func GenerateTimeListAtNowCN() string {
 	now := time.Now()
 
 	tpl := strings.Builder{}

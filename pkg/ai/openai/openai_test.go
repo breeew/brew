@@ -79,7 +79,7 @@ func Test_Generate(t *testing.T) {
 		如果你从上述内容中找到了用户想要的答案，可以结合内容相关的属性来给到用户更多的帮助，比如参考“事件发生时间”来告诉用户这件事发生在哪天。
 		请你使用 {lang} 语言，以Markdown格式回复用户。
 	`)
-	opts.WithDocs([]*ai.PassageInfo{
+	opts.WithDocs([]*types.PassageInfo{
 		{
 			ID:       "xcjoijoijo12",
 			Content:  "我有一辆白色的车",

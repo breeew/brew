@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
-	"github.com/starbx/brew-api/pkg/ai"
 	"github.com/starbx/brew-api/pkg/ai/gemini"
+	"github.com/starbx/brew-api/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/option"
 )
@@ -45,7 +45,7 @@ func Test_Generate(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
-	res, err := d.Query(ctx, "我的车昨天停哪了？", []*ai.PassageInfo{
+	res, err := d.Query(ctx, "我的车昨天停哪了？", []*types.PassageInfo{
 		{
 			ID:      "xcjoijoijo12",
 			Content: "我有一辆白色的车",

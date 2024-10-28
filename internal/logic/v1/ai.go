@@ -26,10 +26,43 @@ type DoneFunc func(startAt int32) error
 // handleAssistantMessage 通过ws通知前端智能助理开始响应用户请求
 func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) ReceiveFunc {
 	imTopic := protocol.GenIMTopic(msg.SessionID)
+	// buffer := strings.Builder{}
+	// needToMatchMarks := len(marks) > 0
+	// hasMarks := false
+	// var sAt int32
 	return func(startAt int32, message types.MessageContent, isIntercepted bool) error {
 		if msg.Message == "" {
 			msg.Message = string(message.Bytes())
 		}
+
+		// if needToMatchMarks && !hasMarks {
+		// 	marksIndex := strings.Index(msg.Message, "$")
+		// 	if marksIndex != -1 {
+		// 		buffer.WriteString(msg.Message)
+		// 		if len(msg.Message)-marksIndex >= 8 {
+		// 			if strings.Contains(msg.Message, "$hidden[") {
+		// 				hasMarks = true
+		// 				sAt = startAt
+
+		// 				replaced, exist := mark.ResolveHidden(buffer.String(), func(fakeValue string) string {
+		// 					realValue := marks[fakeValue]
+		// 					delete(marks, fakeValue)
+		// 					if len(marks) == 0 {
+		// 						needToMatchMarks = false
+		// 					}
+		// 					return realValue
+		// 				})
+		// 				if exist {
+		// 					msg.Message = replaced
+		// 					hasMarks = false
+		// 					buffer.Reset()
+		// 				} else {
+		// 					return nil
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
 
 		completeStatus := types.MESSAGE_PROGRESS_GENERATING
 		assistantStatus := types.WS_EVENT_ASSISTANT_CONTINUE
@@ -148,7 +181,7 @@ func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessag
 }
 
 // requestAI
-func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, receiveFunc ReceiveFunc, done DoneFunc) error {
+func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, docs *types.RAGDocs, receiveFunc ReceiveFunc, done DoneFunc) error {
 	slog.Debug("request to ai", slog.Any("context", sessionContext.MessageContext), slog.String("prompt", sessionContext.Prompt))
 
 	requestCtx, cancel := context.WithCancel(ctx)
@@ -162,7 +195,15 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 		return err
 	}
 
-	respChan, err := ai.HandleAIStream(requestCtx, resp)
+	marks := make(map[string]string)
+
+	for _, v := range docs.Docs {
+		for fake, real := range v.SW.Map() {
+			marks[fake] = real
+		}
+	}
+
+	respChan, err := ai.HandleAIStream(requestCtx, resp, marks)
 	if err != nil {
 		return errors.New("requestAI.HandleAIStream", i18n.ERROR_INTERNAL, err)
 	}
@@ -222,7 +263,8 @@ func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *NormalAssistant) RequestAssistant(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+	prompt := ai.BuildRAGPrompt(s.core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), s.core.Srv().AI())
 	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
 	if err != nil {
 		return err
@@ -232,7 +274,7 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, prompt string, r
 	defer cancel()
 	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
 	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo)
-	if err = requestAI(ctx, s.core, chatSessionContext, receiveFunc, doneFunc); err != nil {
+	if err = requestAI(ctx, s.core, chatSessionContext, docs, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
 		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
 	}

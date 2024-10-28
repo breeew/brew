@@ -12,6 +12,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/starbx/brew-api/pkg/ai"
+	"github.com/starbx/brew-api/pkg/types"
 )
 
 const (
@@ -31,6 +32,10 @@ func New(token string) *Driver {
 	return &Driver{
 		client: client,
 	}
+}
+
+func (s *Driver) Lang() string {
+	return ai.MODEL_BASE_LANGUAGE_EN
 }
 
 func (s *Driver) embedding(ctx context.Context, title, content string) ([]float32, error) {
@@ -80,7 +85,7 @@ const GENERATE_PROMPT_TPL_CN = `
     请你使用 {lang} 语言，以Markdown格式回复用户。
 `
 
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
+func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
 	b.WriteString("``` json\n")
@@ -90,7 +95,7 @@ func convertPassageToPrompt(docs []*ai.PassageInfo) string {
 	return b.String()
 }
 
-func (s *Driver) Query(ctx context.Context, query string, docs []*ai.PassageInfo) (ai.GenerateResponse, error) {
+func (s *Driver) Query(ctx context.Context, query string, docs []*types.PassageInfo) (ai.GenerateResponse, error) {
 	prompt := strings.ReplaceAll(GENERATE_PROMPT_TPL_CN, "{query}", query)
 	prompt = strings.ReplaceAll(prompt, "{relevant_passage}", convertPassageToPrompt(docs))
 
@@ -231,7 +236,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		},
 	}
 
-	model.SystemInstruction = genai.NewUserContent(genai.Text(ai.ReplaceVar(ai.PROMPT_PROCESS_CONTENT_EN)))
+	model.SystemInstruction = genai.NewUserContent(genai.Text(ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_EN)))
 	var result ai.SummarizeResult
 	// res, err := model.GenerateContent(ctx, genai.Text(*doc))
 	// if err != nil {

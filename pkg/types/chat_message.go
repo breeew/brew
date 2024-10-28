@@ -1,6 +1,8 @@
 package types
 
-import "github.com/starbx/brew-api/pkg/utils"
+import (
+	"github.com/starbx/brew-api/pkg/utils"
+)
 
 type ChatMessage struct {
 	ID        string          `db:"id" json:"id"`
@@ -14,6 +16,23 @@ type ChatMessage struct {
 	Complete  MessageProgress `db:"complete" json:"complete"`
 	Sequence  int64           `db:"sequence" json:"sequence"`
 	MsgBlock  int64           `db:"msg_block" json:"msg_block"`
+}
+
+type RAGDocs struct {
+	Refs []QueryResult
+	Docs []*PassageInfo
+}
+
+type PassageInfo struct {
+	ID       string `json:"id"`
+	Content  string `json:"content"`
+	DateTime string `json:"date_time"`
+	SW       Undo   `json:"-"`
+}
+
+type Undo interface {
+	Undo(string) string
+	Map() map[string]string
 }
 
 type CreateChatMessageArgs struct {

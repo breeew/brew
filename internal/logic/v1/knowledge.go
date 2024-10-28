@@ -195,13 +195,8 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-type RAGDocs struct {
-	Refs []types.QueryResult
-	Docs []*ai.PassageInfo
-}
-
-func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*RAGDocs, error) {
-	var result RAGDocs
+func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
+	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
 	resp, err := aiOpts.EnhanceQuery(query)
@@ -270,7 +265,7 @@ func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, r
 
 	for _, v := range knowledges {
 		sw := mark.NewSensitiveWork()
-		result.Docs = append(result.Docs, &ai.PassageInfo{
+		result.Docs = append(result.Docs, &types.PassageInfo{
 			ID:       v.ID,
 			Content:  sw.Do(v.Content),
 			DateTime: v.MaybeDate,
@@ -342,11 +337,11 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 
 	var (
-		docs []*ai.PassageInfo
+		docs []*types.PassageInfo
 	)
 	for _, v := range knowledges {
 		sw := mark.NewSensitiveWork()
-		docs = append(docs, &ai.PassageInfo{
+		docs = append(docs, &types.PassageInfo{
 			ID:       v.ID,
 			Content:  sw.Do(v.Content),
 			DateTime: v.MaybeDate,
@@ -356,7 +351,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 
 	message := &types.MessageContext{
 		Role:    types.USER_ROLE_USER,
-		Content: ai.BuildRAGQuery(l.core.Cfg().Prompt.Query, ai.NewDocs(docs), query),
+		Content: query,
 	}
 
 	// TODO: gen query opts from user setting
