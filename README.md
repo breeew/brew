@@ -1,4 +1,12 @@
-# Brew
+<p align="center">
+ <img align="center" src="https://raw.githubusercontent.com/breeew/brew/main/assets/logo.png" height="96" />
+ <h1 align="center">
+  Brew
+ </h1>
+</p>
+
+![Discord](https://img.shields.io/discord/1293497229096521768)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/breeew/brew/ghcr.yml)
 
 **Brew** is a lightweight and user-friendly Retrieval-Augmented Generation (RAG) system designed to help you build your own second brain. With its fast and easy-to-use interface, Brew empowers users to efficiently manage and retrieve information.
 
