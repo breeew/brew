@@ -181,7 +181,7 @@ func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessag
 }
 
 // requestAI
-func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, marks map[string]string, receiveFunc ReceiveFunc, done DoneFunc) error {
+func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, docs *types.RAGDocs, receiveFunc ReceiveFunc, done DoneFunc) error {
 	slog.Debug("request to ai", slog.Any("context", sessionContext.MessageContext), slog.String("prompt", sessionContext.Prompt))
 
 	requestCtx, cancel := context.WithCancel(ctx)
@@ -193,6 +193,14 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	resp, err := tool.QueryStream()
 	if err != nil {
 		return err
+	}
+
+	marks := make(map[string]string)
+
+	for _, v := range docs.Docs {
+		for fake, real := range v.SW.Map() {
+			marks[fake] = real
+		}
 	}
 
 	respChan, err := ai.HandleAIStream(requestCtx, resp, marks)
@@ -257,13 +265,6 @@ func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
 func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
 	prompt := ai.BuildRAGPrompt(s.core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), s.core.Srv().AI())
-	marks := make(map[string]string)
-
-	for _, v := range docs.Docs {
-		for fake, real := range v.SW.Map() {
-			marks[fake] = real
-		}
-	}
 	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
 	if err != nil {
 		return err
@@ -273,7 +274,7 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs *types.RAGD
 	defer cancel()
 	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
 	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo)
-	if err = requestAI(ctx, s.core, chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
+	if err = requestAI(ctx, s.core, chatSessionContext, docs, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
 		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
 	}
