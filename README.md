@@ -7,7 +7,9 @@
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/breeew/brew/ghcr.yml)
 ![GitHub Tag](https://img.shields.io/github/v/tag/breeew/brew)
-![Discord](https://img.shields.io/discord/1293497229096521768)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/breeew/brew)
+
+![Discord](https://img.shields.io/discord/1293497229096521768?logo=discord&logoColor=white)
 ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/trybrewapp)
 
 
