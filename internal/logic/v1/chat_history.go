@@ -58,7 +58,6 @@ func (l *HistoryLogic) GetMessageExt(sessionID, messageID string) (*ChatMessageE
 		SessionID:        sessionID,
 		Evaluate:         data.Evaluate,
 		GenerationStatus: data.GenerationStatus,
-		Marks:            data.Marks,
 	}
 	for _, v := range docs {
 		result.RelDocs = append(result.RelDocs, RelDoc{
