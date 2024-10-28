@@ -12,6 +12,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/starbx/brew-api/pkg/ai"
+	"github.com/starbx/brew-api/pkg/types"
 )
 
 const (
@@ -84,7 +85,7 @@ const GENERATE_PROMPT_TPL_CN = `
     请你使用 {lang} 语言，以Markdown格式回复用户。
 `
 
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
+func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
 	b.WriteString("``` json\n")
@@ -94,7 +95,7 @@ func convertPassageToPrompt(docs []*ai.PassageInfo) string {
 	return b.String()
 }
 
-func (s *Driver) Query(ctx context.Context, query string, docs []*ai.PassageInfo) (ai.GenerateResponse, error) {
+func (s *Driver) Query(ctx context.Context, query string, docs []*types.PassageInfo) (ai.GenerateResponse, error) {
 	prompt := strings.ReplaceAll(GENERATE_PROMPT_TPL_CN, "{query}", query)
 	prompt = strings.ReplaceAll(prompt, "{relevant_passage}", convertPassageToPrompt(docs))
 

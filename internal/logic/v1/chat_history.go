@@ -38,6 +38,7 @@ type ChatMessageExt struct {
 	Evaluate         types.EvaluateType         `json:"evaluate"`
 	GenerationStatus types.GenerationStatusType `json:"generation_status"`
 	RelDocs          []RelDoc                   `json:"rel_docs"` // relevance docs
+	Marks            map[string]string          `json:"marks"`
 }
 
 func (l *HistoryLogic) GetMessageExt(sessionID, messageID string) (*ChatMessageExt, error) {
@@ -57,6 +58,7 @@ func (l *HistoryLogic) GetMessageExt(sessionID, messageID string) (*ChatMessageE
 		SessionID:        sessionID,
 		Evaluate:         data.Evaluate,
 		GenerationStatus: data.GenerationStatus,
+		Marks:            data.Marks,
 	}
 	for _, v := range docs {
 		result.RelDocs = append(result.RelDocs, RelDoc{

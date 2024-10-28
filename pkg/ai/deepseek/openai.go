@@ -50,7 +50,7 @@ func (s *Driver) Lang() string {
 	return ai.MODEL_BASE_LANGUAGE_CN
 }
 
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
+func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
 	b.WriteString("``` json\n")

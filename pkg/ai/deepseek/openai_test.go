@@ -45,7 +45,7 @@ func Test_Generate(t *testing.T) {
 		如果你从上述内容中找到了用户想要的答案，可以结合内容相关的属性来给到用户更多的帮助，比如告诉用户这件事发生在哪天(参考date_time属性)，注意，“参考内容”中提到的时间并不一定是基于现在时间所描述出来的，你需要根据date_time及时间表来给出正确的时间描述。
 		请你使用 {lang} 语言，以Markdown格式回复用户。
 	`)
-	opts.WithDocs([]*ai.PassageInfo{
+	opts.WithDocs([]*types.PassageInfo{
 		{
 			ID:       "xcjoijoijo12",
 			Content:  "我有一辆白色的车",

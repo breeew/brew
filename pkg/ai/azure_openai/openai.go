@@ -94,16 +94,6 @@ func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content
 	return s.embedding(ctx, title, content)
 }
 
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
-	raw, _ := json.MarshalIndent(docs, "", "  ")
-	b := strings.Builder{}
-	b.WriteString("``` json\n")
-	b.Write(raw)
-	b.WriteString("\n")
-	b.WriteString("```\n")
-	return b.String()
-}
-
 func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (numTokens int, err error) {
 	tkm, err := tiktoken.EncodingForModel(model)
 	if err != nil {

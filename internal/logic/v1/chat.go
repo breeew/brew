@@ -11,7 +11,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/pkg/ai"
 	"github.com/starbx/brew-api/pkg/errors"
 	"github.com/starbx/brew-api/pkg/i18n"
 	"github.com/starbx/brew-api/pkg/safe"
@@ -162,18 +161,26 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 }
 
 // genMode new request or re-request
-func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *RAGDocs, genMode types.RequestAssistantMode) error {
+func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *types.RAGDocs, genMode types.RequestAssistantMode) error {
 	logic := core.AIChatLogic()
 
 	relDocs := lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
 		return item.KnowledgeID
 	})
 
+	var marks = make(map[string]string)
+	for _, v := range docs.Docs {
+		for fakeData, realData := range v.SW.Map() {
+			marks[fakeData] = realData
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
 		SessionID: userMessage.SessionID,
 		RelDocs:   relDocs,
+		Marks:     marks,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	})
@@ -185,7 +192,7 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *RAGDocs, g
 	// rag docs merge to user request message
 
 	return logic.RequestAssistant(ctx,
-		ai.BuildRAGPrompt(core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), core.Srv().AI()),
+		docs,
 		userMessage,
 		aiMessage)
 }

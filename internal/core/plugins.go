@@ -16,7 +16,7 @@ type Plugins interface {
 
 type AIChatLogic interface {
 	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
-	RequestAssistant(ctx context.Context, prompt string, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
+	RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
 }
 
 type Limiter interface {

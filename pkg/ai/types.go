@@ -10,6 +10,7 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
+	"github.com/starbx/brew-api/pkg/mark"
 	"github.com/starbx/brew-api/pkg/safe"
 	"github.com/starbx/brew-api/pkg/types"
 	"github.com/starbx/brew-api/pkg/utils"
@@ -49,12 +50,12 @@ type QueryOptions struct {
 	ctx          context.Context
 	_driver      Query
 	query        []*types.MessageContext
-	docs         []*PassageInfo
+	docs         []*types.PassageInfo
 	prompt       string
 	docsSoltName string
 }
 
-func (s *QueryOptions) WithDocs(docs []*PassageInfo) *QueryOptions {
+func (s *QueryOptions) WithDocs(docs []*types.PassageInfo) *QueryOptions {
 	s.docs = docs
 	return s
 }
@@ -299,7 +300,7 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	return s._driver.QueryStream(s.ctx, s.query)
 }
 
-func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (chan ResponseChoice, error) {
+func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, marks map[string]string) (chan ResponseChoice, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	respChan := make(chan ResponseChoice, 10)
 	ticker := time.NewTicker(time.Millisecond * 500)
@@ -316,6 +317,10 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 			strs      = strings.Builder{}
 			messageID string
 			mu        sync.Mutex
+
+			maybeMarks  bool
+			machedMarks bool
+			needToMarks = len(marks) > 0
 		)
 
 		flushResponse := func() {
@@ -336,6 +341,9 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					if maybeMarks {
+						continue
+					}
 					flushResponse()
 				}
 			}
@@ -384,8 +392,34 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 				if v.Delta.Content == "" {
 					break
 				}
+				if needToMarks {
+					if !maybeMarks {
+						if strings.Contains(v.Delta.Content, "$") {
+							maybeMarks = true
+							if strs.Len() != 0 {
+								flushResponse()
+							}
+						}
+					} else if !machedMarks && strs.Len() >= 8 && strings.Contains(strs.String(), "$hidden[") {
+						machedMarks = true
+					}
+				}
 
 				strs.WriteString(v.Delta.Content)
+				if machedMarks && strings.Contains(v.Delta.Content, "]") {
+					text, replaced := mark.ResolveHidden(strs.String(), func(fakeValue string) string {
+						real := marks[fakeValue]
+						delete(marks, fakeValue)
+						needToMarks = len(marks) > 0
+						return real
+					})
+					if replaced {
+						strs.Reset()
+						strs.WriteString(text)
+						maybeMarks = false
+						machedMarks = false
+					}
+				}
 				once.Do(func() {
 					messageID = msg.ID
 					// flushResponse() // 快速响应出去
@@ -448,7 +482,7 @@ type Docs interface {
 }
 
 type docs struct {
-	docs []*PassageInfo
+	docs []*types.PassageInfo
 }
 
 func (d *docs) ConvertPassageToPromptText(lang string) string {
@@ -460,7 +494,7 @@ func (d *docs) ConvertPassageToPromptText(lang string) string {
 	}
 }
 
-func NewDocs(list []*PassageInfo) Docs {
+func NewDocs(list []*types.PassageInfo) Docs {
 	return &docs{
 		docs: list,
 	}
@@ -468,7 +502,7 @@ func NewDocs(list []*PassageInfo) Docs {
 
 var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 
-func convertPassageToPromptTextCN(docs []*PassageInfo) string {
+func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
 		if i != 0 {
@@ -487,7 +521,7 @@ func convertPassageToPromptTextCN(docs []*PassageInfo) string {
 	return s.String()
 }
 
-func convertPassageToPromptTextEN(docs []*PassageInfo) string {
+func convertPassageToPromptTextEN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
 		if i != 0 {
@@ -506,7 +540,7 @@ func convertPassageToPromptTextEN(docs []*PassageInfo) string {
 	return s.String()
 }
 
-func convertPassageToPrompt(docs []*PassageInfo) string {
+func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
 	b.WriteString("``` json\n")
@@ -514,17 +548,6 @@ func convertPassageToPrompt(docs []*PassageInfo) string {
 	b.WriteString("\n")
 	b.WriteString("```\n")
 	return b.String()
-}
-
-type PassageInfo struct {
-	ID       string `json:"id"`
-	Content  string `json:"content"`
-	DateTime string `json:"date_time"`
-	SW       Undo   `json:"-"`
-}
-
-type Undo interface {
-	Undo(string) string
 }
 
 type GenerateResponse struct {
