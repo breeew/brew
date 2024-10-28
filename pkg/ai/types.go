@@ -23,10 +23,12 @@ type ModelName struct {
 type Query interface {
 	Query(ctx context.Context, query []*types.MessageContext) (GenerateResponse, error)
 	QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error)
+	Lang() string
 }
 
 type Enhance interface {
 	EnhanceQuery(ctx context.Context, prompt, query string) (EnhanceQueryResult, error)
+	Lang() string
 }
 
 func NewQueryOptions(ctx context.Context, driver Query, query []*types.MessageContext) *QueryOptions {
@@ -204,7 +206,7 @@ func (s *QueryOptions) Query() (GenerateResponse, error) {
 		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
 	}
 
-	s.prompt = ReplaceVar(s.prompt)
+	s.prompt = ReplaceVarCN(s.prompt)
 	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
 
 	if len(s.query) > 0 {
@@ -253,7 +255,7 @@ If the user mentions time, you can replace the time description with specific da
 
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
 	if s.prompt == "" {
-		s.prompt = ReplaceVar(PROMPT_ENHANCE_QUERY_EN)
+		s.prompt = ReplaceVarCN(PROMPT_ENHANCE_QUERY_EN)
 	}
 
 	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
@@ -380,7 +382,7 @@ func BuildRAGQuery(tpl string, docs Docs, query string) string {
 		if tpl == "" {
 			tpl = GENERATE_PROMPT_TPL_EN
 		}
-		tpl = ReplaceVar(tpl)
+		tpl = ReplaceVarCN(tpl)
 		tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
 		tpl = strings.ReplaceAll(tpl, "{query}", query)
 		return tpl
@@ -389,7 +391,13 @@ func BuildRAGQuery(tpl string, docs Docs, query string) string {
 	return query
 }
 
-func ReplaceVar(tpl string) string {
+func ReplaceVarCN(tpl string) string {
+	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowCN())
+	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
+	return tpl
+}
+
+func ReplaceVarEN(tpl string) string {
 	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowEN())
 	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
 	return tpl
@@ -528,7 +536,7 @@ func dateFormat(t time.Time) string {
 }
 
 // TODO i18n
-func GenerateTimeListAtNow() string {
+func GenerateTimeListAtNowCN() string {
 	now := time.Now()
 
 	tpl := strings.Builder{}

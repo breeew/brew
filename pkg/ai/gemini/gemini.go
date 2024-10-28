@@ -33,6 +33,10 @@ func New(token string) *Driver {
 	}
 }
 
+func (s *Driver) Lang() string {
+	return "EN"
+}
+
 func (s *Driver) embedding(ctx context.Context, title, content string) ([]float32, error) {
 	slog.Debug("Embedding", slog.String("driver", NAME))
 	em := s.client.EmbeddingModel("embedding-001")
@@ -231,7 +235,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		},
 	}
 
-	model.SystemInstruction = genai.NewUserContent(genai.Text(ai.ReplaceVar(ai.PROMPT_PROCESS_CONTENT_EN)))
+	model.SystemInstruction = genai.NewUserContent(genai.Text(ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_EN)))
 	var result ai.SummarizeResult
 	// res, err := model.GenerateContent(ctx, genai.Text(*doc))
 	// if err != nil {

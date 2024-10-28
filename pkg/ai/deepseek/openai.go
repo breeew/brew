@@ -46,6 +46,10 @@ func New(lang, token, proxy string, model ai.ModelName) *Driver {
 	}
 }
 
+func (s *Driver) Lang() string {
+	return "CN"
+}
+
 func convertPassageToPrompt(docs []*ai.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
@@ -170,7 +174,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 
 	// simulate user asking a question that requires the function
 	dialogue := []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVar(ai.PROMPT_PROCESS_CONTENT_CN)},
+		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_CN)},
 		{Role: openai.ChatMessageRoleUser, Content: *doc},
 	}
 	var result ai.SummarizeResult
