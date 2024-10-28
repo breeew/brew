@@ -23,46 +23,13 @@ import (
 type ReceiveFunc func(startAt int32, msg types.MessageContent, isIntercept bool) error
 type DoneFunc func(startAt int32) error
 
-// handleAssistantMessage 通过ws通知前端智能助理开始响应用户请求
+// handleAssistantMessage 通过ws通知前端开始响应用户请求
 func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) ReceiveFunc {
 	imTopic := protocol.GenIMTopic(msg.SessionID)
-	// buffer := strings.Builder{}
-	// needToMatchMarks := len(marks) > 0
-	// hasMarks := false
-	// var sAt int32
 	return func(startAt int32, message types.MessageContent, isIntercepted bool) error {
 		if msg.Message == "" {
 			msg.Message = string(message.Bytes())
 		}
-
-		// if needToMatchMarks && !hasMarks {
-		// 	marksIndex := strings.Index(msg.Message, "$")
-		// 	if marksIndex != -1 {
-		// 		buffer.WriteString(msg.Message)
-		// 		if len(msg.Message)-marksIndex >= 8 {
-		// 			if strings.Contains(msg.Message, "$hidden[") {
-		// 				hasMarks = true
-		// 				sAt = startAt
-
-		// 				replaced, exist := mark.ResolveHidden(buffer.String(), func(fakeValue string) string {
-		// 					realValue := marks[fakeValue]
-		// 					delete(marks, fakeValue)
-		// 					if len(marks) == 0 {
-		// 						needToMatchMarks = false
-		// 					}
-		// 					return realValue
-		// 				})
-		// 				if exist {
-		// 					msg.Message = replaced
-		// 					hasMarks = false
-		// 					buffer.Reset()
-		// 				} else {
-		// 					return nil
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
 
 		completeStatus := types.MESSAGE_PROGRESS_GENERATING
 		assistantStatus := types.WS_EVENT_ASSISTANT_CONTINUE
