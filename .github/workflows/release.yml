@@ -1,0 +1,43 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22.0"
+          cache: true
+
+      - name: Build for multiple architectures
+        run: |
+          mkdir -p build
+          PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64"
+          for PLATFORM in $PLATFORMS; do
+            OS=$(echo $PLATFORM | cut -d'/' -f1)
+            ARCH=$(echo $PLATFORM | cut -d'/' -f2)
+            
+            OUTPUT="build/brew-api-${OS}-${ARCH}"
+            if [ "$OS" = "windows" ]; then
+              OUTPUT="${OUTPUT}.exe"
+            fi
+            
+            echo "Building for $OS/$ARCH..."
+            CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -a -ldflags '-extldflags "-static"' -o $OUTPUT ./cmd/
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
