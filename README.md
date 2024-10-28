@@ -12,7 +12,6 @@
 ![Discord](https://img.shields.io/discord/1293497229096521768?logo=discord&logoColor=white)
 ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/trybrewapp)
 
-
 **Brew** is a lightweight and user-friendly Retrieval-Augmented Generation (RAG) system designed to help you build your own second brain. With its fast and easy-to-use interface, Brew empowers users to efficiently manage and retrieve information.
 
 ## Community
@@ -30,8 +29,8 @@ Join our community on Discord to connect with other users, share ideas, and get 
 ### Service
 
 - Clone & go build cmd/main.go
-- Copy default config(cmd/service/etc/service-default.toml) to your config path
-  `brew-api service -c {your config path}`
+- Copy default config(cmd/service/etc/service-default.toml) to your config path  
+  `brew-api service -c {your config path}` to start selfhost service.
 
 ### Web
 
