@@ -1,21 +1,29 @@
-FROM amd64/golang:1.22.0-alpine3.18 AS builder
+FROM golang:1.22.0 AS builder
 
-ARG GOPROXY_ENV
-
-ENV GOPROXY=$GOPROXY_ENV
-
-WORKDIR /app
-COPY . .
-RUN mkdir -p _build
-COPY ./cmd/service/etc/service-default.toml /app/_build/etc/service-default.toml
-RUN go build -a -ldflags '-extldflags "-static"' -o _build/brew-api ./cmd/
-
-
-FROM amd64/alpine:3.18
-LABEL MAINTAINER <w@ojbk.io>
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
-COPY --from=builder /app/_build/etc /app/etc
+
+# Copy modules manifests
+COPY go.mod go.sum ./
+
+# Download modules with cache
+RUN go mod download
+
+# Copy source code
+COPY cmd/ cmd/
+COPY internal/ internal/
+COPY pkg/ pkg/
+
+# Start build
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -ldflags '-extldflags "-static"' -o _build/brew-api ./cmd/
+
+FROM alpine:3.18
+LABEL MAINTAINER=hey@brew.re
+
+WORKDIR /app
+COPY --from=builder /app/cmd/service/etc/service-default.toml /app/etc/service-default.toml
 COPY --from=builder /app/_build/brew-api /app/brew-api
 
-CMD ["./brew-api", "service", "-c", "./etc/service-default.toml"]
+CMD ["/app/brew-api", "service", "-c", "/app/etc/service-default.toml"]
