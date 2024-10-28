@@ -23,6 +23,10 @@ type ModelName struct {
 type Query interface {
 	Query(ctx context.Context, query []*types.MessageContext) (GenerateResponse, error)
 	QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error)
+	Lang
+}
+
+type Lang interface {
 	Lang() string
 }
 
@@ -203,10 +207,15 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
 	if s.prompt == "" {
-		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		switch s._driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		default:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
+		}
 	}
 
-	s.prompt = ReplaceVarCN(s.prompt)
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
 
 	if len(s.query) > 0 {
@@ -255,15 +264,26 @@ If the user mentions time, you can replace the time description with specific da
 
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
 	if s.prompt == "" {
-		s.prompt = ReplaceVarCN(PROMPT_ENHANCE_QUERY_EN)
+		switch s._driver.Lang() {
+		case GENERATE_PROMPT_TPL_CN:
+			s.prompt = PROMPT_ENHANCE_QUERY_CN
+		default:
+			s.prompt = PROMPT_ENHANCE_QUERY_EN
+		}
 	}
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 
 	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
 }
 
 func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	if s.prompt == "" {
-		s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		switch s._driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		default:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
+		}
 	}
 	if len(s.query) > 0 {
 		if s.query[0].Role != types.USER_ROLE_SYSTEM {
@@ -376,19 +396,39 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream) (cha
 	return respChan, nil
 }
 
-func BuildRAGQuery(tpl string, docs Docs, query string) string {
-	d := docs.ConvertPassageToPromptText()
-	if d != "" {
-		if tpl == "" {
-			tpl = GENERATE_PROMPT_TPL_EN
-		}
-		tpl = ReplaceVarCN(tpl)
-		tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
-		tpl = strings.ReplaceAll(tpl, "{query}", query)
-		return tpl
+const (
+	MODEL_BASE_LANGUAGE_CN = "CN"
+	MODEL_BASE_LANGUAGE_EN = "EN"
+)
+
+func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
+	d := docs.ConvertPassageToPromptText(driver.Lang())
+	if d == "" {
+		return GENERATE_PROMPT_TPL_NONE_CONTENT_EN
 	}
 
-	return query
+	if tpl == "" {
+		switch driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			tpl = GENERATE_PROMPT_TPL_CN
+		default:
+			tpl = GENERATE_PROMPT_TPL_EN
+		}
+	}
+	tpl = ReplaceVarWithLang(tpl, driver.Lang())
+
+	tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
+	return tpl
+}
+
+func ReplaceVarWithLang(tpl, lang string) string {
+	switch lang {
+	case MODEL_BASE_LANGUAGE_CN:
+		tpl = ReplaceVarCN(tpl)
+	default:
+		tpl = ReplaceVarEN(tpl)
+	}
+	return tpl
 }
 
 func ReplaceVarCN(tpl string) string {
@@ -404,15 +444,20 @@ func ReplaceVarEN(tpl string) string {
 }
 
 type Docs interface {
-	ConvertPassageToPromptText() string
+	ConvertPassageToPromptText(lang string) string
 }
 
 type docs struct {
 	docs []*PassageInfo
 }
 
-func (d *docs) ConvertPassageToPromptText() string {
-	return convertPassageToPromptTextEN(d.docs)
+func (d *docs) ConvertPassageToPromptText(lang string) string {
+	switch lang {
+	case MODEL_BASE_LANGUAGE_CN:
+		return convertPassageToPromptTextCN(d.docs)
+	default:
+		return convertPassageToPromptTextEN(d.docs)
+	}
 }
 
 func NewDocs(list []*PassageInfo) Docs {
@@ -429,12 +474,12 @@ func convertPassageToPromptTextCN(docs []*PassageInfo) string {
 		if i != 0 {
 			s.WriteString("------\n")
 		}
-		s.WriteString("下面描述的这件事发生在：")
+		s.WriteString("这件事发生在：")
 		s.WriteString(v.DateTime)
 		s.WriteString("\n")
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
-		s.WriteString("\n内容为：")
+		s.WriteString("\n内容：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
 	}

@@ -47,7 +47,7 @@ func New(lang, token, proxy string, model ai.ModelName) *Driver {
 }
 
 func (s *Driver) Lang() string {
-	return "CN"
+	return ai.MODEL_BASE_LANGUAGE_CN
 }
 
 func convertPassageToPrompt(docs []*ai.PassageInfo) string {

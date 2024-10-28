@@ -45,7 +45,7 @@ func New(token, proxy string, model ai.ModelName) *Driver {
 }
 
 func (s *Driver) Lang() string {
-	return "EN"
+	return ai.MODEL_BASE_LANGUAGE_EN
 }
 
 func (s *Driver) embedding(ctx context.Context, title string, content []string) ([][]float32, error) {

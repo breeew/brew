@@ -34,7 +34,7 @@ func New(token string) *Driver {
 }
 
 func (s *Driver) Lang() string {
-	return "EN"
+	return ai.MODEL_BASE_LANGUAGE_EN
 }
 
 func (s *Driver) embedding(ctx context.Context, title, content string) ([]float32, error) {

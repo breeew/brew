@@ -17,6 +17,7 @@ type ChatAI interface {
 	Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 	MsgIsOverLimit(msgs []*types.MessageContext) bool
 	NewQuery(ctx context.Context, msgs []*types.MessageContext) *ai.QueryOptions
+	Lang() string
 }
 
 type EnhanceAI interface {
@@ -48,6 +49,7 @@ func (c *AIConfig) FromENV() {
 	c.Usage["embedding.document"] = os.Getenv("BREW_API_AI_USAGE_E_DOCUMENT")
 	c.Usage["query"] = os.Getenv("BREW_API_AI_USAGE_QUERY")
 	c.Usage["summarize"] = os.Getenv("BREW_API_AI_USAGE_SUMMARIZE")
+	c.Usage["enhance_query"] = os.Getenv("BREW_API_AI_USAGE_ENHANCE_QUERY")
 
 	c.Gemini.FromENV()
 	c.Openai.FromENV()
@@ -120,11 +122,11 @@ func (s *AI) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.Qu
 	return s.chatDefault.NewQuery(ctx, query)
 }
 
-func (s *AI) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
-	if d := s.enhanceUsage["enhance_query"]; d != nil {
-		return d.NewEnhance(ctx)
+func (s *AI) Lang() string {
+	if d := s.chatUsage["query"]; d != nil {
+		return d.Lang()
 	}
-	return s.enhanceDefault.NewEnhance(ctx)
+	return s.chatDefault.Lang()
 }
 
 func (s *AI) EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error) {
@@ -153,6 +155,13 @@ func (s *AI) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
 		return d.Chunk(ctx, doc)
 	}
 	return s.chatDefault.Chunk(ctx, doc)
+}
+
+func (s *AI) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
+	if d := s.enhanceUsage["enhance_query"]; d != nil {
+		return d.NewEnhance(ctx)
+	}
+	return s.enhanceDefault.NewEnhance(ctx)
 }
 
 func (s *AI) MsgIsOverLimit(msgs []*types.MessageContext) bool {

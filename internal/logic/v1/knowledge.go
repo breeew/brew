@@ -356,7 +356,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 
 	message := &types.MessageContext{
 		Role:    types.USER_ROLE_USER,
-		Content: ai.BuildRAGQuery(l.core.Cfg().Prompt.Query, ai.NewDocs(docs), query),
+		Content: query,
 	}
 
 	// TODO: gen query opts from user setting

@@ -44,7 +44,7 @@ func New(token, proxy string, model ai.ModelName) *Driver {
 }
 
 func (s *Driver) Lang() string {
-	return "CN"
+	return ai.MODEL_BASE_LANGUAGE_CN
 }
 
 func (s *Driver) embedding(ctx context.Context, title string, content []string) ([][]float32, error) {
@@ -90,16 +90,6 @@ func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content
 	return s.embedding(ctx, title, content)
 }
 
-func convertPassageToPrompt(docs []*ai.PassageInfo) string {
-	raw, _ := json.MarshalIndent(docs, "", "  ")
-	b := strings.Builder{}
-	b.WriteString("``` json\n")
-	b.Write(raw)
-	b.WriteString("\n")
-	b.WriteString("```\n")
-	return b.String()
-}
-
 func (s *Driver) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
 	opts := ai.NewQueryOptions(ctx, s, query)
 	return opts
@@ -110,24 +100,15 @@ func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 }
 
 func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error) {
-	messages := lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
-		return openai.ChatCompletionMessage{
-			Role:    item.Role.String(),
-			Content: item.Content,
-		}
-	})
-
 	req := openai.ChatCompletionRequest{
-		Model:    s.model.ChatModel,
-		Messages: messages,
-		Stream:   true,
-	}
-
-	for _, v := range query {
-		req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-			Role:    v.Role.String(),
-			Content: v.Content,
-		})
+		Model:  s.model.ChatModel,
+		Stream: true,
+		Messages: lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+			return openai.ChatCompletionMessage{
+				Role:    item.Role.String(),
+				Content: item.Content,
+			}
+		}),
 	}
 
 	resp, err := s.client.CreateChatCompletionStream(ctx, req)

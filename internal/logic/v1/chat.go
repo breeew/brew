@@ -184,9 +184,10 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *RAGDocs, g
 	notifyAssistantMessageInitialized(core, aiMessage)
 	// rag docs merge to user request message
 
-	prompt := ai.BuildRAGQuery("", ai.NewDocs(docs.Docs), "")
-
-	return logic.RequestAssistant(ctx, prompt, userMessage, aiMessage)
+	return logic.RequestAssistant(ctx,
+		ai.BuildRAGPrompt(core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), core.Srv().AI()),
+		userMessage,
+		aiMessage)
 }
 
 func chatMsgToTextMsg(msg *types.ChatMessage) *types.MessageMeta {

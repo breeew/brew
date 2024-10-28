@@ -7,7 +7,7 @@ ENV GOPROXY=$GOPROXY_ENV
 WORKDIR /app
 COPY . .
 RUN mkdir -p _build
-COPY ./cmd/service/etc/config-default.toml /app/_build/etc/config-default.toml
+COPY ./cmd/service/etc/service-default.toml /app/_build/etc/service-default.toml
 RUN go build -a -ldflags '-extldflags "-static"' -o _build/brew-api ./cmd/
 
 
@@ -18,4 +18,4 @@ WORKDIR /app
 COPY --from=builder /app/_build/etc /app/etc
 COPY --from=builder /app/_build/brew-api /app/brew-api
 
-CMD ["./brew-api", "service", "-c", "./etc/config-default.toml"]
+CMD ["./brew-api", "service", "-c", "./etc/service-default.toml"]
