@@ -6,7 +6,7 @@ CREATE TABLE bw_resource (
     cycle int NOT NULL,                  -- cycle
     prompt TEXT NOT NULL,                -- 自定义prompt
     description TEXT,                    -- 资源描述信息
-    created_time BIGINT NOT NULL          -- 资源创建时间，UNIX时间戳
+    created_at BIGINT NOT NULL          -- 资源创建时间，UNIX时间戳
 );
 
 -- 为 space_id，id 创建唯一索引
@@ -20,7 +20,7 @@ COMMENT ON COLUMN bw_resource.space_id IS '资源所属空间ID';
 COMMENT ON COLUMN bw_resource.description IS '资源描述信息';
 COMMENT ON COLUMN bw_resource.cycle IS '资源周期';
 COMMENT ON COLUMN bw_resource.prompt IS '自定义prompt';
-COMMENT ON COLUMN bw_resource.created_time IS '资源创建时间，UNIX时间戳';
+COMMENT ON COLUMN bw_resource.created_at IS '资源创建时间，UNIX时间戳';
 
 -- 添加表注释
 COMMENT ON TABLE bw_resource IS '资源类型表';

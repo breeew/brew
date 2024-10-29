@@ -26,18 +26,18 @@ func NewResourceStore(provider SqlProviderAchieve) *ResourceStore {
 	repo := &ResourceStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_RESOURCE) // 表名
-	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "created_time")
+	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "created_at")
 	return repo
 }
 
 // Create 创建新的资源记录
 func (s *ResourceStore) Create(ctx context.Context, data types.Resource) error {
-	if data.CreatedTime == 0 {
-		data.CreatedTime = time.Now().Unix()
+	if data.CreatedAt == 0 {
+		data.CreatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "title", "user_id", "space_id", "description", "prompt", "cycle", "created_time").
-		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Prompt, data.Cycle, data.CreatedTime)
+		Columns("id", "title", "user_id", "space_id", "description", "prompt", "cycle", "created_at").
+		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Prompt, data.Cycle, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -100,7 +100,7 @@ func (s *ResourceStore) Delete(ctx context.Context, spaceID, id string) error {
 
 // ListResources 分页获取资源记录列表
 func (s *ResourceStore) ListResources(ctx context.Context, spaceID string, page, pageSize uint64) ([]types.Resource, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable())
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID}).OrderBy("created_at")
 	if page != 0 || pageSize != 0 {
 		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
 	}

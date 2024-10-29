@@ -8,5 +8,5 @@ type Resource struct {
 	Description string `json:"description" db:"description"`   // 资源描述信息
 	Cycle       int    `json:"cycle" db:"cycle"`               // 资源周期，0为不限制
 	Prompt      string `json:"prompt" db:"prompt"`             // 自定义prompt
-	CreatedTime int64  `json:"created_time" db:"created_time"` // 资源创建时间，UNIX时间戳
+	CreatedAt   int64  `json:"created_at" db:"created_at"` // 资源创建时间，UNIX时间戳
 }

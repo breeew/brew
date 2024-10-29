@@ -59,7 +59,7 @@ func (l *ResourceLogic) CreateResource(spaceID, id, title, desc, prompt string, 
 		Description: desc,
 		Prompt:      prompt,
 		Cycle:       cycle,
-		CreatedTime: time.Now().Unix(),
+		CreatedAt:   time.Now().Unix(),
 	})
 	if err != nil {
 		return errors.New("ResourceLogic.CreateResource.ResourceStore.Create", i18n.ERROR_INTERNAL, err)
