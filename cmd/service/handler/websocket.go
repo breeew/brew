@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -77,7 +76,7 @@ func Websocket(core *core.Core) func(c *gin.Context) {
 			for _, v := range topics {
 				if strings.Contains(v, "/knowledge/list/") {
 					spaceID := filepath.Base(v)
-					fmt.Println("space id", spaceID)
+
 					spaceRole, err := core.Store().UserSpaceStore().GetUserSpaceRole(c, tokenClaim.User, spaceID)
 					if err != nil || spaceRole == nil {
 						slog.Error("failed to subscribe topic, user is not belong to project", slog.String("component", "firetower"),

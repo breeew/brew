@@ -242,7 +242,7 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 	sw := mark.NewSensitiveWork()
 	// content := sw.Do(req.data.Summary)
 
-	ctx, cancel := context.WithTimeout(req.ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
 	defer cancel()
 	chunksData, err := p.core.Store().KnowledgeChunkStore().List(ctx, req.data.SpaceID, req.data.ID)
 	if err != nil {
@@ -372,7 +372,7 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(req.ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
 	defer cancel()
 	summary, err := p.core.Srv().AI().Chunk(ctx, &content)
 	if err != nil {

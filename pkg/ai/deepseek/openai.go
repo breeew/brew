@@ -190,7 +190,6 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 			len(resp.Choices))
 	}
 
-	fmt.Println(resp.Choices[0].Message.Content)
 	for _, v := range resp.Choices[0].Message.ToolCalls {
 		if v.Function.Name != SummarizeFuncName {
 			continue
