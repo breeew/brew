@@ -219,7 +219,7 @@ func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, r
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, pgvector.NewVector(vector[0]), 20)
+	}, pgvector.NewVector(vector[0]), 40)
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -233,10 +233,11 @@ func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, r
 		knowledgeIDs []string
 	)
 	for i, v := range refs {
-		if i > 0 && v.Cos >= 0.5 {
+		if i > 0 && v.Cos > 0.5 && v.OriginalLength > 200 {
 			// TODO：more and more verify best ratio
 			continue
 		}
+
 		result.Refs = append(result.Refs, v)
 	}
 

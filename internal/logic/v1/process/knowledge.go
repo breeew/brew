@@ -258,11 +258,12 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 		chunks = append(chunks, sw.Do(v.Chunk))
 
 		vectors = append(vectors, types.Vector{
-			ID:          v.ID,
-			KnowledgeID: v.KnowledgeID,
-			SpaceID:     v.SpaceID,
-			UserID:      v.UserID,
-			Resource:    req.data.Resource,
+			ID:             v.ID,
+			KnowledgeID:    v.KnowledgeID,
+			SpaceID:        v.SpaceID,
+			UserID:         v.UserID,
+			Resource:       req.data.Resource,
+			OriginalLength: v.OriginalLength,
 			// Embedding:   pgvector.NewVector(vector),
 			CreatedAt: time.Now().Unix(),
 			UpdatedAt: time.Now().Unix(),
@@ -395,13 +396,14 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 	var chunks []types.KnowledgeChunk
 	for _, v := range summary.Chunks {
 		chunks = append(chunks, types.KnowledgeChunk{
-			ID:          utils.GenRandomID(),
-			SpaceID:     req.data.SpaceID,
-			KnowledgeID: req.data.ID,
-			UserID:      req.data.UserID,
-			Chunk:       sw.Undo(v),
-			UpdatedAt:   time.Now().Unix(),
-			CreatedAt:   time.Now().Unix(),
+			ID:             utils.GenRandomID(),
+			SpaceID:        req.data.SpaceID,
+			KnowledgeID:    req.data.ID,
+			UserID:         req.data.UserID,
+			Chunk:          sw.Undo(v),
+			OriginalLength: len([]rune(req.data.Content)),
+			UpdatedAt:      time.Now().Unix(),
+			CreatedAt:      time.Now().Unix(),
 		})
 	}
 

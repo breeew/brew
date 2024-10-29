@@ -5,6 +5,7 @@ CREATE TABLE bw_knowledge_chunk (
     space_id VARCHAR(32) NOT NULL, -- 空间ID
     user_id VARCHAR(32) NOT NULL, -- 用户ID
     chunk TEXT NOT NULL, -- 知识片段
+    original_length INT NOT NULL DEFAULT 0, -- 关联知识点长度
     updated_at BIGINT NOT NULL DEFAULT 0, -- 更新时间
     created_at BIGINT NOT NULL DEFAULT 0 -- 创建时间
 );
@@ -19,4 +20,5 @@ COMMENT ON COLUMN bw_knowledge_chunk.knowledge_id IS '知识点ID';
 COMMENT ON COLUMN bw_knowledge_chunk.space_id IS '空间ID';
 COMMENT ON COLUMN bw_knowledge_chunk.user_id IS '用户ID';
 COMMENT ON COLUMN bw_knowledge_chunk.chunk IS '知识片段';
+COMMENT ON COLUMN bw_knowledge_chunk.original_length IS '关联知识点长度';
 COMMENT ON COLUMN bw_knowledge_chunk.created_at IS '创建时间';

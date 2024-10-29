@@ -113,7 +113,7 @@ func Test_Generate(t *testing.T) {
 }
 
 func Test_EnhanceQuery(t *testing.T) {
-	query := "who are you?"
+	query := "今日待办"
 
 	d := new()
 	opts := ai.NewEnhance(context.Background(), d)

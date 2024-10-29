@@ -55,10 +55,12 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	if chatSession.Status != types.CHAT_SESSION_STATUS_OFFICIAL {
-		if err = l.core.Store().ChatSessionStore().UpdateSessionStatus(l.ctx, chatSession.ID, types.CHAT_SESSION_STATUS_OFFICIAL); err != nil {
-			slog.Error("send message failure, failed to update dialog status", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()), slog.String("msg_id", msgArgs.ID))
-			return 0, errors.New("ChatLogic.NewUserMessageSend.UpdateDialogStatus", i18n.ERROR_INTERNAL, err)
-		}
+		go safe.Run(func() {
+			if err = l.core.Store().ChatSessionStore().UpdateSessionStatus(l.ctx, chatSession.ID, types.CHAT_SESSION_STATUS_OFFICIAL); err != nil {
+				slog.Error("send message failure, failed to update dialog status", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()), slog.String("msg_id", msgArgs.ID))
+				//		return 0, errors.New("ChatLogic.NewUserMessageSend.UpdateDialogStatus", i18n.ERROR_INTERNAL, err)
+			}
+		})
 	}
 	{
 		ctx, cancel := context.WithCancel(l.ctx)
@@ -127,14 +129,8 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	queryMsg := msg.Message
-	if len([]rune(queryMsg)) < 15 && latestMessage != nil {
+	if len([]rune(queryMsg)) < 20 && latestMessage != nil {
 		queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
-	}
-
-	docs, err := NewKnowledgeLogic(l.ctx, l.core).GetRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
-	if err != nil {
-		err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
-		return
 	}
 
 	err = l.core.Store().Transaction(ctx, func(ctx context.Context) error {
@@ -154,6 +150,12 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	})
 
 	go safe.Run(func() {
+		docs, err := NewKnowledgeLogic(l.ctx, l.core).GetRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+		if err != nil {
+			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
+			return
+		}
+
 		RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL)
 	})
 

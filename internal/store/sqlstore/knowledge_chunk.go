@@ -26,7 +26,7 @@ func NewKnowledgeChunkStore(provider SqlProviderAchieve) *KnowledgeChunkStore {
 	repo := &KnowledgeChunkStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_KNOWLEDGE_CHUNK)
-	repo.SetAllColumns("id", "knowledge_id", "space_id", "user_id", "chunk", "updated_at", "created_at")
+	repo.SetAllColumns("id", "knowledge_id", "space_id", "user_id", "chunk", "original_length", "updated_at", "created_at")
 	return repo
 }
 
@@ -39,8 +39,8 @@ func (s *KnowledgeChunkStore) Create(ctx context.Context, data types.KnowledgeCh
 		data.UpdatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "knowledge_id", "space_id", "user_id", "chunk", "updated_at", "created_at").
-		Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Chunk, data.UpdatedAt, data.CreatedAt)
+		Columns("id", "knowledge_id", "space_id", "user_id", "chunk", "original_length", "updated_at", "created_at").
+		Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Chunk, data.OriginalLength, data.UpdatedAt, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *KnowledgeChunkStore) BatchCreate(ctx context.Context, data []types.Know
 	}
 
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "knowledge_id", "space_id", "user_id", "chunk", "updated_at", "created_at")
+		Columns("id", "knowledge_id", "space_id", "user_id", "chunk", "original_length", "updated_at", "created_at")
 
 	// 遍历数据，构建批量插入的 values
 	for _, item := range data {
@@ -70,7 +70,7 @@ func (s *KnowledgeChunkStore) BatchCreate(ctx context.Context, data []types.Know
 		if item.UpdatedAt == 0 {
 			item.UpdatedAt = time.Now().Unix()
 		}
-		query = query.Values(item.ID, item.KnowledgeID, item.SpaceID, item.UserID, item.Chunk, item.UpdatedAt, item.CreatedAt)
+		query = query.Values(item.ID, item.KnowledgeID, item.SpaceID, item.UserID, item.Chunk, item.OriginalLength, item.UpdatedAt, item.CreatedAt)
 	}
 
 	queryString, args, err := query.ToSql()

@@ -26,7 +26,7 @@ func NewVectorStore(provider SqlProviderAchieve) *VectorStore {
 	repo := &VectorStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_VECTORS)
-	repo.SetAllColumns("id", "knowledge_id", "space_id", "user_id", "embedding", "created_at", "updated_at")
+	repo.SetAllColumns("id", "knowledge_id", "space_id", "user_id", "embedding", "original_length", "created_at", "updated_at")
 	return repo
 }
 
@@ -39,8 +39,8 @@ func (s *VectorStore) Create(ctx context.Context, data types.Vector) error {
 		data.UpdatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "knowledge_id", "space_id", "user_id", "resource", "embedding", "created_at", "updated_at").
-		Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Resource, data.Embedding, data.CreatedAt, data.UpdatedAt)
+		Columns("id", "knowledge_id", "space_id", "user_id", "resource", "embedding", "original_length", "created_at", "updated_at").
+		Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Resource, data.Embedding, data.OriginalLength, data.CreatedAt, data.UpdatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *VectorStore) Create(ctx context.Context, data types.Vector) error {
 // BatchCreate 批量创建新的文本向量记录
 func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) error {
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "knowledge_id", "space_id", "user_id", "resource", "embedding", "created_at", "updated_at")
+		Columns("id", "knowledge_id", "space_id", "user_id", "resource", "embedding", "original_length", "created_at", "updated_at")
 
 	for _, data := range datas {
 		if data.CreatedAt == 0 {
@@ -68,7 +68,7 @@ func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) err
 		if data.UpdatedAt == 0 {
 			data.UpdatedAt = time.Now().Unix()
 		}
-		query = query.Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Resource, data.Embedding, data.CreatedAt, data.UpdatedAt)
+		query = query.Values(data.ID, data.KnowledgeID, data.SpaceID, data.UserID, data.Resource, data.Embedding, data.OriginalLength, data.CreatedAt, data.UpdatedAt)
 	}
 
 	queryString, args, err := query.ToSql()
@@ -176,7 +176,7 @@ func (s *VectorStore) Query(ctx context.Context, opts types.GetVectorsOptions, v
 	// <=> - cosine distance
 	// <+> - L1 distance (added in 0.7.0)
 	cosColum, vectorArgs, _ := sq.Expr("(embedding <=> ?) as cos", vectors).ToSql()
-	query := sq.Select("id", "knowledge_id", cosColum).From(s.GetTable()).Limit(limit).OrderBy("cos ASC")
+	query := sq.Select("id", "knowledge_id", "original_length", cosColum).From(s.GetTable()).Limit(limit).OrderBy("cos ASC")
 	opts.Apply(&query)
 
 	queryString, args, err := query.ToSql()
