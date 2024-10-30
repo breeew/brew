@@ -47,6 +47,10 @@ func (l *HistoryLogic) GetMessageExt(spaceID, sessionID, messageID string) (*Cha
 		return nil, errors.New("HistoryLogic.GetMessageExt.ChatMessageExtStore.GetChatMessageExt", i18n.ERROR_INTERNAL, err)
 	}
 
+	if data == nil {
+		return nil, errors.New("HistoryLogic.GetMessageExt.nil", i18n.ERROR_INTERNAL, err)
+	}
+
 	docs, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, types.GetKnowledgeOptions{
 		IDs:     data.RelDocs,
 		SpaceID: spaceID,

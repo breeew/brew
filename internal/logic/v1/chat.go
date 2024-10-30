@@ -180,6 +180,7 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *types.RAGD
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+		SpaceID:   userMessage.SpaceID,
 		SessionID: userMessage.SessionID,
 		RelDocs:   relDocs,
 		CreatedAt: time.Now().Unix(),
