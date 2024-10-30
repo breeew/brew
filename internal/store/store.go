@@ -77,6 +77,7 @@ type UserSpaceStore interface {
 	GetUserSpaceRole(ctx context.Context, userID, spaceID string) (*types.UserSpace, error)
 	Update(ctx context.Context, userID, spaceID, role string) error
 	List(ctx context.Context, opts types.ListUserSpaceOptions, page, pageSize uint64) ([]types.UserSpace, error)
+	Total(ctx context.Context, opts types.ListUserSpaceOptions) (int64, error)
 	Delete(ctx context.Context, userID, spaceID string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	ListSpaceUsers(ctx context.Context, spaceID string) ([]string, error)

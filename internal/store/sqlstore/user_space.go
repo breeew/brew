@@ -126,6 +126,21 @@ func (s *UserSpaceStore) List(ctx context.Context, opts types.ListUserSpaceOptio
 	return res, nil
 }
 
+func (s *UserSpaceStore) Total(ctx context.Context, opts types.ListUserSpaceOptions) (int64, error) {
+	query := sq.Select("COUNT(*)").From(s.GetTable())
+	opts.Apply(&query)
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return 0, errorSqlBuild(err)
+	}
+
+	var res int64
+	if err = s.GetReplica(ctx).Get(&res, queryString, args...); err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
 func (s *UserSpaceStore) ListSpaceUsers(ctx context.Context, spaceID string) ([]string, error) {
 	query := sq.Select("user_id").From(s.GetTable()).Where(sq.Eq{"space_id": spaceID}).GroupBy("user_id").OrderBy("create_at")
 	queryString, args, err := query.ToSql()

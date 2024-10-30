@@ -179,6 +179,17 @@ func (l *SpaceLogic) LeaveSpace(spaceID string) error {
 func (l *SpaceLogic) DeleteUserSpace(spaceID string) error {
 	user := l.GetUserInfo()
 
+	total, err := l.core.Store().UserSpaceStore().Total(l.ctx, types.ListUserSpaceOptions{
+		UserID: user.User,
+	})
+	if err != nil {
+		return errors.New("SpaceLogic.DeleteUserSpace.UserSpaceStore.Total", i18n.ERROR_INTERNAL, err)
+	}
+
+	if total <= 1 {
+		return errors.New("SpaceLogic.DeleteUserSpace.UserSpaceStore.DeleteLimit", i18n.ERROR_FORBIDDEN, nil).Code(http.StatusForbidden)
+	}
+
 	userSpace, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, user.User, spaceID)
 	if err != nil && err != sql.ErrNoRows {
 		return errors.New("SpaceLogic.DeleteUserSpace.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
