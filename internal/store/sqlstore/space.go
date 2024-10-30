@@ -76,7 +76,7 @@ func (s *SpaceStore) Update(ctx context.Context, spaceID, title, desc string) er
 		query = query.Set("title", title)
 	}
 	if desc != "" {
-		query = query.Set("desc", desc)
+		query = query.Set("description", desc)
 	}
 	queryString, args, err := query.ToSql()
 	if err != nil {

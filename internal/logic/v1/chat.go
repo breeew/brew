@@ -72,7 +72,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			return 0, errors.New("ChatLogic.NewUserMessageSend.TryLock", i18n.ERROR_FORBIDDEN, nil).Code(http.StatusForbidden)
 		}
 
-		exist, err := l.core.Store().ChatMessageStore().Exist(l.ctx, chatSession.ID, msgArgs.ID)
+		exist, err := l.core.Store().ChatMessageStore().Exist(l.ctx, chatSession.SpaceID, chatSession.ID, msgArgs.ID)
 		if err != nil && err != sql.ErrNoRows {
 			return 0, errors.New("ChatLogic.NewUserMessageSend.MessageStore.Exist", i18n.ERROR_INTERNAL, err)
 		}
@@ -90,7 +90,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}()
 
 	// session 消息分块逻辑(session block)
-	latestMessage, err := l.core.Store().ChatMessageStore().GetSessionLatestUserMessage(ctx, chatSession.ID)
+	latestMessage, err := l.core.Store().ChatMessageStore().GetSessionLatestUserMessage(ctx, chatSession.SpaceID, chatSession.ID)
 	if err != nil && err != sql.ErrNoRows { // 获取dialog中最后一条消息的目的是为了做消息分块，如果失败，暂时先不影响用户的正常沟通，记录日志，方便从日志恢复(需要的话)
 		slog.Error("failed to get chat session latest message", slog.String("session_id", chatSession.ID),
 			slog.String("error", err.Error()),
@@ -119,7 +119,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	if msg.Sequence == 0 {
-		seqid, err = l.core.Srv().SeqSrv().GetChatSessionSeqID(l.ctx, chatSession.ID)
+		seqid, err = l.core.Srv().SeqSrv().GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
 		if err != nil {
 			err = errors.Trace("ChatLogic.NewUserMessageSend.GetDialogSeqID", err)
 			return

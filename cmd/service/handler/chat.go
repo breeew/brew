@@ -166,7 +166,7 @@ func (s *HttpSrv) GetChatSessionHistory(c *gin.Context) {
 	}
 
 	historyLogic := v1.NewHistoryLogic(c, s.Core)
-	list, total, err := historyLogic.GetHistoryMessage(sessionID, req.AfterMessageID, req.Page, req.PageSize)
+	list, total, err := historyLogic.GetHistoryMessage(space, sessionID, req.AfterMessageID, req.Page, req.PageSize)
 	if err != nil {
 		response.APIError(c, err)
 		return
@@ -231,6 +231,7 @@ func (s *HttpSrv) CreateChatMessage(c *gin.Context) {
 }
 
 func (s *HttpSrv) GetChatMessageExt(c *gin.Context) {
+	spaceID, _ := c.Params.Get("spaceid")
 	sessionID, _ := c.Params.Get("session")
 	messageID, _ := c.Params.Get("messageid")
 
@@ -242,7 +243,7 @@ func (s *HttpSrv) GetChatMessageExt(c *gin.Context) {
 		return
 	}
 
-	ext, err := v1.NewHistoryLogic(c, s.Core).GetMessageExt(sessionID, messageID)
+	ext, err := v1.NewHistoryLogic(c, s.Core).GetMessageExt(spaceID, sessionID, messageID)
 	if err != nil {
 		response.APIError(c, err)
 		return

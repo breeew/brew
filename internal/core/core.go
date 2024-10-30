@@ -68,10 +68,10 @@ type sg struct {
 	msgStore store.ChatMessageStore
 }
 
-func (s *sg) GetChatMessageSequence(ctx context.Context, sessionID string) (int64, error) {
+func (s *sg) GetChatMessageSequence(ctx context.Context, spaceID, sessionID string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	latestChat, err := s.msgStore.GetSessionLatestMessage(ctx, sessionID)
+	latestChat, err := s.msgStore.GetSessionLatestMessage(ctx, spaceID, sessionID)
 	if err != nil && err != sql.ErrNoRows {
 		return 0, err
 	}

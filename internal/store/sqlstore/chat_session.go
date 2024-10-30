@@ -123,6 +123,20 @@ func (s *ChatSessionStore) Delete(ctx context.Context, spaceID, sessionID string
 	return nil
 }
 
+func (s *ChatSessionStore) DeleteAll(ctx context.Context, spaceID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return errorSqlBuild(err)
+	}
+
+	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ChatSessionStore) List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).OrderBy("created_at DESC")
 

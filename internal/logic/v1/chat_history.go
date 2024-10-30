@@ -41,13 +41,12 @@ type ChatMessageExt struct {
 	Marks            map[string]string          `json:"marks"`
 }
 
-func (l *HistoryLogic) GetMessageExt(sessionID, messageID string) (*ChatMessageExt, error) {
-	data, err := l.core.Store().ChatMessageExtStore().GetChatMessageExt(l.ctx, sessionID, messageID)
+func (l *HistoryLogic) GetMessageExt(spaceID, sessionID, messageID string) (*ChatMessageExt, error) {
+	data, err := l.core.Store().ChatMessageExtStore().GetChatMessageExt(l.ctx, spaceID, sessionID, messageID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.New("HistoryLogic.GetMessageExt.ChatMessageExtStore.GetChatMessageExt", i18n.ERROR_INTERNAL, err)
 	}
 
-	spaceID, _ := InjectSpaceID(l.ctx)
 	docs, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, types.GetKnowledgeOptions{
 		IDs:     data.RelDocs,
 		SpaceID: spaceID,
@@ -83,13 +82,13 @@ type MessageExt struct {
 	IsEvaluateEnable bool               `json:"is_evaluate_enable"`
 }
 
-func (l *HistoryLogic) GetHistoryMessage(sessionID, afterMsgID string, page, pageSize uint64) ([]*MessageDetail, int64, error) {
-	list, err := l.core.Store().ChatMessageStore().ListSessionMessage(l.ctx, sessionID, afterMsgID, page, pageSize)
+func (l *HistoryLogic) GetHistoryMessage(spaceID, sessionID, afterMsgID string, page, pageSize uint64) ([]*MessageDetail, int64, error) {
+	list, err := l.core.Store().ChatMessageStore().ListSessionMessage(l.ctx, spaceID, sessionID, afterMsgID, page, pageSize)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, 0, errors.New("HistoryLogic.GetHistoryMessage.ChatMessageStore.ListSessionMessage", i18n.ERROR_INTERNAL, err)
 	}
 
-	total, err := l.core.Store().ChatMessageStore().TotalSessionMessage(l.ctx, sessionID, afterMsgID)
+	total, err := l.core.Store().ChatMessageStore().TotalSessionMessage(l.ctx, spaceID, sessionID, afterMsgID)
 	if err != nil {
 		return nil, 0, errors.New("HistoryLogic.GetHistoryMessage.TotalDialogMessage", i18n.ERROR_INTERNAL, err)
 	}
@@ -119,7 +118,6 @@ func (l *HistoryLogic) GetHistoryMessage(sessionID, afterMsgID string, page, pag
 		return chatMsgAndExtToMessageDetail(item, ext)
 	})
 
-	spaceID, _ := InjectSpaceID(l.ctx)
 	docs, err := l.core.Store().KnowledgeStore().ListLiteKnowledges(l.ctx, types.GetKnowledgeOptions{
 		IDs: lo.MapToSlice(relDocsIDs, func(k string, _ struct{}) string {
 			return k

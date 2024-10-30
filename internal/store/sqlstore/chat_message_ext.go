@@ -27,7 +27,7 @@ func NewChatMessageExtStore(provider SqlProviderAchieve) *ChatMessageExtStore {
 	store := &ChatMessageExtStore{}
 	store.SetProvider(provider)
 	store.SetTable(types.TABLE_CHAT_MESSAGE_EXT)
-	store.SetAllColumns("message_id", "session_id", "evaluate", "generation_status", "rel_docs", "created_at", "updated_at")
+	store.SetAllColumns("message_id", "space_id", "session_id", "evaluate", "generation_status", "rel_docs", "created_at", "updated_at")
 	return store
 }
 
@@ -42,8 +42,8 @@ func (s *ChatMessageExtStore) Create(ctx context.Context, data types.ChatMessage
 	}
 
 	query := sq.Insert(s.GetTable()).
-		Columns("message_id", "session_id", "evaluate", "generation_status", "rel_docs", "created_at", "updated_at").
-		Values(data.MessageID, data.SessionID, data.Evaluate, data.GenerationStatus, pq.Array(data.RelDocs), data.CreatedAt, data.UpdatedAt)
+		Columns("message_id", "space_id", "session_id", "evaluate", "generation_status", "rel_docs", "created_at", "updated_at").
+		Values(data.MessageID, data.SpaceID, data.SessionID, data.Evaluate, data.GenerationStatus, pq.Array(data.RelDocs), data.CreatedAt, data.UpdatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -58,8 +58,8 @@ func (s *ChatMessageExtStore) Create(ctx context.Context, data types.ChatMessage
 }
 
 // GetChatMessageExt 根据ID获取 ChatMessageExt 记录
-func (s *ChatMessageExtStore) GetChatMessageExt(ctx context.Context, sessionID, messageID string) (*types.ChatMessageExt, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"session_id": sessionID, "message_id": messageID})
+func (s *ChatMessageExtStore) GetChatMessageExt(ctx context.Context, spaceID, sessionID, messageID string) (*types.ChatMessageExt, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "message_id": messageID})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -95,6 +95,18 @@ func (s *ChatMessageExtStore) Update(ctx context.Context, messageID string, data
 // Delete 删除 ChatMessageExt 记录
 func (s *ChatMessageExtStore) Delete(ctx context.Context, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return errorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *ChatMessageExtStore) DeleteAll(ctx context.Context, spaceID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

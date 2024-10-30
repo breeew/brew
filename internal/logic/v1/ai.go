@@ -37,14 +37,14 @@ func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage
 			completeStatus = types.MESSAGE_PROGRESS_INTERCEPTED
 			assistantStatus = types.WS_EVENT_ASSISTANT_DONE
 			// todo retry
-			if err := core.Store().ChatMessageStore().RewriteMessage(ctx, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
+			if err := core.Store().ChatMessageStore().RewriteMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
 				slog.Error("failed to rewrite ai answer message to db", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
 					slog.String("error", err.Error()))
 				return err
 			}
 		} else {
 			// todo retry
-			if err := core.Store().ChatMessageStore().AppendMessage(ctx, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
+			if err := core.Store().ChatMessageStore().AppendMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
 				slog.Error("failed to append ai answer message to db", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
 					slog.String("error", err.Error()))
 				return err
@@ -283,7 +283,7 @@ func initAssistantMessage(ctx context.Context, core *core.Core, userReqMsg *type
 func prepareTheAnswerMsg(ctx context.Context, core *core.Core, spaceID, sessionID string) (*types.ChatMessage, error) {
 	// generate message meta
 	msgID := core.Srv().SeqSrv().GenMessageID()
-	seqID, err := core.Srv().SeqSrv().GetChatSessionSeqID(ctx, sessionID)
+	seqID, err := core.Srv().SeqSrv().GetChatSessionSeqID(ctx, spaceID, sessionID)
 	if err != nil {
 		slog.Error("Failed to get session message sequence id", slog.String("session_id", sessionID), slog.String("error", err.Error()))
 		return nil, err
@@ -356,7 +356,7 @@ ReGen:
 	}
 
 	// 获取比summary msgid更大的聊天内容组成上下文
-	msgList, err := core.Store().ChatMessageStore().ListSessionMessage(ctx, reqMsgWithDocs.SessionID, summary.MessageID, types.NO_PAGING, types.NO_PAGING)
+	msgList, err := core.Store().ChatMessageStore().ListSessionMessage(ctx, reqMsgWithDocs.SpaceID, reqMsgWithDocs.SessionID, summary.MessageID, types.NO_PAGING, types.NO_PAGING)
 	if err != nil {
 		return nil, errors.New("genDialogContextAndSummaryIfExceedsTokenLimit.ChatMessageStore.ListSessionMessage", i18n.ERROR_INTERNAL, err)
 	}

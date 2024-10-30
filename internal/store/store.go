@@ -119,6 +119,7 @@ type ChatSessionStore interface {
 	GetByUserID(ctx context.Context, userID string) ([]*types.ChatSession, error)
 	GetChatSession(ctx context.Context, spaceID, sessionID string) (*types.ChatSession, error)
 	Delete(ctx context.Context, spaceID, sessionID string) error
+	DeleteAll(ctx context.Context, spaceID string) error
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error)
 	Total(ctx context.Context, spaceID, userID string) (int64, error)
 }
@@ -127,18 +128,19 @@ type ChatMessageStore interface {
 	sqlstore.SqlCommons // 继承通用SQL操作
 	Create(ctx context.Context, data *types.ChatMessage) error
 	GetOne(ctx context.Context, id string) (*types.ChatMessage, error)
-	RewriteMessage(ctx context.Context, sessionID, id string, message json.RawMessage, complete int32) error
-	AppendMessage(ctx context.Context, sessionID, id string, message json.RawMessage, complete int32) error
+	RewriteMessage(ctx context.Context, spaceID, sessionID, id string, message json.RawMessage, complete int32) error
+	AppendMessage(ctx context.Context, spaceID, sessionID, id string, message json.RawMessage, complete int32) error
 	UpdateMessageCompleteStatus(ctx context.Context, sessionID, id string, complete int32) error
 	DeleteMessage(ctx context.Context, id string) error
-	ListSessionMessageUpToGivenID(ctx context.Context, sessionID, msgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
-	ListSessionMessage(ctx context.Context, sessionID, afterMsgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
-	TotalSessionMessage(ctx context.Context, sessionID, afterMsgID string) (int64, error)
-	Exist(ctx context.Context, sessionID, msgID string) (bool, error)
+	DeleteAll(ctx context.Context, spaceID string) error
+	ListSessionMessageUpToGivenID(ctx context.Context, spaceID, sessionID, msgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
+	ListSessionMessage(ctx context.Context, spaceID, sessionID, afterMsgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
+	TotalSessionMessage(ctx context.Context, spaceID, sessionID, afterMsgID string) (int64, error)
+	Exist(ctx context.Context, spaceID, sessionID, msgID string) (bool, error)
 	GetMessagesByIDs(ctx context.Context, msgIDs []string) ([]*types.ChatMessage, error)
-	GetSessionLatestMessage(ctx context.Context, sessionID string) (*types.ChatMessage, error)
-	GetSessionLatestUserMessage(ctx context.Context, sessionID string) (*types.ChatMessage, error)
-	GetSessionLatestUserMsgIDBeforeGivenID(ctx context.Context, sessionID, msgID string) (string, error)
+	GetSessionLatestMessage(ctx context.Context, spaceID, sessionID string) (*types.ChatMessage, error)
+	GetSessionLatestUserMessage(ctx context.Context, spaceID, sessionID string) (*types.ChatMessage, error)
+	GetSessionLatestUserMsgIDBeforeGivenID(ctx context.Context, spaceID, sessionID, msgID string) (string, error)
 }
 
 type ChatSummaryStore interface {
@@ -150,8 +152,9 @@ type ChatSummaryStore interface {
 type ChatMessageExtStore interface {
 	sqlstore.SqlCommons // 假设你有通用的 SQL 操作接口
 	Create(ctx context.Context, data types.ChatMessageExt) error
-	GetChatMessageExt(ctx context.Context, sessionID, messageID string) (*types.ChatMessageExt, error)
+	GetChatMessageExt(ctx context.Context, spaceID, sessionID, messageID string) (*types.ChatMessageExt, error)
 	ListChatMessageExts(ctx context.Context, messageIDs []string) ([]types.ChatMessageExt, error)
 	Update(ctx context.Context, id string, data types.ChatMessageExt) error
 	Delete(ctx context.Context, id string) error
+	DeleteAll(ctx context.Context, spaceID string) error
 }
