@@ -22,7 +22,7 @@ endpoint = ""
 token = ""
 endpoint = ""
 embedding_model = ""
-chat_model = "
+chat_model = ""
 
 [ai.usage]
 # which ai driver you want to ...
