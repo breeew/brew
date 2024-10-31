@@ -77,7 +77,18 @@ func (l *ResourceLogic) Delete(spaceID, id string) error {
 }
 
 func (l *ResourceLogic) Update(spaceID, id, title, desc, prompt string, cycle int) error {
-	err := l.core.Store().ResourceStore().Update(l.ctx, spaceID, id, title, desc, prompt, cycle)
+	resources, err := l.core.Store().ResourceStore().ListResources(l.ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		return errors.New("ResourceLogic.Update.ResourceStore.ListResources", i18n.ERROR_INTERNAL, err)
+	}
+
+	for _, v := range resources {
+		if v.ID != id && v.Title == title {
+			return errors.New("ResourceLogic.Update.ResourceStore.ListResources", i18n.ERROR_TITLE_EXIST, nil).Code(http.StatusForbidden)
+		}
+	}
+
+	err = l.core.Store().ResourceStore().Update(l.ctx, spaceID, id, title, desc, prompt, cycle)
 	if err != nil {
 		return errors.New("ResourceLogic.Update.ResourceStore.Update", i18n.ERROR_INTERNAL, err)
 	}

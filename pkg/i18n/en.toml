@@ -30,6 +30,10 @@ other = "Request timed out"
 one = "Resource already exist"
 other = "Resource already exist"
 
+[error.title.exist]
+one = "Title Duplicate"
+other = "Title Duplicate"
+
 [error.forbidden]
 one = "Request forbidden, refresh or try again later"
 other = "Request forbidden, refresh or try again later"

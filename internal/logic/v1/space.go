@@ -139,6 +139,15 @@ func (l *SpaceLogic) UpdateSpace(spaceID, title, desc string) error {
 		return errors.New("SpaceLogic.UpdateSpace.RBAC.CheckPermission", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
 	}
 
+	space, err := l.core.Store().SpaceStore().GetSpace(l.ctx, spaceID)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("SpaceLogic.UpdateSpace.SpaceStore.GetSpace", i18n.ERROR_INTERNAL, nil)
+	}
+
+	if space == nil {
+		return errors.New("SpaceLogic.UpdateSpace.SpaceStore.GetSpace", i18n.ERROR_INTERNAL, nil).Code(http.StatusNotFound)
+	}
+
 	if err = l.core.Store().SpaceStore().Update(l.ctx, spaceID, title, desc); err != nil {
 		return errors.New("SpaceLogic.UpdateSpace.SpaceStore.Update", i18n.ERROR_INTERNAL, err)
 	}

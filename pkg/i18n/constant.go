@@ -14,6 +14,7 @@ const (
 	ERROR_PERMISSION_DENIED = "error.permission.denied"
 	ERROR_UNAUTHORIZED      = "error.unauthorized"
 	ERROR_EXIST             = "error.exist"
+	ERROR_TITLE_EXIST       = "error.title.exist"
 	ERROR_FORBIDDEN         = "error.forbidden"
 	ERROR_TOO_MANY_REQUESTS = "error.tooManyRequests"
 
