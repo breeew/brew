@@ -121,6 +121,7 @@ type GetKnowledgeOptions struct {
 	Resource   *ResourceQuery
 	Stage      KnowledgeStage
 	RetryTimes int
+	Keywords   string
 }
 
 func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
@@ -146,6 +147,14 @@ func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
 	}
 	if opts.RetryTimes > 0 {
 		*query = query.Where(sq.Eq{"retry_times": opts.RetryTimes})
+	}
+
+	if opts.Keywords != "" {
+		or := sq.Or{}
+		if len(opts.Keywords) == 32 {
+			or = append(or, sq.Eq{"id": opts.Keywords})
+		}
+		*query = query.Where(append(or, sq.Like{"title": fmt.Sprintf("%%%s%%", opts.Keywords)}))
 	}
 }
 

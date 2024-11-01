@@ -77,10 +77,11 @@ func (l *KnowledgeLogic) GetKnowledge(spaceID, id string) (*types.Knowledge, err
 	return data, nil
 }
 
-func (l *KnowledgeLogic) ListKnowledges(spaceID string, resource *types.ResourceQuery, page, pagesize uint64) ([]*types.Knowledge, uint64, error) {
+func (l *KnowledgeLogic) ListKnowledges(spaceID string, keywords string, resource *types.ResourceQuery, page, pagesize uint64) ([]*types.Knowledge, uint64, error) {
 	opts := types.GetKnowledgeOptions{
 		SpaceID:  spaceID,
 		Resource: resource,
+		Keywords: keywords,
 	}
 	list, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, opts, page, pagesize)
 	if err != nil && err != sql.ErrNoRows {

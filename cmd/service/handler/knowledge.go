@@ -113,6 +113,7 @@ func (s *HttpSrv) GetKnowledge(c *gin.Context) {
 
 type ListKnowledgeRequest struct {
 	Resource string `json:"resource" form:"resource"`
+	Keywords string `json:"keywords" form:"keywords"`
 	Page     uint64 `json:"page" form:"page" binding:"required"`
 	PageSize uint64 `json:"pagesize" form:"pagesize" binding:"required,lte=50"`
 }
@@ -138,7 +139,7 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	list, total, err := v1.NewKnowledgeLogic(c, s.Core).ListKnowledges(spaceID, resource, req.Page, req.PageSize)
+	list, total, err := v1.NewKnowledgeLogic(c, s.Core).ListKnowledges(spaceID, req.Keywords, resource, req.Page, req.PageSize)
 	if err != nil {
 		response.APIError(c, err)
 		return
