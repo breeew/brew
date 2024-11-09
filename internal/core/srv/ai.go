@@ -2,11 +2,13 @@ package srv
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 
 	"github.com/starbx/brew-api/pkg/ai"
 	"github.com/starbx/brew-api/pkg/ai/azure_openai"
+	"github.com/starbx/brew-api/pkg/ai/jina"
 	"github.com/starbx/brew-api/pkg/ai/openai"
 	"github.com/starbx/brew-api/pkg/ai/qwen"
 	"github.com/starbx/brew-api/pkg/types"
@@ -29,18 +31,48 @@ type EmbeddingAI interface {
 	EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error)
 }
 
+type ReaderAI interface {
+	Reader(ctx context.Context, endpoint string) (*ai.ReaderResult, error)
+}
+
 type AIDriver interface {
 	EmbeddingAI
 	EnhanceAI
 	ChatAI
+	ReaderAI
 }
 
 type AIConfig struct {
-	Gemini Gemini            `toml:"gemini"`
-	Openai Openai            `toml:"openai"`
-	QWen   QWen              `toml:"qwen"`
-	Azure  AzureOpenai       `toml:"azure_openai"`
-	Usage  map[string]string `toml:"usage"`
+	Gemini Gemini      `toml:"gemini"`
+	Openai Openai      `toml:"openai"`
+	QWen   QWen        `toml:"qwen"`
+	Jina   Jina        `toml:"jina"`
+	Azure  AzureOpenai `toml:"azure_openai"`
+	// Usage list
+	// embedding.query
+	// embedding.document
+	// query
+	// summarize
+	// enhance_query
+	// reader
+	Usage map[string]string `toml:"usage"`
+}
+
+type Jina struct {
+	Token          string `toml:"token"`
+	ReaderEndpoint string `toml:"reader_endpoint"`
+}
+
+func (cfg *Jina) Install(root *AI) {
+	var oai any
+	oai = jina.New(cfg.Token)
+
+	installAI(root, jina.NAME, oai)
+}
+
+func (c *Jina) FromENV() {
+	c.Token = os.Getenv("BREW_API_AI_JINA_TOKEN")
+	c.ReaderEndpoint = os.Getenv("BREW_API_AI_JINA_READER_ENDPOINT")
 }
 
 func (c *AIConfig) FromENV() {
@@ -50,11 +82,13 @@ func (c *AIConfig) FromENV() {
 	c.Usage["query"] = os.Getenv("BREW_API_AI_USAGE_QUERY")
 	c.Usage["summarize"] = os.Getenv("BREW_API_AI_USAGE_SUMMARIZE")
 	c.Usage["enhance_query"] = os.Getenv("BREW_API_AI_USAGE_ENHANCE_QUERY")
+	c.Usage["reader"] = os.Getenv("BREW_API_AI_USAGE_READER")
 
 	c.Gemini.FromENV()
 	c.Openai.FromENV()
 	c.Azure.FromENV()
 	c.QWen.FromENV()
+	c.Jina.FromENV()
 }
 
 func (c *Gemini) FromENV() {
@@ -87,11 +121,31 @@ type Openai struct {
 	ChatModel      string `toml:"chat_model"`
 }
 
+func (cfg *Openai) Install(root *AI) {
+	var oai any
+	oai = openai.New(cfg.Token, cfg.Endpoint, ai.ModelName{
+		ChatModel:      cfg.ChatModel,
+		EmbeddingModel: cfg.EmbeddingModel,
+	})
+
+	installAI(root, openai.NAME, oai)
+}
+
 type AzureOpenai struct {
 	Token          string `toml:"token"`
 	Endpoint       string `toml:"endpoint"`
 	EmbeddingModel string `toml:"embedding_model"`
 	ChatModel      string `toml:"chat_model"`
+}
+
+func (cfg *AzureOpenai) Install(root *AI) {
+	var oai any
+	oai = azure_openai.New(cfg.Token, cfg.Endpoint, ai.ModelName{
+		ChatModel:      cfg.ChatModel,
+		EmbeddingModel: cfg.EmbeddingModel,
+	})
+
+	installAI(root, azure_openai.NAME, oai)
 }
 
 type QWen struct {
@@ -101,18 +155,31 @@ type QWen struct {
 	ChatModel      string `toml:"chat_model"`
 }
 
+func (cfg *QWen) Install(root *AI) {
+	var oai any
+	oai = qwen.New(cfg.Token, cfg.Endpoint, ai.ModelName{
+		ChatModel:      cfg.ChatModel,
+		EmbeddingModel: cfg.EmbeddingModel,
+	})
+
+	installAI(root, qwen.NAME, oai)
+}
+
 type AI struct {
 	chatDrivers    map[string]ChatAI
 	embedDrivers   map[string]EmbeddingAI
 	enhanceDrivers map[string]EnhanceAI
+	readerDrivers  map[string]ReaderAI
 
 	chatUsage    map[string]ChatAI
 	enhanceUsage map[string]EnhanceAI
 	embedUsage   map[string]EmbeddingAI
+	readerUsage  map[string]ReaderAI
 
 	chatDefault    ChatAI
 	enhanceDefault EnhanceAI
 	embedDefault   EmbeddingAI
+	readerDefault  ReaderAI
 }
 
 func (s *AI) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
@@ -169,6 +236,22 @@ func (s *AI) MsgIsOverLimit(msgs []*types.MessageContext) bool {
 	return false
 }
 
+var (
+	ERROR_UNSUPPORTED_FEATURE = errors.New("Unsupported feature")
+)
+
+// Option Feature
+func (s *AI) Reader(ctx context.Context, endpoint string) (*ai.ReaderResult, error) {
+	if d := s.readerUsage["reader"]; d != nil {
+		return d.Reader(ctx, endpoint)
+	}
+
+	if s.readerDefault == nil {
+		return nil, ERROR_UNSUPPORTED_FEATURE
+	}
+	return s.readerDefault.Reader(ctx, endpoint)
+}
+
 func installAI(a *AI, name string, driver any) {
 	if d, ok := driver.(ChatAI); ok {
 		a.chatDrivers[name] = d
@@ -181,6 +264,10 @@ func installAI(a *AI, name string, driver any) {
 	if d, ok := driver.(EnhanceAI); ok {
 		a.enhanceDrivers[name] = d
 	}
+
+	if d, ok := driver.(ReaderAI); ok {
+		a.readerDrivers[name] = d
+	}
 }
 
 func SetupAI(cfg AIConfig) (*AI, error) {
@@ -191,43 +278,20 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 		enhanceUsage:   make(map[string]EnhanceAI),
 		embedDrivers:   make(map[string]EmbeddingAI),
 		embedUsage:     make(map[string]EmbeddingAI),
-	}
-	// if cfg.Gemini.Token != "" {
-	// 	a.drivers[gemini.NAME] = gemini.New(cfg.Lang, cfg.Gemini.Token)
-	// 	a._default = a.drivers[gemini.NAME]
-	// }
-	if cfg.Openai.Token != "" {
-		var oai any
-		oai = openai.New(cfg.Openai.Token, cfg.Openai.Endpoint, ai.ModelName{
-			ChatModel:      cfg.Openai.ChatModel,
-			EmbeddingModel: cfg.Openai.EmbeddingModel,
-		})
-
-		installAI(a, openai.NAME, oai)
+		readerDrivers:  make(map[string]ReaderAI),
+		readerUsage:    make(map[string]ReaderAI),
 	}
 
-	if cfg.Azure.Token != "" {
-		var oai any
-		oai = azure_openai.New(cfg.Azure.Token, cfg.Azure.Endpoint, ai.ModelName{
-			ChatModel:      cfg.Azure.ChatModel,
-			EmbeddingModel: cfg.Azure.EmbeddingModel,
-		})
-
-		installAI(a, azure_openai.NAME, oai)
-	}
-
-	if cfg.QWen.Token != "" {
-		var oai any
-		oai = qwen.New(cfg.QWen.Token, cfg.QWen.Endpoint, ai.ModelName{
-			ChatModel:      cfg.QWen.ChatModel,
-			EmbeddingModel: cfg.QWen.EmbeddingModel,
-		})
-
-		installAI(a, qwen.NAME, oai)
-	}
+	cfg.Openai.Install(a)
+	cfg.Azure.Install(a)
+	cfg.QWen.Install(a)
+	cfg.Jina.Install(a)
+	// TODO: Gemini install
 
 	for k, v := range cfg.Usage {
-		if strings.Contains(k, "embedding") {
+		if k == "reader" {
+			a.readerUsage[k] = a.readerDrivers[v]
+		} else if strings.Contains(k, "embedding") {
 			a.embedUsage[k] = a.embedDrivers[v]
 		} else {
 			a.chatUsage[k] = a.chatDrivers[v]
@@ -246,6 +310,11 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 
 	for _, v := range a.enhanceDrivers {
 		a.enhanceDefault = v
+		break
+	}
+
+	for _, v := range a.readerDrivers {
+		a.readerDefault = v
 		break
 	}
 

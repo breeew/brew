@@ -784,3 +784,7 @@ type ResponseChoice struct {
 	FinishReason string
 	Error        error
 }
+
+type ReaderResult struct {
+	Content string `json:"content"`
+}

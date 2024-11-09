@@ -1,3 +1,7 @@
+[error.unsupported.feature]
+one = "Unsupported Feature"
+other = "Unsupported Feature"
+
 [error.notfound]
 one = "Resource does not exist"
 other = "Resource does not exist"

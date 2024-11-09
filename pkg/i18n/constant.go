@@ -17,6 +17,7 @@ const (
 	ERROR_TITLE_EXIST       = "error.title.exist"
 	ERROR_FORBIDDEN         = "error.forbidden"
 	ERROR_TOO_MANY_REQUESTS = "error.tooManyRequests"
+	ERROR_UNSUPPORTED_FEATURE = "error.unsupported.feature"
 
 	ERROR_INVALID_TOKEN   = "error.invalid.token"
 	ERROR_INVALID_ACCOUNT = "error.invalid.account"

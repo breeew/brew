@@ -53,7 +53,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		authed.Use(Authorization(s.Core))
 		user := authed.Group("/user")
 		{
-			user.PUT("/profile", s.UpdateUserProfile)
+			user.PUT("/profile", userLimit("profile"), s.UpdateUserProfile)
 		}
 
 		space := authed.Group("/space")
@@ -65,7 +65,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 
 			space.Use(VerifySpaceIDPermission(s.Core, srv.PermissionAdmin))
 			space.DELETE("/:spaceid", s.DeleteUserSpace)
-			space.PUT("/:spaceid", s.UpdateSpace)
+			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
 		}
@@ -121,6 +121,12 @@ func setupHttpRouter(s *handler.HttpSrv) {
 				message.Use(spaceLimit("create_message"))
 				message.POST("", s.CreateChatMessage)
 			}
+		}
+
+		tools := authed.Group("/tools")
+		{
+			tools.Use(userLimit("tools"))
+			tools.GET("/reader", s.ToolsReader)
 		}
 	}
 }
