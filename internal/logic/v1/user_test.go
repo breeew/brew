@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/starbx/brew-api/internal/core"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/plugins"
+	"github.com/breeew/brew-api/internal/core"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/plugins"
 	"github.com/stretchr/testify/assert"
 )
 

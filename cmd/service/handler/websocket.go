@@ -11,12 +11,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/holdno/firetower/protocol"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/response"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 var upgrader = websocket.Upgrader{

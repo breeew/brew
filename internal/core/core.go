@@ -11,9 +11,9 @@ import (
 
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/starbx/brew-api/internal/core/srv"
-	"github.com/starbx/brew-api/internal/store"
-	"github.com/starbx/brew-api/internal/store/sqlstore"
+	"github.com/breeew/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/internal/store"
+	"github.com/breeew/brew-api/internal/store/sqlstore"
 )
 
 type Core struct {

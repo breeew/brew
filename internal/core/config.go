@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/starbx/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/internal/core/srv"
 )
 
 func MustLoadBaseConfig(path string) CoreConfig {

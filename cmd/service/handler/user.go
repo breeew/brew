@@ -3,9 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/response"
-	"github.com/starbx/brew-api/pkg/utils"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 type AccessLoginResponse struct {

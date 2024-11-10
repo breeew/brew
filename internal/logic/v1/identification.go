@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"log/slog"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
-	"github.com/starbx/brew-api/pkg/security"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/security"
 )
 
 type _userInfo struct {

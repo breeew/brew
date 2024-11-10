@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/starbx/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/ai"
 )
 
 type Driver struct {

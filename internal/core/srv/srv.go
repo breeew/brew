@@ -1,7 +1,7 @@
 package srv
 
 import (
-	"github.com/starbx/brew-api/pkg/socket/firetower"
+	"github.com/breeew/brew-api/pkg/socket/firetower"
 )
 
 type Srv struct {

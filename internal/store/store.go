@@ -6,9 +6,9 @@ import (
 
 	"github.com/pgvector/pgvector-go"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/sqlstore"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/sqlstore"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 // KnowledgeStoreInterface 定义 KnowledgeStore 的方法集合

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 	"github.com/samber/lo"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/utils"
 )
 
 func setupChatLogic() *v1.ChatLogic {

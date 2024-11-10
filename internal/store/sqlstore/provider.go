@@ -6,9 +6,9 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	_ "github.com/lib/pq"
 
-	"github.com/starbx/brew-api/internal/store"
-	"github.com/starbx/brew-api/pkg/register"
-	"github.com/starbx/brew-api/pkg/sqlstore"
+	"github.com/breeew/brew-api/internal/store"
+	"github.com/breeew/brew-api/pkg/register"
+	"github.com/breeew/brew-api/pkg/sqlstore"
 )
 
 func init() {

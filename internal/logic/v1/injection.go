@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 
-	"github.com/starbx/brew-api/pkg/security"
+	"github.com/breeew/brew-api/pkg/security"
 )
 
 const (

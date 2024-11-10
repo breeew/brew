@@ -4,9 +4,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/logic/v1/process"
-	"github.com/starbx/brew-api/internal/plugins"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/logic/v1/process"
+	"github.com/breeew/brew-api/internal/plugins"
 )
 
 type Options struct {

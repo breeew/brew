@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 type Plugins interface {

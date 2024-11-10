@@ -15,8 +15,8 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/holdno/snowFlakeByGo"
 
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
 )
 
 var (

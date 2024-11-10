@@ -8,11 +8,11 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/starbx/brew-api/internal/core"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/pkg/safe"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/internal/core"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/pkg/safe"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 func NewSingleLock() *SingleLock {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/starbx/brew-api/pkg/metrics"
+	"github.com/breeew/brew-api/pkg/metrics"
 )
 
 type Metrics struct {

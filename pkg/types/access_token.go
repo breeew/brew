@@ -3,7 +3,7 @@ package types
 import (
 	"errors"
 
-	"github.com/starbx/brew-api/pkg/security"
+	"github.com/breeew/brew-api/pkg/security"
 )
 
 const (

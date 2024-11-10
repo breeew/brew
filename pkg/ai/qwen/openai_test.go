@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	openai "github.com/starbx/brew-api/pkg/ai/qwen"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	openai "github.com/breeew/brew-api/pkg/ai/qwen"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func init() {

@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/starbx/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core"
 )
 
 func Setup(install func(p core.Plugins), mode string) {
