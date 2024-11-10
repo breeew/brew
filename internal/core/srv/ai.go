@@ -6,12 +6,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/ai/azure_openai"
-	"github.com/starbx/brew-api/pkg/ai/jina"
-	"github.com/starbx/brew-api/pkg/ai/openai"
-	"github.com/starbx/brew-api/pkg/ai/qwen"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/ai/azure_openai"
+	"github.com/breeew/brew-api/pkg/ai/jina"
+	"github.com/breeew/brew-api/pkg/ai/openai"
+	"github.com/breeew/brew-api/pkg/ai/qwen"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 type ChatAI interface {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 func ProvideResponseLocalizer(l i18n.Localizer) gin.HandlerFunc {

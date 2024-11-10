@@ -12,7 +12,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 const (

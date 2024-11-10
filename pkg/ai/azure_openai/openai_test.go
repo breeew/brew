@@ -11,9 +11,9 @@ import (
 	oai "github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	openai "github.com/starbx/brew-api/pkg/ai/azure_openai"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	openai "github.com/breeew/brew-api/pkg/ai/azure_openai"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func init() {

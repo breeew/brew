@@ -10,10 +10,10 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/starbx/brew-api/pkg/mark"
-	"github.com/starbx/brew-api/pkg/safe"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/pkg/mark"
+	"github.com/breeew/brew-api/pkg/safe"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 type ModelName struct {

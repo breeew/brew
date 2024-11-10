@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/starbx/brew-api/internal/core"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/internal/core"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/pkg/utils"
 	"golang.org/x/time/rate"
 )
 
@@ -45,7 +45,7 @@ func (s *SaaSPlugin) AIChatLogic() core.AIChatLogic {
 }
 
 // ratelimit 代表每分钟允许的数量
-func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int)  core.Limiter {
+func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int) core.Limiter {
 	l, exist := limiter[key]
 	if !exist {
 		limit := rate.Every(time.Minute / time.Duration(defaultRatelimit))

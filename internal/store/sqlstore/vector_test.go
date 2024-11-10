@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/breeew/brew-api/pkg/types"
 	"github.com/pgvector/pgvector-go"
-	"github.com/starbx/brew-api/pkg/types"
 )
 
 type PGConfig struct {

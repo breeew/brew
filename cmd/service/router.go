@@ -3,11 +3,11 @@ package service
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/starbx/brew-api/cmd/service/handler"
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/response"
+	"github.com/breeew/brew-api/cmd/service/handler"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/response"
 )
 
 func serve(core *core.Core) {

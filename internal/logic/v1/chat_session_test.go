@@ -3,7 +3,7 @@ package v1_test
 import (
 	"testing"
 
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
 )
 
 func setupChatSessionLogic() *v1.ChatSessionLogic {

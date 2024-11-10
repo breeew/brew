@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/starbx/brew-api/pkg/ai/jina"
+	"github.com/breeew/brew-api/pkg/ai/jina"
 )
 
 func init() {

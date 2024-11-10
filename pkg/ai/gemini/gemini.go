@@ -11,8 +11,8 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 const (

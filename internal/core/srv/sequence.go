@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-redis/redis/v9"
 
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 type SeqGen interface {

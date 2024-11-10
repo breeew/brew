@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func errorSqlBuild(err error) error {

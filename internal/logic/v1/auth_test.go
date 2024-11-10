@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
 )
 
 func Test_GenAccessToken(t *testing.T) {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/starbx/brew-api/internal/core"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/response"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/internal/core"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
 )
 
 func I18n() gin.HandlerFunc {

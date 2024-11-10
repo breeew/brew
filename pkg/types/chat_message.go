@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 type ChatMessage struct {

@@ -6,8 +6,8 @@ import (
 	fireprotocol "github.com/holdno/firetower/protocol"
 	"github.com/holdno/firetower/service/tower"
 
-	"github.com/starbx/brew-api/pkg/socket/firetower"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/socket/firetower"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 type Tower struct {

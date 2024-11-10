@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/starbx/brew-api/internal/core"
-	v1 "github.com/starbx/brew-api/internal/logic/v1"
-	"github.com/starbx/brew-api/internal/plugins"
-	"github.com/starbx/brew-api/pkg/mark"
-	"github.com/starbx/brew-api/pkg/security"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/internal/core"
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/internal/plugins"
+	"github.com/breeew/brew-api/pkg/mark"
+	"github.com/breeew/brew-api/pkg/security"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 var (

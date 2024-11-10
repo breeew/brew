@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/breeew/brew-api/pkg/ai/gemini"
+	"github.com/breeew/brew-api/pkg/types"
 	"github.com/google/generative-ai-go/genai"
-	"github.com/starbx/brew-api/pkg/ai/gemini"
-	"github.com/starbx/brew-api/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/option"
 )

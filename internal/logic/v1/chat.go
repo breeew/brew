@@ -10,12 +10,12 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
-	"github.com/starbx/brew-api/pkg/safe"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/types/protocol"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/safe"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/types/protocol"
 )
 
 type ChatLogic struct {

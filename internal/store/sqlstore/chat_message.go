@@ -7,8 +7,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/starbx/brew-api/pkg/register"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/register"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func init() {

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 // logic for unlogin

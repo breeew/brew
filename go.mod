@@ -1,4 +1,4 @@
-module github.com/starbx/brew-api
+module github.com/breeew/brew-api
 
 go 1.22.0
 

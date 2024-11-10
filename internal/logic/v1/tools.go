@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
 )
 
 type ReaderLogic struct {
@@ -30,7 +30,7 @@ func (l *ReaderLogic) Reader(endpoint string) (*ai.ReaderResult, error) {
 	if err != nil {
 		errMsg := i18n.ERROR_INTERNAL
 		code := http.StatusInternalServerError
-		
+
 		if err == srv.ERROR_UNSUPPORTED_FEATURE {
 			errMsg = i18n.ERROR_UNSUPPORTED_FEATURE
 			code = http.StatusForbidden

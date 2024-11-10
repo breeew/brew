@@ -3,9 +3,9 @@ package srv
 import (
 	"net/http"
 
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/mikespook/gorbac/v2"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
 )
 
 const (

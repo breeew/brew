@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/breeew/brew-api/cmd/service"
 	"github.com/spf13/cobra"
-	"github.com/starbx/brew-api/cmd/service"
 )
 
 func main() {

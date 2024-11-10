@@ -11,8 +11,8 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 const (

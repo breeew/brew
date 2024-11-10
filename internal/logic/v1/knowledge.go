@@ -13,16 +13,16 @@ import (
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
 
-	"github.com/starbx/brew-api/internal/core"
-	"github.com/starbx/brew-api/internal/core/srv"
-	"github.com/starbx/brew-api/internal/logic/v1/process"
-	"github.com/starbx/brew-api/pkg/ai"
-	"github.com/starbx/brew-api/pkg/errors"
-	"github.com/starbx/brew-api/pkg/i18n"
-	"github.com/starbx/brew-api/pkg/mark"
-	"github.com/starbx/brew-api/pkg/safe"
-	"github.com/starbx/brew-api/pkg/types"
-	"github.com/starbx/brew-api/pkg/utils"
+	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/core/srv"
+	"github.com/breeew/brew-api/internal/logic/v1/process"
+	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/errors"
+	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/mark"
+	"github.com/breeew/brew-api/pkg/safe"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 const CONTEXT_SCENE_PROMPT = `
