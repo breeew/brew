@@ -103,7 +103,7 @@ type Knowledge struct {
 	Resource    string               `json:"resource" db:"resource"`
 	Title       string               `json:"title" db:"title"`
 	Tags        pq.StringArray       `json:"tags" db:"tags"`
-	Content     json.RawMessage      `json:"content" db:"content"`
+	Content     KnowledgeContent     `json:"content" db:"content"`
 	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
 	UserID      string               `json:"user_id" db:"user_id"`
 	Summary     string               `json:"summary" db:"summary"`
@@ -112,6 +112,29 @@ type Knowledge struct {
 	CreatedAt   int64                `json:"created_at" db:"created_at"`
 	UpdatedAt   int64                `json:"updated_at" db:"updated_at"`
 	RetryTimes  int                  `json:"retry_times" db:"retry_times"`
+}
+
+// StringArray represents a one-dimensional array of the PostgreSQL character types.
+type KnowledgeContent json.RawMessage
+
+// Scan implements the sql.Scanner interface.
+func (a *KnowledgeContent) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	case nil:
+		*a = nil
+		return nil
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to json.RawMessage", src)
+}
+
+func (a *KnowledgeContent) scanBytes(src []byte) error {
+	*a = src
+	return nil
 }
 
 type KnowledgeContentType string

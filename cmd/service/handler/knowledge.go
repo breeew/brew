@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 
@@ -148,6 +149,24 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 	if err != nil {
 		response.APIError(c, err)
 		return
+	}
+
+	for _, v := range list {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content)
+			if err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+			v.ContentType = types.KNOWLEDGE_CONTENT_TYPE_MARKDOWN
+		}
+
+		if len([]rune(content)) > 300 {
+			content = string([]rune(content)[:300])
+		}
+
+		v.Content = json.RawMessage(content)
 	}
 
 	response.APISuccess(c, ListKnowledgeResponse{
