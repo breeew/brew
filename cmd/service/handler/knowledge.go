@@ -169,13 +169,13 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 	for _, v := range list {
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			v.Blocks = json.RawMessage(v.Content)
 			content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content))
 			if err != nil {
 				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
 				continue
 			}
-			v.Blocks = json.RawMessage(v.Content)
-
+			
 			// editor will be used blocks data, content only show as brief
 			if len([]rune(content)) > 300 {
 				content = string([]rune(content)[:300])
