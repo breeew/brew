@@ -127,8 +127,8 @@ github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWm
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/holdno/firetower v0.4.4 h1:uXVrRsMEfqCi54ogDjgCzxXvIWwCPKGPWlmqHBA7ebU=
 github.com/holdno/firetower v0.4.4/go.mod h1:oAf1RPAnDtstgoHkk0K7CONPRtK3tySp2WgUNzbJjEs=
-github.com/holdno/goeditorjs v0.1.1 h1:3N9vjMhio1a5IICnY8tx6glxikaX1+pfyWAVFkTxIQ0=
-github.com/holdno/goeditorjs v0.1.1/go.mod h1:Th+tPJTsJLF6FmLzLeiZ/rSFxMca3b4lsvtLLVnaVl8=
+github.com/holdno/goeditorjs v0.1.2 h1:jYU0uu5svHZFKBhpYnO0/K19l13EkGCM68MDEV1F+eI=
+github.com/holdno/goeditorjs v0.1.2/go.mod h1:Th+tPJTsJLF6FmLzLeiZ/rSFxMca3b4lsvtLLVnaVl8=
 github.com/holdno/snowFlakeByGo v1.0.0 h1:YbS4Jx78sF688XG8iwTRUDtIIH6+R+WWVWyS8uq8xOg=
 github.com/holdno/snowFlakeByGo v1.0.0/go.mod h1:aqAI0YiLKgShMi9R71i5S81IWfb0x2ghGF2w1RjyNbs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=

@@ -1,8 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
+
 	"github.com/davidscottmills/goeditorjs"
-	"github.com/starbx/brew-api/pkg/types"
 )
 
 var editorJSMarkdownEngine *goeditorjs.MarkdownEngine
@@ -16,9 +17,10 @@ func init() {
 		&goeditorjs.ListHandler{},
 		&goeditorjs.CodeBoxHandler{},
 		&goeditorjs.ImageHandler{},
+		&goeditorjs.TableHandler{},
 	)
 }
 
-func ConvertEditorJSBlocksToMarkdown(blockString types.KnowledgeContent) (string, error) {
+func ConvertEditorJSBlocksToMarkdown(blockString json.RawMessage) (string, error) {
 	return editorJSMarkdownEngine.GenerateMarkdown(string(blockString))
 }

@@ -96,6 +96,9 @@ type KnowledgeLite struct {
 	UserID   string         `json:"user_id" db:"user_id"`
 }
 
+type KnowledgeResponse struct {
+}
+
 type Knowledge struct {
 	ID          string               `json:"id" db:"id"`
 	SpaceID     string               `json:"space_id" db:"space_id"`
@@ -104,6 +107,7 @@ type Knowledge struct {
 	Title       string               `json:"title" db:"title"`
 	Tags        pq.StringArray       `json:"tags" db:"tags"`
 	Content     KnowledgeContent     `json:"content" db:"content"`
+	Blocks      json.RawMessage      `json:"blocks" db:"-"`
 	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
 	UserID      string               `json:"user_id" db:"user_id"`
 	Summary     string               `json:"summary" db:"summary"`
@@ -117,6 +121,19 @@ type Knowledge struct {
 // StringArray represents a one-dimensional array of the PostgreSQL character types.
 type KnowledgeContent json.RawMessage
 
+func (m KnowledgeContent) MarshalJSON() ([]byte, error) {
+	// 自定义 Timestamp 字段的格式
+	if m == nil {
+		return []byte("\"\""), nil
+	}
+	return json.Marshal(string(m))
+}
+
+func (m *KnowledgeContent) UnmarshalJSON(data []byte) error {
+	*m = data
+	return nil
+}
+
 // Scan implements the sql.Scanner interface.
 func (a *KnowledgeContent) Scan(src interface{}) error {
 	switch src := src.(type) {
@@ -125,7 +142,6 @@ func (a *KnowledgeContent) Scan(src interface{}) error {
 	case string:
 		return a.scanBytes([]byte(src))
 	case nil:
-		*a = nil
 		return nil
 	}
 
@@ -133,7 +149,7 @@ func (a *KnowledgeContent) Scan(src interface{}) error {
 }
 
 func (a *KnowledgeContent) scanBytes(src []byte) error {
-	*a = src
+	*a = KnowledgeContent(src)
 	return nil
 }
 

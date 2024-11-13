@@ -56,7 +56,7 @@ func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
 
 type CreateKnowledgeRequest struct {
 	Resource    string                     `json:"resource"`
-	Content     json.RawMessage            `json:"content" binding:"required"`
+	Content     types.KnowledgeContent     `json:"content" binding:"required"`
 	ContentType types.KnowledgeContentType `json:"content_type" binding:"required"`
 	Kind        string                     `json:"kind"`
 	Async       bool                       `json:"async"`
@@ -75,7 +75,7 @@ func (s *HttpSrv) CreateKnowledge(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	var handler func(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error)
+	var handler func(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error)
 	logic := v1.NewKnowledgeLogic(c, s.Core)
 	if req.Async {
 		handler = logic.InsertContentAsync
@@ -113,6 +113,21 @@ func (s *HttpSrv) GetKnowledge(c *gin.Context) {
 		response.APIError(c, err)
 		return
 	}
+
+	content := string(knowledge.Content)
+	if knowledge.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(knowledge.Content))
+		if err != nil {
+			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", knowledge.ID), slog.String("error", err.Error()))
+		}
+		knowledge.Blocks = json.RawMessage(knowledge.Content)
+
+		// editor will be used blocks data, content only show as brief
+		if len([]rune(content)) > 300 {
+			content = string([]rune(content)[:300])
+		}
+	}
+	knowledge.Content = types.KnowledgeContent(content)
 
 	response.APISuccess(c, knowledge)
 }
@@ -154,19 +169,20 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 	for _, v := range list {
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content)
+			content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content))
 			if err != nil {
 				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
 				continue
 			}
-			v.ContentType = types.KNOWLEDGE_CONTENT_TYPE_MARKDOWN
+			v.Blocks = json.RawMessage(v.Content)
+
+			// editor will be used blocks data, content only show as brief
+			if len([]rune(content)) > 300 {
+				content = string([]rune(content)[:300])
+			}
 		}
 
-		if len([]rune(content)) > 300 {
-			content = string([]rune(content)[:300])
-		}
-
-		v.Content = json.RawMessage(content)
+		v.Content = types.KnowledgeContent(content)
 	}
 
 	response.APISuccess(c, ListKnowledgeResponse{

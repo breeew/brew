@@ -163,13 +163,14 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	}
 
 	err = l.core.Store().KnowledgeStore().Update(l.ctx, spaceID, id, types.UpdateKnowledgeArgs{
-		Resource: args.Resource,
-		Title:    args.Title,
-		Content:  args.Content,
-		Tags:     args.Tags,
-		Stage:    types.KNOWLEDGE_STAGE_SUMMARIZE,
-		Kind:     args.Kind,
-		Summary:  strings.Join(summary, ","),
+		Resource:    args.Resource,
+		Title:       args.Title,
+		Content:     args.Content,
+		ContentType: args.ContentType,
+		Tags:        args.Tags,
+		Stage:       types.KNOWLEDGE_STAGE_SUMMARIZE,
+		Kind:        args.Kind,
+		Summary:     strings.Join(summary, ","),
 	})
 	if err != nil {
 		return errors.New("KnowledgeLogic.Update.KnowledgeStore.Update", i18n.ERROR_INTERNAL, err)
@@ -269,7 +270,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	for _, v := range knowledges {
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			if content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content); err != nil {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
 				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
 				continue
 			}
@@ -353,7 +354,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	for _, v := range knowledges {
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			if content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content); err != nil {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
 				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
 				continue
 			}
@@ -395,7 +396,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	return &result, nil
 }
 
-func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
+func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
 	if resource == "" {
 		resource = types.DEFAULT_RESOURCE
 	}
@@ -442,11 +443,11 @@ const (
 	InserTypeAsync = false
 )
 
-func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
+func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
 	return l.insertContent(InserTypeAsync, spaceID, resource, kind, content, contentType)
 }
 
-func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
+func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
 	return l.insertContent(InserTypeSync, spaceID, resource, kind, content, contentType)
 	// sw := mark.NewSensitiveWork()
 	// content = sw.Do(content)
