@@ -150,7 +150,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	})
 
 	go safe.Run(func() {
-		docs, err := NewKnowledgeLogic(l.ctx, l.core).GetRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+		docs, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
 		if err != nil {
 			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
 			return

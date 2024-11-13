@@ -127,6 +127,8 @@ github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWm
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/holdno/firetower v0.4.4 h1:uXVrRsMEfqCi54ogDjgCzxXvIWwCPKGPWlmqHBA7ebU=
 github.com/holdno/firetower v0.4.4/go.mod h1:oAf1RPAnDtstgoHkk0K7CONPRtK3tySp2WgUNzbJjEs=
+github.com/holdno/goeditorjs v0.1.1 h1:3N9vjMhio1a5IICnY8tx6glxikaX1+pfyWAVFkTxIQ0=
+github.com/holdno/goeditorjs v0.1.1/go.mod h1:Th+tPJTsJLF6FmLzLeiZ/rSFxMca3b4lsvtLLVnaVl8=
 github.com/holdno/snowFlakeByGo v1.0.0 h1:YbS4Jx78sF688XG8iwTRUDtIIH6+R+WWVWyS8uq8xOg=
 github.com/holdno/snowFlakeByGo v1.0.0/go.mod h1:aqAI0YiLKgShMi9R71i5S81IWfb0x2ghGF2w1RjyNbs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
@@ -238,6 +240,7 @@ github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
 github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=

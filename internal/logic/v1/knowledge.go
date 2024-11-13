@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -154,7 +155,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	if !tagsChanged {
 		summary = append(summary, "tags")
 	}
-	if args.Content != oldKnowledge.Content {
+	if string(args.Content) != string(oldKnowledge.Content) {
 		summary = append(summary, "content")
 	}
 	if args.Title == "" {
@@ -196,7 +197,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
+func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
 	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
@@ -266,10 +267,18 @@ func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, r
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 
 	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
+
 		sw := mark.NewSensitiveWork()
 		result.Docs = append(result.Docs, &types.PassageInfo{
 			ID:       v.ID,
-			Content:  sw.Do(v.Content),
+			Content:  sw.Do(content),
 			DateTime: v.MaybeDate,
 			SW:       sw,
 		})
@@ -342,10 +351,17 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		docs []*types.PassageInfo
 	)
 	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(v.Content); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
 		sw := mark.NewSensitiveWork()
 		docs = append(docs, &types.PassageInfo{
 			ID:       v.ID,
-			Content:  sw.Do(v.Content),
+			Content:  sw.Do(content),
 			DateTime: v.MaybeDate,
 			SW:       sw,
 		})
@@ -379,23 +395,24 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	return &result, nil
 }
 
-func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
+func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
 	if resource == "" {
 		resource = types.DEFAULT_RESOURCE
 	}
 	knowledgeID := utils.GenRandomID()
 	user := l.GetUserInfo()
 	knowledge := types.Knowledge{
-		ID:        knowledgeID,
-		SpaceID:   spaceID,
-		UserID:    user.User,
-		Resource:  resource,
-		Content:   content,
-		Kind:      kind,
-		Stage:     types.KNOWLEDGE_STAGE_SUMMARIZE,
-		MaybeDate: time.Now().Local().Format("2006-01-02 15:04"),
-		CreatedAt: time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
+		ID:          knowledgeID,
+		SpaceID:     spaceID,
+		UserID:      user.User,
+		Resource:    resource,
+		Content:     content,
+		ContentType: contentType,
+		Kind:        kind,
+		Stage:       types.KNOWLEDGE_STAGE_SUMMARIZE,
+		MaybeDate:   time.Now().Local().Format("2006-01-02 15:04"),
+		CreatedAt:   time.Now().Unix(),
+		UpdatedAt:   time.Now().Unix(),
 	}
 	err := l.core.Store().KnowledgeStore().Create(l.ctx, knowledge)
 	if err != nil {
@@ -425,12 +442,12 @@ const (
 	InserTypeAsync = false
 )
 
-func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
-	return l.insertContent(InserTypeAsync, spaceID, resource, kind, content)
+func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
+	return l.insertContent(InserTypeAsync, spaceID, resource, kind, content, contentType)
 }
 
-func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
-	return l.insertContent(InserTypeSync, spaceID, resource, kind, content)
+func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error) {
+	return l.insertContent(InserTypeSync, spaceID, resource, kind, content, contentType)
 	// sw := mark.NewSensitiveWork()
 	// content = sw.Do(content)
 

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/starbx/brew-api/internal/core"
@@ -16,12 +18,13 @@ type HttpSrv struct {
 }
 
 type UpdateKnowledgeRequest struct {
-	ID       string              `json:"id" binding:"required"`
-	Title    string              `json:"title"`
-	Resource string              `json:"resource"`
-	Content  string              `json:"content"`
-	Tags     []string            `json:"tags"`
-	Kind     types.KnowledgeKind `json:"kind"`
+	ID          string                     `json:"id" binding:"required"`
+	Title       string                     `json:"title"`
+	Resource    string                     `json:"resource"`
+	Content     json.RawMessage            `json:"content"`
+	ContentType types.KnowledgeContentType `json:"content_type"`
+	Tags        []string                   `json:"tags"`
+	Kind        types.KnowledgeKind        `json:"kind"`
 }
 
 func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
@@ -36,11 +39,12 @@ func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
 
 	spaceID, _ := v1.InjectSpaceID(c)
 	err = v1.NewKnowledgeLogic(c, s.Core).Update(spaceID, req.ID, types.UpdateKnowledgeArgs{
-		Title:    req.Title,
-		Content:  req.Content,
-		Resource: req.Resource,
-		Tags:     req.Tags,
-		Kind:     req.Kind,
+		Title:       req.Title,
+		Content:     req.Content,
+		ContentType: req.ContentType,
+		Resource:    req.Resource,
+		Tags:        req.Tags,
+		Kind:        req.Kind,
 	})
 	if err != nil {
 		response.APIError(c, err)
@@ -50,10 +54,11 @@ func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
 }
 
 type CreateKnowledgeRequest struct {
-	Resource string `json:"resource"`
-	Content  string `json:"content" binding:"required"`
-	Kind     string `json:"kind"`
-	Async    bool   `json:"async"`
+	Resource    string                     `json:"resource"`
+	Content     json.RawMessage            `json:"content" binding:"required"`
+	ContentType types.KnowledgeContentType `json:"content_type" binding:"required"`
+	Kind        string                     `json:"kind"`
+	Async       bool                       `json:"async"`
 }
 
 type CreateKnowledgeResponse struct {
@@ -69,14 +74,14 @@ func (s *HttpSrv) CreateKnowledge(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	var handler func(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error)
+	var handler func(spaceID, resource string, kind types.KnowledgeKind, content json.RawMessage, contentType types.KnowledgeContentType) (string, error)
 	logic := v1.NewKnowledgeLogic(c, s.Core)
 	if req.Async {
 		handler = logic.InsertContentAsync
 	} else {
 		handler = logic.InsertContent
 	}
-	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content)
+	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content, req.ContentType)
 	if err != nil {
 		response.APIError(c, err)
 		return

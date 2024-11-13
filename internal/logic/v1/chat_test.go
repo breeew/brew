@@ -22,7 +22,7 @@ func Test_GetRelevanceKnowledges(t *testing.T) {
 	userID := os.Getenv("TEST_USER_ID")
 	message := "React 路由如何配置？"
 
-	docs, err := knowledgeLogic.GetRelevanceKnowledges(spaceID, userID, message, nil)
+	docs, err := knowledgeLogic.GetQueryRelevanceKnowledges(spaceID, userID, message, nil)
 	if err != nil {
 		t.Error(err)
 	}

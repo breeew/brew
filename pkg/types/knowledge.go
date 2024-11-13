@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -96,20 +97,43 @@ type KnowledgeLite struct {
 }
 
 type Knowledge struct {
-	ID         string         `json:"id" db:"id"`
-	SpaceID    string         `json:"space_id" db:"space_id"`
-	Kind       KnowledgeKind  `json:"kind" db:"kind"`
-	Resource   string         `json:"resource" db:"resource"`
-	Title      string         `json:"title" db:"title"`
-	Tags       pq.StringArray `json:"tags" db:"tags"`
-	Content    string         `json:"content" db:"content"`
-	UserID     string         `json:"user_id" db:"user_id"`
-	Summary    string         `json:"summary" db:"summary"`
-	MaybeDate  string         `json:"maybe_date" db:"maybe_date"`
-	Stage      KnowledgeStage `json:"stage" db:"stage"`
-	CreatedAt  int64          `json:"created_at" db:"created_at"`
-	UpdatedAt  int64          `json:"updated_at" db:"updated_at"`
-	RetryTimes int            `json:"retry_times" db:"retry_times"`
+	ID          string               `json:"id" db:"id"`
+	SpaceID     string               `json:"space_id" db:"space_id"`
+	Kind        KnowledgeKind        `json:"kind" db:"kind"`
+	Resource    string               `json:"resource" db:"resource"`
+	Title       string               `json:"title" db:"title"`
+	Tags        pq.StringArray       `json:"tags" db:"tags"`
+	Content     json.RawMessage      `json:"content" db:"content"`
+	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
+	UserID      string               `json:"user_id" db:"user_id"`
+	Summary     string               `json:"summary" db:"summary"`
+	MaybeDate   string               `json:"maybe_date" db:"maybe_date"`
+	Stage       KnowledgeStage       `json:"stage" db:"stage"`
+	CreatedAt   int64                `json:"created_at" db:"created_at"`
+	UpdatedAt   int64                `json:"updated_at" db:"updated_at"`
+	RetryTimes  int                  `json:"retry_times" db:"retry_times"`
+}
+
+type KnowledgeContentType string
+
+const (
+	KNOWLEDGE_CONTENT_TYPE_MARKDOWN KnowledgeContentType = "markdown"
+	KNOWLEDGE_CONTENT_TYPE_HTML     KnowledgeContentType = "html"
+	KNOWLEDGE_CONTENT_TYPE_BLOCKS   KnowledgeContentType = "blocks"
+	KNOWLEDGE_CONTENT_TYPE_UNKNOWN  KnowledgeContentType = "unknown"
+)
+
+func StringToKnowledgeContentType(str string) KnowledgeContentType {
+	switch strings.ToLower(str) {
+	case string(KNOWLEDGE_CONTENT_TYPE_BLOCKS):
+		return KNOWLEDGE_CONTENT_TYPE_BLOCKS
+	case string(KNOWLEDGE_CONTENT_TYPE_MARKDOWN):
+		return KNOWLEDGE_CONTENT_TYPE_MARKDOWN
+	case string(KNOWLEDGE_CONTENT_TYPE_HTML):
+		return KNOWLEDGE_CONTENT_TYPE_HTML
+	default:
+		return KNOWLEDGE_CONTENT_TYPE_UNKNOWN
+	}
 }
 
 type GetKnowledgeOptions struct {
@@ -171,11 +195,12 @@ func (r *ResourceQuery) ToQuery() sq.Sqlizer {
 }
 
 type UpdateKnowledgeArgs struct {
-	Title    string
-	Resource string
-	Kind     KnowledgeKind
-	Content  string
-	Tags     []string
-	Stage    KnowledgeStage
-	Summary  string
+	Title       string
+	Resource    string
+	Kind        KnowledgeKind
+	Content     json.RawMessage
+	ContentType KnowledgeContentType
+	Tags        []string
+	Stage       KnowledgeStage
+	Summary     string
 }

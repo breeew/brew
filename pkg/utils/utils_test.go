@@ -1,6 +1,8 @@
 package utils
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGenRandomID(t *testing.T) {
 	SetupIDWorker(1)
