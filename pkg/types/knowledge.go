@@ -97,6 +97,19 @@ type KnowledgeLite struct {
 }
 
 type KnowledgeResponse struct {
+	ID          string               `json:"id" db:"id"`
+	SpaceID     string               `json:"space_id" db:"space_id"`
+	Kind        KnowledgeKind        `json:"kind" db:"kind"`
+	Resource    string               `json:"resource" db:"resource"`
+	Title       string               `json:"title" db:"title"`
+	Tags        pq.StringArray       `json:"tags" db:"tags"`
+	Content     string               `json:"content" db:"content"`
+	Blocks      json.RawMessage      `json:"blocks" db:"-"`
+	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
+	UserID      string               `json:"user_id" db:"user_id"`
+	Stage       KnowledgeStage       `json:"stage" db:"stage"`
+	CreatedAt   int64                `json:"created_at" db:"created_at"`
+	UpdatedAt   int64                `json:"updated_at" db:"updated_at"`
 }
 
 type Knowledge struct {
@@ -107,7 +120,6 @@ type Knowledge struct {
 	Title       string               `json:"title" db:"title"`
 	Tags        pq.StringArray       `json:"tags" db:"tags"`
 	Content     KnowledgeContent     `json:"content" db:"content"`
-	Blocks      json.RawMessage      `json:"blocks" db:"-"`
 	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
 	UserID      string               `json:"user_id" db:"user_id"`
 	Summary     string               `json:"summary" db:"summary"`

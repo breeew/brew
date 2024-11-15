@@ -3,6 +3,8 @@ package plugins
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -140,4 +142,50 @@ func (s *SelfHostPlugin) UseLimiter(key string, method string, defaultRatelimit 
 	}
 
 	return l
+}
+
+func (s *SelfHostPlugin) FileUploader() core.FileStorage {
+	return &LocalFileStorage{}
+}
+
+type LocalFileStorage struct{}
+
+func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+	return core.UploadFileMeta{
+		FullPath: filepath.Join(filePath, fileName),
+	}, nil
+}
+
+// SaveFile stores a file on the local file system.
+func (lfs *LocalFileStorage) SaveFile(filePath, fileName string, content []byte) error {
+	// Check if the directory exists
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		// If the directory doesn't exist, create it
+		err := os.MkdirAll(filePath, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory: %v", err)
+		}
+	} else if err != nil {
+		// If there's an error other than "not exist", return it
+		return fmt.Errorf("failed to check directory: %v", err)
+	}
+
+	// Save the file
+	fullPath := filepath.Join(filePath, fileName)
+	err = os.WriteFile(fullPath, content, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to save file: %v", err)
+	}
+
+	return nil
+}
+
+// DeleteFile deletes a file from the local file system using the full file path.
+func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
+	err := os.Remove(fullFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to delete file: %v", err)
+	}
+	return nil
 }

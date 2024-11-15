@@ -16,11 +16,12 @@ func init() {
 		&goeditorjs.ParagraphHandler{},
 		&goeditorjs.ListHandler{},
 		&goeditorjs.CodeBoxHandler{},
+		&goeditorjs.CodeHandler{},
 		&goeditorjs.ImageHandler{},
 		&goeditorjs.TableHandler{},
 	)
 }
 
 func ConvertEditorJSBlocksToMarkdown(blockString json.RawMessage) (string, error) {
-	return editorJSMarkdownEngine.GenerateMarkdown(string(blockString))
+	return editorJSMarkdownEngine.GenerateMarkdownWithUnknownBlock(string(blockString))
 }

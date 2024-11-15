@@ -12,11 +12,24 @@ type Plugins interface {
 	TryLock(ctx context.Context, key string) (bool, error)
 	AIChatLogic() AIChatLogic
 	UseLimiter(key string, method string, defaultRatelimit int) Limiter
+	FileUploader() FileStorage
 }
 
 type AIChatLogic interface {
 	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
 	RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
+}
+
+type UploadFileMeta struct {
+	FullPath string `json:"full_path"`
+	Token    string `json:"token"`
+}
+
+// FileStorage interface defines methods for file operations.
+type FileStorage interface {
+	GenUploadFileMeta(filePath, fileName string) (UploadFileMeta, error)
+	SaveFile(filePath, fileName string, content []byte) error
+	DeleteFile(fullFilePath string) error
 }
 
 type Limiter interface {

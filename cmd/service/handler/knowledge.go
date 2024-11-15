@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
@@ -114,22 +115,7 @@ func (s *HttpSrv) GetKnowledge(c *gin.Context) {
 		return
 	}
 
-	content := string(knowledge.Content)
-	if knowledge.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-		content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(knowledge.Content))
-		if err != nil {
-			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", knowledge.ID), slog.String("error", err.Error()))
-		}
-		knowledge.Blocks = json.RawMessage(knowledge.Content)
-
-		// editor will be used blocks data, content only show as brief
-		if len([]rune(content)) > 300 {
-			content = string([]rune(content)[:300])
-		}
-	}
-	knowledge.Content = types.KnowledgeContent(content)
-
-	response.APISuccess(c, knowledge)
+	response.APISuccess(c, KnowledgeToKnowledgeResponse(knowledge))
 }
 
 type ListKnowledgeRequest struct {
@@ -140,8 +126,8 @@ type ListKnowledgeRequest struct {
 }
 
 type ListKnowledgeResponse struct {
-	List  []*types.Knowledge `json:"list"`
-	Total uint64             `json:"total"`
+	List  []*types.KnowledgeResponse `json:"list"`
+	Total uint64                     `json:"total"`
 }
 
 func (s *HttpSrv) ListKnowledge(c *gin.Context) {
@@ -166,29 +152,46 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 		return
 	}
 
-	for _, v := range list {
-		content := string(v.Content)
-		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			v.Blocks = json.RawMessage(v.Content)
-			content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content))
-			if err != nil {
-				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
-				continue
-			}
-			
-			// editor will be used blocks data, content only show as brief
-			if len([]rune(content)) > 300 {
-				content = string([]rune(content)[:300])
-			}
-		}
-
-		v.Content = types.KnowledgeContent(content)
-	}
+	knowledgeList := lo.Map[*types.Knowledge, *types.KnowledgeResponse](list, func(item *types.Knowledge, index int) *types.KnowledgeResponse {
+		return KnowledgeToKnowledgeResponse(item)
+	})
 
 	response.APISuccess(c, ListKnowledgeResponse{
-		List:  list,
+		List:  knowledgeList,
 		Total: total,
 	})
+}
+
+func KnowledgeToKnowledgeResponse(item *types.Knowledge) *types.KnowledgeResponse {
+	result := &types.KnowledgeResponse{
+		ID:          item.ID,
+		SpaceID:     item.SpaceID,
+		Title:       item.Title,
+		ContentType: item.ContentType,
+		Tags:        item.Tags,
+		Kind:        item.Kind,
+		Resource:    item.Resource,
+		UserID:      item.UserID,
+		Stage:       item.Stage,
+		UpdatedAt:   item.UpdatedAt,
+		CreatedAt:   item.CreatedAt,
+	}
+
+	result.Content = string(item.Content)
+	if result.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		result.Blocks = json.RawMessage(item.Content)
+		var err error
+		result.Content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(item.Content))
+		if err != nil {
+			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", item.ID), slog.String("error", err.Error()))
+		}
+
+		// editor will be used blocks data, content only show as brief
+		if len([]rune(result.Content)) > 300 {
+			result.Content = string([]rune(result.Content)[:300])
+		}
+	}
+	return result
 }
 
 type DeleteKnowledgeRequest struct {

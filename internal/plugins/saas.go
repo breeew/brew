@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
 	"github.com/breeew/brew-api/internal/core"
@@ -54,4 +55,28 @@ func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int)
 	}
 
 	return l
+}
+
+func (s *SaaSPlugin) FileUploader() core.FileStorage {
+	return &LocalFileStorage{}
+}
+
+type S3 struct{}
+
+func (lfs *S3) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+	return core.UploadFileMeta{
+		FullPath: filepath.Join(filePath, fileName),
+	}, nil
+}
+
+// SaveFile stores a file on the s3 file system.
+func (lfs *S3) SaveFile(filePath, fileName string, content []byte) error {
+	// TODO
+	return nil
+}
+
+// DeleteFile deletes a file from the s3 file system using the full file path.
+func (lfs *S3) DeleteFile(fullFilePath string) error {
+	// TODO
+	return nil
 }
