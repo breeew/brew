@@ -21,8 +21,8 @@ type AIChatLogic interface {
 }
 
 type UploadFileMeta struct {
+	Endpoint string `json:"endpoint"`
 	FullPath string `json:"full_path"`
-	Token    string `json:"token"`
 }
 
 // FileStorage interface defines methods for file operations.

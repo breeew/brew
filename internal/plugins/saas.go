@@ -2,11 +2,12 @@ package plugins
 
 import (
 	"context"
-	"path/filepath"
+	"fmt"
 	"time"
 
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/pkg/s3"
 	"github.com/breeew/brew-api/pkg/utils"
 	"golang.org/x/time/rate"
 )
@@ -20,10 +21,16 @@ func newSaaSPlugin() *SaaSPlugin {
 	}
 }
 
+type SaaSCustomConfig struct {
+	S3 S3Config `toml:"s3"`
+}
+
 type SaaSPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
+
+	S3Config *S3Config
 }
 
 func (s *SaaSPlugin) DefaultAppid() string {
@@ -33,6 +40,13 @@ func (s *SaaSPlugin) DefaultAppid() string {
 func (s *SaaSPlugin) Install(c *core.Core) error {
 	s.core = c
 	utils.SetupIDWorker(1) // TODO: Cluster id by redis
+
+	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
+		return fmt.Errorf("Failed to install custom config, %w", err)
+	}
+	s.S3Config = &customConfig.CustomConfig.S3
+
 	return nil
 }
 
@@ -58,25 +72,10 @@ func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int)
 }
 
 func (s *SaaSPlugin) FileUploader() core.FileStorage {
+	if s.S3Config != nil {
+		return &S3FileStorage{
+			S3: s3.NewS3Client(s.S3Config.Endpoint, s.S3Config.Region, s.S3Config.Bucket, s.S3Config.AccessKey, s.S3Config.SecretKey),
+		}
+	}
 	return &LocalFileStorage{}
-}
-
-type S3 struct{}
-
-func (lfs *S3) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
-	return core.UploadFileMeta{
-		FullPath: filepath.Join(filePath, fileName),
-	}, nil
-}
-
-// SaveFile stores a file on the s3 file system.
-func (lfs *S3) SaveFile(filePath, fileName string, content []byte) error {
-	// TODO
-	return nil
-}
-
-// DeleteFile deletes a file from the s3 file system using the full file path.
-func (lfs *S3) DeleteFile(fullFilePath string) error {
-	// TODO
-	return nil
 }

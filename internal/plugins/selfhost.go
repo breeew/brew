@@ -3,8 +3,6 @@ package plugins
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -12,6 +10,7 @@ import (
 
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
+	"github.com/breeew/brew-api/pkg/s3"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -21,6 +20,18 @@ func NewSingleLock() *SingleLock {
 	return &SingleLock{
 		locks: make(map[string]bool),
 	}
+}
+
+type SelfHostCustomConfig struct {
+	S3 S3Config `toml:"s3"`
+}
+
+type S3Config struct {
+	Bucket    string `toml:"bucket"`
+	Region    string `toml:"region"`
+	Endpoint  string `toml:"endpoint"`
+	AccessKey string `toml:"access_key"`
+	SecretKey string `toml:"secret_key"`
 }
 
 type SingleLock struct {
@@ -58,6 +69,8 @@ type SelfHostPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
+
+	S3Config *S3Config
 }
 
 func (s *SelfHostPlugin) DefaultAppid() string {
@@ -68,6 +81,12 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 	s.core = c
 	fmt.Println("Start initialize.")
 	utils.SetupIDWorker(1)
+
+	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
+		return fmt.Errorf("Failed to install custom config, %w", err)
+	}
+	s.S3Config = &customConfig.CustomConfig.S3
 
 	var tokenCount int
 	if err := s.core.Store().GetMaster().Get(&tokenCount, "SELECT COUNT(*) FROM "+types.TABLE_ACCESS_TOKEN.Name()+" WHERE true"); err != nil {
@@ -145,47 +164,10 @@ func (s *SelfHostPlugin) UseLimiter(key string, method string, defaultRatelimit 
 }
 
 func (s *SelfHostPlugin) FileUploader() core.FileStorage {
-	return &LocalFileStorage{}
-}
-
-type LocalFileStorage struct{}
-
-func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
-	return core.UploadFileMeta{
-		FullPath: filepath.Join(filePath, fileName),
-	}, nil
-}
-
-// SaveFile stores a file on the local file system.
-func (lfs *LocalFileStorage) SaveFile(filePath, fileName string, content []byte) error {
-	// Check if the directory exists
-	_, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		// If the directory doesn't exist, create it
-		err := os.MkdirAll(filePath, 0755)
-		if err != nil {
-			return fmt.Errorf("failed to create directory: %v", err)
+	if s.S3Config != nil {
+		return &S3FileStorage{
+			S3: s3.NewS3Client(s.S3Config.Endpoint, s.S3Config.Region, s.S3Config.Bucket, s.S3Config.AccessKey, s.S3Config.SecretKey),
 		}
-	} else if err != nil {
-		// If there's an error other than "not exist", return it
-		return fmt.Errorf("failed to check directory: %v", err)
 	}
-
-	// Save the file
-	fullPath := filepath.Join(filePath, fileName)
-	err = os.WriteFile(fullPath, content, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to save file: %v", err)
-	}
-
-	return nil
-}
-
-// DeleteFile deletes a file from the local file system using the full file path.
-func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
-	err := os.Remove(fullFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to delete file: %v", err)
-	}
-	return nil
+	return &LocalFileStorage{}
 }

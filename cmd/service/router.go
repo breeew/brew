@@ -56,6 +56,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			user.PUT("/profile", userLimit("profile"), s.UpdateUserProfile)
 		}
 
+		object := authed.Group("/object")
+		{
+			object.POST("/upload/key", userLimit("upload"), s.GenUploadKey)
+		}
+
 		space := authed.Group("/space")
 		{
 			space.GET("/list", s.ListUserSpaces)

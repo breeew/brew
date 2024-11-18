@@ -1,23 +1,37 @@
 package handler
 
 import (
-	"net/http"
-
+	v1 "github.com/breeew/brew-api/internal/logic/v1"
 	"github.com/breeew/brew-api/internal/response"
-	"github.com/breeew/brew-api/pkg/errors"
-	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
-// UploadFileHandler
-func (s *HttpSrv) UploadFileHandler(c *gin.Context) {
-	file, err := c.FormFile("file") // "file" 是表单中字段的名称
-	if err != nil {
-		response.APIError(c, errors.New("API.UploadFileHandler.FromFile", i18n.ERROR_INVALIDARGUMENT, err).Code(http.StatusBadRequest))
+type GenUploadKeyRequest struct {
+	ObjectType string `json:"object_type" binding:"required"`
+	Kind       string `json:"kind" binding:"required"`
+	FileName   string `json:"file_name" binding:"required"`
+}
+
+// GenUploadKey
+func (s *HttpSrv) GenUploadKey(c *gin.Context) {
+
+	var (
+		err error
+		req GenUploadKeyRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
 		return
 	}
 
-	file = file
+	logic := v1.NewUploadLogic(c, s.Core)
+	result, err := logic.GenClientUploadKey(req.ObjectType, req.Kind, req.FileName)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
 
-	// TODO: uploadLogic
+	response.APISuccess(c, result)
 }
