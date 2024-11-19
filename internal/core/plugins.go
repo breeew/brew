@@ -21,12 +21,14 @@ type AIChatLogic interface {
 }
 
 type UploadFileMeta struct {
-	Endpoint string `json:"endpoint"`
-	FullPath string `json:"full_path"`
+	UploadEndpoint string `json:"endpoint"`
+	FullPath       string `json:"full_path"`
+	Domain         string `json:"domain"`
 }
 
 // FileStorage interface defines methods for file operations.
 type FileStorage interface {
+	GetStaticDomain() string
 	GenUploadFileMeta(filePath, fileName string) (UploadFileMeta, error)
 	SaveFile(filePath, fileName string, content []byte) error
 	DeleteFile(fullFilePath string) error

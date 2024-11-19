@@ -27,11 +27,18 @@ var provider = map[string]core.SetupFunc{
 	},
 }
 
-type LocalFileStorage struct{}
+type LocalFileStorage struct {
+	StaticDomain string
+}
+
+func (lfs *LocalFileStorage) GetStaticDomain() string {
+	return lfs.StaticDomain
+}
 
 func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{
 		FullPath: filepath.Join(filePath, fileName),
+		Domain:   lfs.StaticDomain,
 	}, nil
 }
 
@@ -70,7 +77,12 @@ func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
 }
 
 type S3FileStorage struct {
+	StaticDomain string
 	*s3.S3
+}
+
+func (fs *S3FileStorage) GetStaticDomain() string {
+	return fs.StaticDomain
 }
 
 func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
@@ -79,8 +91,8 @@ func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string) (core.Uplo
 		return core.UploadFileMeta{}, err
 	}
 	return core.UploadFileMeta{
-		FullPath: filepath.Join(filePath, fileName),
-		Endpoint: key,
+		FullPath:       filepath.Join(filePath, fileName),
+		UploadEndpoint: key,
 	}, nil
 }
 

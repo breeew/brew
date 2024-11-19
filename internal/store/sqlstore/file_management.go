@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/breeew/brew-api/pkg/register"
@@ -10,7 +11,7 @@ import (
 
 func init() {
 	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.KnowledgeChunkStore = NewKnowledgeChunkStore(provider)
+		provider.stores.FileManagementStore = NewFileManagementStore(provider)
 	})
 }
 
@@ -28,6 +29,9 @@ func NewFileManagementStore(provider SqlProviderAchieve) *FileManagementStore {
 
 // Create 创建新的文件记录
 func (s *FileManagementStore) Create(ctx context.Context, data types.FileManagement) error {
+	if data.CreatedAt == 0 {
+		data.CreatedAt = time.Now().Unix()
+	}
 	query := sq.Insert(s.GetTable()).
 		Columns("space_id", "user_id", "file", "file_size", "object_type", "kind", "status", "created_at").
 		Values(data.SpaceID, data.UserID, data.File, data.FileSize, data.ObjectType, data.Kind, data.Status, data.CreatedAt)
@@ -71,21 +75,4 @@ func (s *FileManagementStore) Delete(ctx context.Context, userID, file string) e
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	return err
-}
-
-// ListByObjectID
-func (s *FileManagementStore) ListByObjectID(ctx context.Context, userID, objectID, objectType string) ([]types.FileManagement, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
-		Where(sq.Eq{"user_id": userID, "object_id": objectID, "object_type": objectType})
-
-	queryString, args, err := query.ToSql()
-	if err != nil {
-		return nil, errorSqlBuild(err)
-	}
-
-	var res []types.FileManagement
-	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
-		return nil, err
-	}
-	return res, nil
 }

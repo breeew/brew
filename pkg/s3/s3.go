@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -32,9 +33,11 @@ func NewS3Client(endpoint, region, bucket, ak, sk string) *S3 {
 }
 
 func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	filePath = strings.TrimPrefix(filePath, "/")
 	cfg, err := config.LoadDefaultConfig(
-		context.Background(),
+		ctx,
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
 				AccessKeyID: s.ak, SecretAccessKey: s.sk,
@@ -51,10 +54,10 @@ func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
 	}
 	s3Client := s3.NewFromConfig(cfg)
 	s3PresignClient := s3.NewPresignClient(s3Client)
-	req, err := s3PresignClient.PresignPutObject(context.Background(), &s3.PutObjectInput{
+	req, err := s3PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(filepath.Join(filePath, file)),
-	})
+	}, s3.WithPresignExpires(100*time.Minute))
 	if err != nil {
 		return "", err
 	}

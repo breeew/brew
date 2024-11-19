@@ -30,8 +30,9 @@ func NewUploadLogic(ctx context.Context, core *core.Core) *UploadLogic {
 }
 
 type UploadKey struct {
-	Key      string `json:"key"`
-	FullPath string `json:"full_path"`
+	Key          string `json:"key"`
+	FullPath     string `json:"full_path"`
+	StaticDomain string `json:"static_domain"`
 }
 
 func hashFileName(fileName string) string {
@@ -54,9 +55,13 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (Upl
 	var meta core.UploadFileMeta
 	err := l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		err := l.core.Store().FileManagementStore().Create(l.ctx, types.FileManagement{
-			SpaceID: spaceID,
-			UserID:  userID,
-			File:    filepath.Join(filePath, fileName),
+			SpaceID:    spaceID,
+			UserID:     userID,
+			File:       filepath.Join(filePath, fileName),
+			Status:     1,
+			Kind:       kind,
+			ObjectType: objectType,
+			CreatedAt:  time.Now().Unix(),
 		})
 		if err != nil {
 			return errors.New("UploadLogic.GenClientUploadKey.FileManagementStore.Create", i18n.ERROR_INTERNAL, err)
@@ -73,11 +78,12 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (Upl
 	}
 
 	return UploadKey{
-		Key:      meta.Endpoint,
-		FullPath: meta.FullPath,
+		Key:          meta.UploadEndpoint,
+		FullPath:     meta.FullPath,
+		StaticDomain: l.core.FileUploader().GetStaticDomain(),
 	}, nil
 }
 
 func genUserFilePath(userID, _type string) string {
-	return filepath.Join("/brew/", _type, userID, time.Now().Format("20060102"))
+	return filepath.Join("/brew/", userID, _type, time.Now().Format("20060102"))
 }

@@ -6,7 +6,6 @@ type FileManagement struct {
 	UserID     string `json:"user_id" db:"user_id"`         // 关联的用户ID，用于区分每个用户的文件数据
 	File       string `json:"file" db:"file"`               // 存储文件的路径，用于定位文件内容
 	FileSize   int64  `json:"file_size" db:"file_size"`     // 文件大小，单位为字节
-	ObjectID   string `json:"object_id" db:"object_id"`     // 关联对象的id
 	ObjectType string `json:"object_type" db:"object_type"` // 文件所属的功能模块，例如“用户头像”
 	Kind       string `json:"kind" db:"kind"`               // 文件类型，例如“image”、“file”
 	Status     int    `json:"status" db:"status"`           // 文件的状态，1表示可用，2表示已删除

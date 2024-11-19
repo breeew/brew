@@ -22,7 +22,8 @@ func newSaaSPlugin() *SaaSPlugin {
 }
 
 type SaaSCustomConfig struct {
-	S3 S3Config `toml:"s3"`
+	StaticDomain string   `toml:"static_domain"`
+	S3           S3Config `toml:"s3"`
 }
 
 type SaaSPlugin struct {
@@ -30,7 +31,11 @@ type SaaSPlugin struct {
 	Appid      string
 	singleLock *SingleLock
 
-	S3Config *S3Config
+	core.FileStorage
+
+	// custom config
+	StaticDomain string
+	S3Config     *S3Config
 }
 
 func (s *SaaSPlugin) DefaultAppid() string {
@@ -45,7 +50,10 @@ func (s *SaaSPlugin) Install(c *core.Core) error {
 	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
-	s.S3Config = &customConfig.CustomConfig.S3
+	if customConfig.CustomConfig.S3.AccessKey != "" {
+		s.S3Config = &customConfig.CustomConfig.S3
+	}
+	s.StaticDomain = customConfig.CustomConfig.StaticDomain
 
 	return nil
 }
@@ -72,10 +80,19 @@ func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int)
 }
 
 func (s *SaaSPlugin) FileUploader() core.FileStorage {
+	if s.FileStorage != nil {
+		return s.FileStorage
+	}
 	if s.S3Config != nil {
-		return &S3FileStorage{
-			S3: s3.NewS3Client(s.S3Config.Endpoint, s.S3Config.Region, s.S3Config.Bucket, s.S3Config.AccessKey, s.S3Config.SecretKey),
+		s.FileStorage = &S3FileStorage{
+			StaticDomain: s.StaticDomain,
+			S3:           s3.NewS3Client(s.S3Config.Endpoint, s.S3Config.Region, s.S3Config.Bucket, s.S3Config.AccessKey, s.S3Config.SecretKey),
+		}
+	} else {
+		s.FileStorage = &LocalFileStorage{
+			StaticDomain: s.StaticDomain,
 		}
 	}
-	return &LocalFileStorage{}
+
+	return s.FileStorage
 }

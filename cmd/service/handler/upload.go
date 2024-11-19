@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
 	"github.com/breeew/brew-api/internal/response"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -13,9 +15,13 @@ type GenUploadKeyRequest struct {
 	FileName   string `json:"file_name" binding:"required"`
 }
 
+type GenUploadKeyResponse struct {
+	v1.UploadKey
+	URL string `json:"url"`
+}
+
 // GenUploadKey
 func (s *HttpSrv) GenUploadKey(c *gin.Context) {
-
 	var (
 		err error
 		req GenUploadKeyRequest
@@ -33,5 +39,8 @@ func (s *HttpSrv) GenUploadKey(c *gin.Context) {
 		return
 	}
 
-	response.APISuccess(c, result)
+	response.APISuccess(c, GenUploadKeyResponse{
+		UploadKey: result,
+		URL:       fmt.Sprintf("%s%s", result.StaticDomain, result.FullPath),
+	})
 }

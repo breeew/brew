@@ -32,7 +32,7 @@ func (c CoreConfig) LoadCustomConfig(cfg any) error {
 	if len(c.bytes) == 0 {
 		return nil
 	}
-	if err := toml.Unmarshal(c.bytes, &cfg); err != nil {
+	if err := toml.Unmarshal(c.bytes, cfg); err != nil {
 		return err
 	}
 	return nil
