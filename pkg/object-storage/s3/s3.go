@@ -46,7 +46,8 @@ func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
 		config.WithRegion(s.Region),
 		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
-				URL: s.Endpoint,
+				URL:           s.Endpoint,
+				SigningRegion: s.Region,
 			}, nil
 		})))
 	if err != nil {

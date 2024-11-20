@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ type UpdateKnowledgeRequest struct {
 	ID          string                     `json:"id" binding:"required"`
 	Title       string                     `json:"title"`
 	Resource    string                     `json:"resource"`
-	Content     json.RawMessage            `json:"content"`
+	Content     types.KnowledgeContent     `json:"content"`
 	ContentType types.KnowledgeContentType `json:"content_type"`
 	Tags        []string                   `json:"tags"`
 	Kind        types.KnowledgeKind        `json:"kind"`
@@ -83,6 +84,7 @@ func (s *HttpSrv) CreateKnowledge(c *gin.Context) {
 	} else {
 		handler = logic.InsertContent
 	}
+	fmt.Println("content", req)
 	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content, req.ContentType)
 	if err != nil {
 		response.APIError(c, err)

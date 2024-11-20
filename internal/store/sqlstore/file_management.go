@@ -49,8 +49,8 @@ func (s *FileManagementStore) Create(ctx context.Context, data types.FileManagem
 }
 
 // GetByID 根据ID获取文件记录
-func (s *FileManagementStore) GetByID(ctx context.Context, userID, file string) (*types.FileManagement, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"user_id": userID, "file": file})
+func (s *FileManagementStore) GetByID(ctx context.Context, spaceID, file string) (*types.FileManagement, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "file": file})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -65,8 +65,8 @@ func (s *FileManagementStore) GetByID(ctx context.Context, userID, file string) 
 }
 
 // Delete 根据ID删除文件记录
-func (s *FileManagementStore) Delete(ctx context.Context, userID, file string) error {
-	query := sq.Delete(s.GetTable()).Where(sq.Eq{"user_id": userID, "file": file})
+func (s *FileManagementStore) Delete(ctx context.Context, spaceID, file string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "file": file})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

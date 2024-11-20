@@ -24,6 +24,7 @@ type UploadFileMeta struct {
 	UploadEndpoint string `json:"endpoint"`
 	FullPath       string `json:"full_path"`
 	Domain         string `json:"domain"`
+	Status         string `json:"status"`
 }
 
 // FileStorage interface defines methods for file operations.

@@ -133,12 +133,22 @@ type Knowledge struct {
 // StringArray represents a one-dimensional array of the PostgreSQL character types.
 type KnowledgeContent json.RawMessage
 
+func (m KnowledgeContent) String() string {
+	var str string
+	// 尝试解析为字符串
+	if err := json.Unmarshal(m, &str); err == nil {
+		// 如果成功，说明内容是一个 JSON 字符串
+		return str
+	}
+	return string(m)
+}
+
 func (m KnowledgeContent) MarshalJSON() ([]byte, error) {
 	// 自定义 Timestamp 字段的格式
 	if m == nil {
 		return []byte("\"\""), nil
 	}
-	return json.Marshal(string(m))
+	return m, nil
 }
 
 func (m *KnowledgeContent) UnmarshalJSON(data []byte) error {
@@ -249,7 +259,7 @@ type UpdateKnowledgeArgs struct {
 	Title       string
 	Resource    string
 	Kind        KnowledgeKind
-	Content     json.RawMessage
+	Content     KnowledgeContent
 	ContentType KnowledgeContentType
 	Tags        []string
 	Stage       KnowledgeStage

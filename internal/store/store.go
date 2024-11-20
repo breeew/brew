@@ -163,6 +163,6 @@ type ChatMessageExtStore interface {
 // 定义接口
 type FileManagementStore interface {
 	Create(ctx context.Context, data types.FileManagement) error
-	GetByID(ctx context.Context, userID, file string) (*types.FileManagement, error)
-	Delete(ctx context.Context, userID, file string) error
+	GetByID(ctx context.Context, spaceID, file string) (*types.FileManagement, error)
+	Delete(ctx context.Context, spaceID, file string) error
 }

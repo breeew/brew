@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"time"
@@ -33,7 +34,12 @@ type UploadKey struct {
 	Key          string `json:"key"`
 	FullPath     string `json:"full_path"`
 	StaticDomain string `json:"static_domain"`
+	Status       string `json:"status"`
 }
+
+const (
+	UPLOAD_STATUS_EXIST = "exist"
+)
 
 func hashFileName(fileName string) string {
 	result := strings.Split(fileName, ".")
@@ -49,11 +55,25 @@ func hashFileName(fileName string) string {
 func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (UploadKey, error) {
 	userID := l.UserInfo.GetUserInfo().User
 	spaceID, _ := InjectSpaceID(l.ctx)
-	filePath := genUserFilePath(userID, objectType)
+	filePath := genUserFilePath(spaceID, objectType)
 	fileName = hashFileName(fileName)
 
+	fullPath := filepath.Join(filePath, fileName)
+	exist, err := l.core.Store().FileManagementStore().GetByID(l.ctx, spaceID, fullPath)
+	if err != nil && err != sql.ErrNoRows {
+		return UploadKey{}, errors.New("UploadLogic.FileManagementStore.GetById", i18n.ERROR_INTERNAL, err)
+	}
+
+	if exist != nil {
+		return UploadKey{
+			Status:       UPLOAD_STATUS_EXIST,
+			StaticDomain: l.core.Plugins.FileUploader().GetStaticDomain(),
+			FullPath:     fullPath,
+		}, nil
+	}
+
 	var meta core.UploadFileMeta
-	err := l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+	err = l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		err := l.core.Store().FileManagementStore().Create(l.ctx, types.FileManagement{
 			SpaceID:    spaceID,
 			UserID:     userID,

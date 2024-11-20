@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/breeew/brew-api/internal/core"
-	"github.com/breeew/brew-api/pkg/s3"
+	"github.com/breeew/brew-api/pkg/object-storage/s3"
 )
 
 func Setup(install func(p core.Plugins), mode string) {
@@ -25,6 +26,38 @@ var provider = map[string]core.SetupFunc{
 	"saas": func() core.Plugins {
 		return newSaaSPlugin()
 	},
+}
+
+type ObjectStorageDriver struct {
+	StaticDomain string    `toml:"static_domain"`
+	Driver       string    `toml:"driver"` // default: local
+	S3           *S3Config `toml:"s3"`
+}
+
+type S3Config struct {
+	Bucket    string `toml:"bucket"`
+	Region    string `toml:"region"`
+	Endpoint  string `toml:"endpoint"`
+	AccessKey string `toml:"access_key"`
+	SecretKey string `toml:"secret_key"`
+}
+
+func setupObjectStorage(cfg ObjectStorageDriver) core.FileStorage {
+	var s core.FileStorage
+	switch strings.ToLower(cfg.Driver) {
+	case "s3":
+		s3Cfg := cfg.S3
+		s = &S3FileStorage{
+			StaticDomain: cfg.StaticDomain,
+			S3:           s3.NewS3Client(s3Cfg.Endpoint, s3Cfg.Region, s3Cfg.Bucket, s3Cfg.AccessKey, s3Cfg.SecretKey),
+		}
+	default:
+		s = &LocalFileStorage{
+			StaticDomain: cfg.StaticDomain,
+		}
+	}
+
+	return s
 }
 
 type LocalFileStorage struct {

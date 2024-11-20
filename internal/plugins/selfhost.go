@@ -10,7 +10,6 @@ import (
 
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/pkg/s3"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -23,16 +22,7 @@ func NewSingleLock() *SingleLock {
 }
 
 type SelfHostCustomConfig struct {
-	StaticDomain string   `toml:"static_domain"`
-	S3           S3Config `toml:"s3"`
-}
-
-type S3Config struct {
-	Bucket    string `toml:"bucket"`
-	Region    string `toml:"region"`
-	Endpoint  string `toml:"endpoint"`
-	AccessKey string `toml:"access_key"`
-	SecretKey string `toml:"secret_key"`
+	ObjectStorage ObjectStorageDriver `toml:"object_storage"`
 }
 
 type SingleLock struct {
@@ -72,8 +62,7 @@ type SelfHostPlugin struct {
 	singleLock *SingleLock
 	core.FileStorage
 
-	StaticDomain string
-	S3Config     *S3Config
+	customConfig SelfHostCustomConfig
 }
 
 func (s *SelfHostPlugin) DefaultAppid() string {
@@ -89,11 +78,7 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
-
-	if customConfig.CustomConfig.S3.AccessKey != "" {
-		s.S3Config = &customConfig.CustomConfig.S3
-	}
-	s.StaticDomain = customConfig.CustomConfig.StaticDomain
+	s.customConfig = customConfig.CustomConfig
 
 	var tokenCount int
 	if err := s.core.Store().GetMaster().Get(&tokenCount, "SELECT COUNT(*) FROM "+types.TABLE_ACCESS_TOKEN.Name()+" WHERE true"); err != nil {
@@ -174,16 +159,8 @@ func (s *SelfHostPlugin) FileUploader() core.FileStorage {
 	if s.FileStorage != nil {
 		return s.FileStorage
 	}
-	if s.S3Config != nil {
-		s.FileStorage = &S3FileStorage{
-			StaticDomain: s.StaticDomain,
-			S3:           s3.NewS3Client(s.S3Config.Endpoint, s.S3Config.Region, s.S3Config.Bucket, s.S3Config.AccessKey, s.S3Config.SecretKey),
-		}
-	} else {
-		s.FileStorage = &LocalFileStorage{
-			StaticDomain: s.StaticDomain,
-		}
-	}
+
+	s.FileStorage = setupObjectStorage(s.customConfig.ObjectStorage)
 
 	return s.FileStorage
 }
