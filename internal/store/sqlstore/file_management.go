@@ -64,6 +64,18 @@ func (s *FileManagementStore) GetByID(ctx context.Context, spaceID, file string)
 	return &res, nil
 }
 
+func (s *FileManagementStore) UpdateStatus(ctx context.Context, spaceID string, files []string, status int) error {
+	query := sq.Update(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "file": files}).Set("status", status)
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return errorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 // Delete 根据ID删除文件记录
 func (s *FileManagementStore) Delete(ctx context.Context, spaceID, file string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "file": file})

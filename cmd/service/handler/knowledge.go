@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
@@ -84,7 +83,7 @@ func (s *HttpSrv) CreateKnowledge(c *gin.Context) {
 	} else {
 		handler = logic.InsertContent
 	}
-	fmt.Println("content", req)
+
 	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content, req.ContentType)
 	if err != nil {
 		response.APIError(c, err)

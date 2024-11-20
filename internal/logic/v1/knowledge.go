@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidscottmills/goeditorjs"
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
 
@@ -396,10 +397,50 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	return &result, nil
 }
 
+type ImageBlockFile struct {
+	File struct {
+		Url string `json:"url"`
+	} `json:"file"`
+}
+
+func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	var blocks []goeditorjs.EditorJSBlock
+	if err := json.Unmarshal(content, &blocks); err != nil {
+		return errors.New("updateFilesUploaded.ParseContentBlocks", i18n.ERROR_INTERNAL, err)
+	}
+
+	// set files uploaded
+	var files []string
+	for _, v := range blocks {
+		if v.Type != "image" {
+			continue
+		}
+
+		var img ImageBlockFile
+		if err := json.Unmarshal(v.Data, &img); err != nil {
+			return errors.New("updateFilesUploaded.ParseImageBlock", i18n.ERROR_INTERNAL, err)
+		}
+
+		if img.File.Url != "" {
+			files = append(files, img.File.Url)
+		}
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
+		return errors.New("updateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+	}
+	return nil
+}
+
 func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
 	if resource == "" {
 		resource = types.DEFAULT_RESOURCE
 	}
+
 	knowledgeID := utils.GenRandomID()
 	user := l.GetUserInfo()
 	knowledge := types.Knowledge{
@@ -431,6 +472,16 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 					slog.String("space_id", knowledge.SpaceID),
 					slog.String("knowledge_id", knowledge.ID),
 					slog.Any("error", err))
+			}
+		})
+	}
+
+	if contentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		go safe.Run(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+			if err := updateFilesUploaded(ctx, l.core, spaceID, content); err != nil {
+				slog.Error("Failed to update files uploaded status", slog.String("space_id", spaceID), slog.Any("error", err))
 			}
 		})
 	}

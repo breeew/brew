@@ -78,7 +78,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (Upl
 			SpaceID:    spaceID,
 			UserID:     userID,
 			File:       filepath.Join(filePath, fileName),
-			Status:     1,
+			Status:     types.FILE_UPLOAD_STATUS_UNKNOWN,
 			Kind:       kind,
 			ObjectType: objectType,
 			CreatedAt:  time.Now().Unix(),

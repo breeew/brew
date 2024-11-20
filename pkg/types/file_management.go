@@ -11,3 +11,8 @@ type FileManagement struct {
 	Status     int    `json:"status" db:"status"`           // 文件的状态，1表示可用，2表示已删除
 	CreatedAt  int64  `json:"created_at" db:"created_at"`   // 记录文件的上传时间
 }
+
+const (
+	FILE_UPLOAD_STATUS_UNKNOWN  int = 0
+	FILE_UPLOAD_STATUS_UPLOADED int = 1
+)

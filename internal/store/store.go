@@ -164,5 +164,6 @@ type ChatMessageExtStore interface {
 type FileManagementStore interface {
 	Create(ctx context.Context, data types.FileManagement) error
 	GetByID(ctx context.Context, spaceID, file string) (*types.FileManagement, error)
+	UpdateStatus(ctx context.Context, spaceID string, files []string, status int) error
 	Delete(ctx context.Context, spaceID, file string) error
 }
