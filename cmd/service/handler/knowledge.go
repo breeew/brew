@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
@@ -16,12 +20,13 @@ type HttpSrv struct {
 }
 
 type UpdateKnowledgeRequest struct {
-	ID       string              `json:"id" binding:"required"`
-	Title    string              `json:"title"`
-	Resource string              `json:"resource"`
-	Content  string              `json:"content"`
-	Tags     []string            `json:"tags"`
-	Kind     types.KnowledgeKind `json:"kind"`
+	ID          string                     `json:"id" binding:"required"`
+	Title       string                     `json:"title"`
+	Resource    string                     `json:"resource"`
+	Content     types.KnowledgeContent     `json:"content"`
+	ContentType types.KnowledgeContentType `json:"content_type"`
+	Tags        []string                   `json:"tags"`
+	Kind        types.KnowledgeKind        `json:"kind"`
 }
 
 func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
@@ -36,11 +41,12 @@ func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
 
 	spaceID, _ := v1.InjectSpaceID(c)
 	err = v1.NewKnowledgeLogic(c, s.Core).Update(spaceID, req.ID, types.UpdateKnowledgeArgs{
-		Title:    req.Title,
-		Content:  req.Content,
-		Resource: req.Resource,
-		Tags:     req.Tags,
-		Kind:     req.Kind,
+		Title:       req.Title,
+		Content:     req.Content,
+		ContentType: req.ContentType,
+		Resource:    req.Resource,
+		Tags:        req.Tags,
+		Kind:        req.Kind,
 	})
 	if err != nil {
 		response.APIError(c, err)
@@ -50,10 +56,11 @@ func (s *HttpSrv) UpdateKnowledge(c *gin.Context) {
 }
 
 type CreateKnowledgeRequest struct {
-	Resource string `json:"resource"`
-	Content  string `json:"content" binding:"required"`
-	Kind     string `json:"kind"`
-	Async    bool   `json:"async"`
+	Resource    string                     `json:"resource"`
+	Content     types.KnowledgeContent     `json:"content" binding:"required"`
+	ContentType types.KnowledgeContentType `json:"content_type" binding:"required"`
+	Kind        string                     `json:"kind"`
+	Async       bool                       `json:"async"`
 }
 
 type CreateKnowledgeResponse struct {
@@ -69,14 +76,15 @@ func (s *HttpSrv) CreateKnowledge(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	var handler func(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error)
+	var handler func(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error)
 	logic := v1.NewKnowledgeLogic(c, s.Core)
 	if req.Async {
 		handler = logic.InsertContentAsync
 	} else {
 		handler = logic.InsertContent
 	}
-	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content)
+
+	id, err := handler(spaceID, req.Resource, types.KindNewFromString(req.Kind), req.Content, req.ContentType)
 	if err != nil {
 		response.APIError(c, err)
 		return
@@ -108,7 +116,7 @@ func (s *HttpSrv) GetKnowledge(c *gin.Context) {
 		return
 	}
 
-	response.APISuccess(c, knowledge)
+	response.APISuccess(c, KnowledgeToKnowledgeResponse(knowledge))
 }
 
 type ListKnowledgeRequest struct {
@@ -119,8 +127,8 @@ type ListKnowledgeRequest struct {
 }
 
 type ListKnowledgeResponse struct {
-	List  []*types.Knowledge `json:"list"`
-	Total uint64             `json:"total"`
+	List  []*types.KnowledgeResponse `json:"list"`
+	Total uint64                     `json:"total"`
 }
 
 func (s *HttpSrv) ListKnowledge(c *gin.Context) {
@@ -145,10 +153,46 @@ func (s *HttpSrv) ListKnowledge(c *gin.Context) {
 		return
 	}
 
+	knowledgeList := lo.Map[*types.Knowledge, *types.KnowledgeResponse](list, func(item *types.Knowledge, index int) *types.KnowledgeResponse {
+		return KnowledgeToKnowledgeResponse(item)
+	})
+
 	response.APISuccess(c, ListKnowledgeResponse{
-		List:  list,
+		List:  knowledgeList,
 		Total: total,
 	})
+}
+
+func KnowledgeToKnowledgeResponse(item *types.Knowledge) *types.KnowledgeResponse {
+	result := &types.KnowledgeResponse{
+		ID:          item.ID,
+		SpaceID:     item.SpaceID,
+		Title:       item.Title,
+		ContentType: item.ContentType,
+		Tags:        item.Tags,
+		Kind:        item.Kind,
+		Resource:    item.Resource,
+		UserID:      item.UserID,
+		Stage:       item.Stage,
+		UpdatedAt:   item.UpdatedAt,
+		CreatedAt:   item.CreatedAt,
+	}
+
+	result.Content = string(item.Content)
+	if result.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		result.Blocks = json.RawMessage(item.Content)
+		var err error
+		result.Content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(item.Content))
+		if err != nil {
+			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", item.ID), slog.String("error", err.Error()))
+		}
+
+		// editor will be used blocks data, content only show as brief
+		if len([]rune(result.Content)) > 300 {
+			result.Content = string([]rune(result.Content)[:300])
+		}
+	}
+	return result
 }
 
 type DeleteKnowledgeRequest struct {

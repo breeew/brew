@@ -68,6 +68,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
+
+			object := space.Group("/:spaceid/object")
+			{
+				object.POST("/upload/key", userLimit("upload"), s.GenUploadKey)
+			}
 		}
 
 		knowledge := authed.Group("/:spaceid/knowledge")

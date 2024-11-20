@@ -3,12 +3,14 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/davidscottmills/goeditorjs"
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
 
@@ -102,7 +104,21 @@ func (l *KnowledgeLogic) Delete(spaceID, id string) error {
 		return errors.Trace("KnowledgeLogic.Delete", err)
 	}
 
+	knowledge, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, spaceID, id)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("KnowledgeLogic.KnowledgeStore.GetKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+	if knowledge == nil {
+		return nil
+	}
+
 	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		if knowledge.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if err = updateFilesToDelete(ctx, l.core, spaceID, knowledge.Content); err != nil {
+				slog.Error("Failed to remark knowledge files to delete status", slog.String("knowledge_id", id), slog.String("space_id", spaceID), slog.Any("error", err))
+			}
+		}
+
 		if err := l.core.Store().KnowledgeStore().Delete(ctx, spaceID, id); err != nil {
 			return errors.New("KnowledgeLogic.Delete.KnowledgeStore.Delete", i18n.ERROR_INTERNAL, err)
 		}
@@ -154,7 +170,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	if !tagsChanged {
 		summary = append(summary, "tags")
 	}
-	if args.Content != oldKnowledge.Content {
+	if string(args.Content) != string(oldKnowledge.Content) {
 		summary = append(summary, "content")
 	}
 	if args.Title == "" {
@@ -162,13 +178,14 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	}
 
 	err = l.core.Store().KnowledgeStore().Update(l.ctx, spaceID, id, types.UpdateKnowledgeArgs{
-		Resource: args.Resource,
-		Title:    args.Title,
-		Content:  args.Content,
-		Tags:     args.Tags,
-		Stage:    types.KNOWLEDGE_STAGE_SUMMARIZE,
-		Kind:     args.Kind,
-		Summary:  strings.Join(summary, ","),
+		Resource:    args.Resource,
+		Title:       args.Title,
+		Content:     args.Content,
+		ContentType: args.ContentType,
+		Tags:        args.Tags,
+		Stage:       types.KNOWLEDGE_STAGE_SUMMARIZE,
+		Kind:        args.Kind,
+		Summary:     strings.Join(summary, ","),
 	})
 	if err != nil {
 		return errors.New("KnowledgeLogic.Update.KnowledgeStore.Update", i18n.ERROR_INTERNAL, err)
@@ -196,7 +213,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
+func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
 	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
@@ -266,10 +283,18 @@ func (l *KnowledgeLogic) GetRelevanceKnowledges(spaceID, userID, query string, r
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 
 	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
+
 		sw := mark.NewSensitiveWork()
 		result.Docs = append(result.Docs, &types.PassageInfo{
 			ID:       v.ID,
-			Content:  sw.Do(v.Content),
+			Content:  sw.Do(content),
 			DateTime: v.MaybeDate,
 			SW:       sw,
 		})
@@ -342,10 +367,17 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		docs []*types.PassageInfo
 	)
 	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
 		sw := mark.NewSensitiveWork()
 		docs = append(docs, &types.PassageInfo{
 			ID:       v.ID,
-			Content:  sw.Do(v.Content),
+			Content:  sw.Do(content),
 			DateTime: v.MaybeDate,
 			SW:       sw,
 		})
@@ -379,23 +411,89 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	return &result, nil
 }
 
-func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
+type ImageBlockFile struct {
+	File struct {
+		Url string `json:"url"`
+	} `json:"file"`
+}
+
+func filterKnowledgeFiles(content types.KnowledgeContent) ([]string, error) {
+	var blocks []goeditorjs.EditorJSBlock
+	if err := json.Unmarshal(content, &blocks); err != nil {
+		// TODO: support markdown
+		return nil, errors.New("updateFilesUploaded.ParseContentBlocks", i18n.ERROR_INTERNAL, err)
+	}
+
+	var files []string
+	for _, v := range blocks {
+		if v.Type != "image" {
+			continue
+		}
+
+		var img ImageBlockFile
+		if err := json.Unmarshal(v.Data, &img); err != nil {
+			return nil, errors.New("updateFilesUploaded.ParseImageBlock", i18n.ERROR_INTERNAL, err)
+		}
+
+		if img.File.Url != "" {
+			files = append(files, img.File.Url)
+		}
+	}
+
+	return files, nil
+}
+
+func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	files, err := filterKnowledgeFiles(content)
+	if err != nil {
+		return errors.Trace("updateFilesUploaded", err)
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
+		return errors.New("updateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+	}
+	return nil
+}
+
+func updateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	files, err := filterKnowledgeFiles(content)
+	if err != nil {
+		return errors.Trace("updateFilesToDelete", err)
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_NEED_TO_DELETE); err != nil {
+		return errors.New("updateFilesToDelete.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+	}
+	return nil
+}
+
+func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
 	if resource == "" {
 		resource = types.DEFAULT_RESOURCE
 	}
+
 	knowledgeID := utils.GenRandomID()
 	user := l.GetUserInfo()
 	knowledge := types.Knowledge{
-		ID:        knowledgeID,
-		SpaceID:   spaceID,
-		UserID:    user.User,
-		Resource:  resource,
-		Content:   content,
-		Kind:      kind,
-		Stage:     types.KNOWLEDGE_STAGE_SUMMARIZE,
-		MaybeDate: time.Now().Local().Format("2006-01-02 15:04"),
-		CreatedAt: time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
+		ID:          knowledgeID,
+		SpaceID:     spaceID,
+		UserID:      user.User,
+		Resource:    resource,
+		Content:     content,
+		ContentType: contentType,
+		Kind:        kind,
+		Stage:       types.KNOWLEDGE_STAGE_SUMMARIZE,
+		MaybeDate:   time.Now().Local().Format("2006-01-02 15:04"),
+		CreatedAt:   time.Now().Unix(),
+		UpdatedAt:   time.Now().Unix(),
 	}
 	err := l.core.Store().KnowledgeStore().Create(l.ctx, knowledge)
 	if err != nil {
@@ -417,6 +515,16 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		})
 	}
 
+	if contentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		go safe.Run(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+			if err := updateFilesUploaded(ctx, l.core, spaceID, content); err != nil {
+				slog.Error("Failed to update files uploaded status", slog.String("space_id", spaceID), slog.Any("error", err))
+			}
+		})
+	}
+
 	return knowledgeID, nil
 }
 
@@ -425,12 +533,12 @@ const (
 	InserTypeAsync = false
 )
 
-func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
-	return l.insertContent(InserTypeAsync, spaceID, resource, kind, content)
+func (l *KnowledgeLogic) InsertContentAsync(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
+	return l.insertContent(InserTypeAsync, spaceID, resource, kind, content, contentType)
 }
 
-func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content string) (string, error) {
-	return l.insertContent(InserTypeSync, spaceID, resource, kind, content)
+func (l *KnowledgeLogic) InsertContent(spaceID, resource string, kind types.KnowledgeKind, content types.KnowledgeContent, contentType types.KnowledgeContentType) (string, error) {
+	return l.insertContent(InserTypeSync, spaceID, resource, kind, content, contentType)
 	// sw := mark.NewSensitiveWork()
 	// content = sw.Do(content)
 

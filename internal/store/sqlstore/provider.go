@@ -41,6 +41,7 @@ type Stores struct {
 	store.ChatMessageStore
 	store.ChatSummaryStore
 	store.ChatMessageExtStore
+	store.FileManagementStore
 }
 
 func (s *Provider) batchExecStoreFuncs(fname string) {
@@ -143,4 +144,8 @@ func (p *Provider) ChatSummaryStore() store.ChatSummaryStore {
 
 func (p *Provider) ChatMessageExtStore() store.ChatMessageExtStore {
 	return p.stores.ChatMessageExtStore
+}
+
+func (p *Provider) FileManagementStore() store.FileManagementStore {
+	return p.stores.FileManagementStore
 }

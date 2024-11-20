@@ -21,6 +21,10 @@ func NewSingleLock() *SingleLock {
 	}
 }
 
+type SelfHostCustomConfig struct {
+	ObjectStorage ObjectStorageDriver `toml:"object_storage"`
+}
+
 type SingleLock struct {
 	mu    sync.Mutex
 	locks map[string]bool
@@ -56,6 +60,9 @@ type SelfHostPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
+	core.FileStorage
+
+	customConfig SelfHostCustomConfig
 }
 
 func (s *SelfHostPlugin) DefaultAppid() string {
@@ -66,6 +73,12 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 	s.core = c
 	fmt.Println("Start initialize.")
 	utils.SetupIDWorker(1)
+
+	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
+		return fmt.Errorf("Failed to install custom config, %w", err)
+	}
+	s.customConfig = customConfig.CustomConfig
 
 	var tokenCount int
 	if err := s.core.Store().GetMaster().Get(&tokenCount, "SELECT COUNT(*) FROM "+types.TABLE_ACCESS_TOKEN.Name()+" WHERE true"); err != nil {
@@ -140,4 +153,14 @@ func (s *SelfHostPlugin) UseLimiter(key string, method string, defaultRatelimit 
 	}
 
 	return l
+}
+
+func (s *SelfHostPlugin) FileUploader() core.FileStorage {
+	if s.FileStorage != nil {
+		return s.FileStorage
+	}
+
+	s.FileStorage = setupObjectStorage(s.customConfig.ObjectStorage)
+
+	return s.FileStorage
 }

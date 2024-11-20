@@ -29,7 +29,7 @@ func NewKnowledgeStore(provider SqlProviderAchieve) *KnowledgeStore {
 	store := &KnowledgeStore{}
 	store.SetProvider(provider)
 	store.SetTable(types.TABLE_KNOWLEDGE)
-	store.SetAllColumns("id", "title", "user_id", "space_id", "tags", "content", "resource", "kind", "summary", "maybe_date", "stage", "retry_times", "created_at", "updated_at")
+	store.SetAllColumns("id", "title", "user_id", "space_id", "tags", "content", "content_type", "resource", "kind", "summary", "maybe_date", "stage", "retry_times", "created_at", "updated_at")
 	return store
 }
 
@@ -42,8 +42,8 @@ func (s *KnowledgeStore) Create(ctx context.Context, data types.Knowledge) error
 		data.UpdatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "title", "user_id", "space_id", "tags", "content", "resource", "kind", "summary", "maybe_date", "stage", "retry_times", "created_at", "updated_at").
-		Values(data.ID, data.Title, data.UserID, data.SpaceID, pq.Array(data.Tags), data.Content, data.Resource, data.Kind, data.Summary, data.MaybeDate, data.Stage, data.RetryTimes, data.CreatedAt, data.UpdatedAt)
+		Columns("id", "title", "user_id", "space_id", "tags", "content", "content_type", "resource", "kind", "summary", "maybe_date", "stage", "retry_times", "created_at", "updated_at").
+		Values(data.ID, data.Title, data.UserID, data.SpaceID, pq.Array(data.Tags), data.Content.String(), data.ContentType, data.Resource, data.Kind, data.Summary, data.MaybeDate, data.Stage, data.RetryTimes, data.CreatedAt, data.UpdatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -126,8 +126,12 @@ func (s *KnowledgeStore) Update(ctx context.Context, spaceID, id string, data ty
 		query = query.Set("title", data.Title)
 	}
 
-	if data.Content != "" {
-		query = query.Set("content", data.Content)
+	if len(data.Content) > 0 {
+		query = query.Set("content", data.Content.String())
+	}
+
+	if data.ContentType != "" {
+		query = query.Set("content_type", data.ContentType)
 	}
 
 	if data.Stage != 0 {

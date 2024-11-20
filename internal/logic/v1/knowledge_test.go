@@ -40,7 +40,7 @@ func TestKnowledgeInsert(t *testing.T) {
 	logic := setupKnowledgeLogic()
 
 	content := "Docker 支持 64 位版本 CentOS 7/8，并且要求内核版本不低于 3.10。 CentOS 7 满足最低内核的要求，但由于内核版本比较低，部分功能（如 overlay2 存储层驱动）无法使用，并且部分功能可能不太稳定。"
-	id, err := logic.InsertContent(spaceid, types.DEFAULT_RESOURCE, types.KNOWLEDGE_KIND_TEXT, content)
+	id, err := logic.InsertContent(spaceid, types.DEFAULT_RESOURCE, types.KNOWLEDGE_KIND_TEXT, types.KnowledgeContent(content), types.KNOWLEDGE_CONTENT_TYPE_MARKDOWN)
 	if err != nil {
 		t.Fatal(err)
 	}

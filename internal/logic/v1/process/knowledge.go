@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"log/slog"
 	"strings"
 	"sync"
@@ -347,9 +348,6 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 	slog.Info("Receive new summary request",
 		logAttrs...)
 
-	sw := mark.NewSensitiveWork()
-	content := sw.Do(req.data.Content)
-
 	var err error
 	defer func() {
 		slog.Info("Summary finished",
@@ -372,9 +370,21 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 		}
 	}()
 
+	sw := mark.NewSensitiveWork()
+	markdownContent := string(req.data.Content)
+	if req.data.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+		markdownContent, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(req.data.Content))
+		if err != nil {
+			slog.Error("Failed to convert editor blocks to markdown", append(logAttrs, slog.String("error", err.Error()))...)
+			return
+		}
+	}
+
+	secretContent := sw.Do(markdownContent)
+
 	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
 	defer cancel()
-	summary, err := p.core.Srv().AI().Chunk(ctx, &content)
+	summary, err := p.core.Srv().AI().Chunk(ctx, &secretContent)
 	if err != nil {
 		slog.Error("Failed to summarize knowledge", append(logAttrs, slog.String("error", err.Error()))...)
 		return
@@ -387,7 +397,7 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 	}
 
 	if len(summary.Chunks) == 0 {
-		summary.Chunks = append(summary.Chunks, req.data.Content)
+		summary.Chunks = append(summary.Chunks, markdownContent)
 		// summary.Summary = req.data.Content
 	} else {
 		// summary.Summary = sw.Undo(summary.Summary)
@@ -401,7 +411,7 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 			KnowledgeID:    req.data.ID,
 			UserID:         req.data.UserID,
 			Chunk:          sw.Undo(v),
-			OriginalLength: len([]rune(req.data.Content)),
+			OriginalLength: len([]rune(markdownContent)),
 			UpdatedAt:      time.Now().Unix(),
 			CreatedAt:      time.Now().Unix(),
 		})

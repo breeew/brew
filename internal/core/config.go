@@ -18,11 +18,32 @@ func MustLoadBaseConfig(path string) CoreConfig {
 		panic(err)
 	}
 
-	var conf CoreConfig
-	if err = toml.Unmarshal(raw, &conf); err != nil {
+	conf := &CoreConfig{}
+	conf.SetConfigBytes(raw)
+
+	if err = toml.Unmarshal(raw, conf); err != nil {
 		panic(err)
 	}
-	return conf
+
+	return *conf
+}
+
+func (c CoreConfig) LoadCustomConfig(cfg any) error {
+	if len(c.bytes) == 0 {
+		return nil
+	}
+	if err := toml.Unmarshal(c.bytes, cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+type CustomConfig[T any] struct {
+	CustomConfig T `toml:"custom_config"`
+}
+
+func NewCustomConfigPayload[T any]() CustomConfig[T] {
+	return CustomConfig[T]{}
 }
 
 func LoadBaseConfigFromENV() CoreConfig {
@@ -41,6 +62,12 @@ type CoreConfig struct {
 	Security Security `toml:"security"`
 
 	Prompt Prompt `toml:"prompt"`
+
+	bytes []byte `toml:"-"`
+}
+
+func (c *CoreConfig) SetConfigBytes(raw []byte) {
+	c.bytes = raw
 }
 
 type Prompt struct {

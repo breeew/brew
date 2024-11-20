@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -95,21 +96,105 @@ type KnowledgeLite struct {
 	UserID   string         `json:"user_id" db:"user_id"`
 }
 
+type KnowledgeResponse struct {
+	ID          string               `json:"id" db:"id"`
+	SpaceID     string               `json:"space_id" db:"space_id"`
+	Kind        KnowledgeKind        `json:"kind" db:"kind"`
+	Resource    string               `json:"resource" db:"resource"`
+	Title       string               `json:"title" db:"title"`
+	Tags        pq.StringArray       `json:"tags" db:"tags"`
+	Content     string               `json:"content" db:"content"`
+	Blocks      json.RawMessage      `json:"blocks" db:"-"`
+	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
+	UserID      string               `json:"user_id" db:"user_id"`
+	Stage       KnowledgeStage       `json:"stage" db:"stage"`
+	CreatedAt   int64                `json:"created_at" db:"created_at"`
+	UpdatedAt   int64                `json:"updated_at" db:"updated_at"`
+}
+
 type Knowledge struct {
-	ID         string         `json:"id" db:"id"`
-	SpaceID    string         `json:"space_id" db:"space_id"`
-	Kind       KnowledgeKind  `json:"kind" db:"kind"`
-	Resource   string         `json:"resource" db:"resource"`
-	Title      string         `json:"title" db:"title"`
-	Tags       pq.StringArray `json:"tags" db:"tags"`
-	Content    string         `json:"content" db:"content"`
-	UserID     string         `json:"user_id" db:"user_id"`
-	Summary    string         `json:"summary" db:"summary"`
-	MaybeDate  string         `json:"maybe_date" db:"maybe_date"`
-	Stage      KnowledgeStage `json:"stage" db:"stage"`
-	CreatedAt  int64          `json:"created_at" db:"created_at"`
-	UpdatedAt  int64          `json:"updated_at" db:"updated_at"`
-	RetryTimes int            `json:"retry_times" db:"retry_times"`
+	ID          string               `json:"id" db:"id"`
+	SpaceID     string               `json:"space_id" db:"space_id"`
+	Kind        KnowledgeKind        `json:"kind" db:"kind"`
+	Resource    string               `json:"resource" db:"resource"`
+	Title       string               `json:"title" db:"title"`
+	Tags        pq.StringArray       `json:"tags" db:"tags"`
+	Content     KnowledgeContent     `json:"content" db:"content"`
+	ContentType KnowledgeContentType `json:"content_type" db:"content_type"`
+	UserID      string               `json:"user_id" db:"user_id"`
+	Summary     string               `json:"summary" db:"summary"`
+	MaybeDate   string               `json:"maybe_date" db:"maybe_date"`
+	Stage       KnowledgeStage       `json:"stage" db:"stage"`
+	CreatedAt   int64                `json:"created_at" db:"created_at"`
+	UpdatedAt   int64                `json:"updated_at" db:"updated_at"`
+	RetryTimes  int                  `json:"retry_times" db:"retry_times"`
+}
+
+// StringArray represents a one-dimensional array of the PostgreSQL character types.
+type KnowledgeContent json.RawMessage
+
+func (m KnowledgeContent) String() string {
+	var str string
+	// 尝试解析为字符串
+	if err := json.Unmarshal(m, &str); err == nil {
+		// 如果成功，说明内容是一个 JSON 字符串
+		return str
+	}
+	return string(m)
+}
+
+func (m KnowledgeContent) MarshalJSON() ([]byte, error) {
+	// 自定义 Timestamp 字段的格式
+	if m == nil {
+		return []byte("\"\""), nil
+	}
+	return m, nil
+}
+
+func (m *KnowledgeContent) UnmarshalJSON(data []byte) error {
+	*m = data
+	return nil
+}
+
+// Scan implements the sql.Scanner interface.
+func (a *KnowledgeContent) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	case nil:
+		return nil
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to json.RawMessage", src)
+}
+
+func (a *KnowledgeContent) scanBytes(src []byte) error {
+	*a = KnowledgeContent(src)
+	return nil
+}
+
+type KnowledgeContentType string
+
+const (
+	KNOWLEDGE_CONTENT_TYPE_MARKDOWN KnowledgeContentType = "markdown"
+	KNOWLEDGE_CONTENT_TYPE_HTML     KnowledgeContentType = "html"
+	KNOWLEDGE_CONTENT_TYPE_BLOCKS   KnowledgeContentType = "blocks"
+	KNOWLEDGE_CONTENT_TYPE_UNKNOWN  KnowledgeContentType = "unknown"
+)
+
+func StringToKnowledgeContentType(str string) KnowledgeContentType {
+	switch strings.ToLower(str) {
+	case string(KNOWLEDGE_CONTENT_TYPE_BLOCKS):
+		return KNOWLEDGE_CONTENT_TYPE_BLOCKS
+	case string(KNOWLEDGE_CONTENT_TYPE_MARKDOWN):
+		return KNOWLEDGE_CONTENT_TYPE_MARKDOWN
+	case string(KNOWLEDGE_CONTENT_TYPE_HTML):
+		return KNOWLEDGE_CONTENT_TYPE_HTML
+	default:
+		return KNOWLEDGE_CONTENT_TYPE_UNKNOWN
+	}
 }
 
 type GetKnowledgeOptions struct {
@@ -171,11 +256,12 @@ func (r *ResourceQuery) ToQuery() sq.Sqlizer {
 }
 
 type UpdateKnowledgeArgs struct {
-	Title    string
-	Resource string
-	Kind     KnowledgeKind
-	Content  string
-	Tags     []string
-	Stage    KnowledgeStage
-	Summary  string
+	Title       string
+	Resource    string
+	Kind        KnowledgeKind
+	Content     KnowledgeContent
+	ContentType KnowledgeContentType
+	Tags        []string
+	Stage       KnowledgeStage
+	Summary     string
 }

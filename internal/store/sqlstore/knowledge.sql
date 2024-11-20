@@ -9,6 +9,7 @@ CREATE TABLE bw_knowledge (
     title TEXT NOT NULL,
     tags TEXT[],
     content TEXT NOT NULL,
+    content_type VARCHAR(30) NOT NULL,
     summary TEXT NOT NULL,
     maybe_date VARCHAR(20) NOT NULL,
     retry_times SMALLINT NOT NULL DEFAULT 0,
@@ -26,7 +27,8 @@ COMMENT ON COLUMN bw_knowledge.tags IS '标签列表，使用数组存储';
 COMMENT ON COLUMN bw_knowledge.resource IS '资源类型/knowledge/context';
 COMMENT ON COLUMN bw_knowledge.title IS '内容标题';
 COMMENT ON COLUMN bw_knowledge.content IS '知识内容';
-COMMENT ON COLUMN bw_knowledge.summary IS '知识内容';
+COMMENT ON COLUMN bw_knowledge.content_type IS '内容格式';
+COMMENT ON COLUMN bw_knowledge.summary IS 'summary顾虑条件';
 COMMENT ON COLUMN bw_knowledge.maybe_date IS 'AI分析出的事件发生时间 / 创建时间';
 COMMENT ON COLUMN bw_knowledge.retry_times IS '流水线相关动作重试次数';
 COMMENT ON COLUMN bw_knowledge.created_at IS '创建时间';

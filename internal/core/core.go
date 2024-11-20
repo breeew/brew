@@ -17,8 +17,9 @@ import (
 )
 
 type Core struct {
-	cfg CoreConfig
-	srv *srv.Srv
+	cfg       CoreConfig
+	cfgReader io.Reader
+	srv       *srv.Srv
 
 	stores     func() *sqlstore.Provider
 	httpClient *http.Client

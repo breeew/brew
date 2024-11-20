@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/breeew/brew-api/internal/core"
@@ -19,10 +20,19 @@ func newSaaSPlugin() *SaaSPlugin {
 	}
 }
 
+type SaaSCustomConfig struct {
+	ObjectStorage ObjectStorageDriver `toml:"object_storage"`
+}
+
 type SaaSPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
+
+	core.FileStorage
+
+	// custom config
+	customConfig SaaSCustomConfig
 }
 
 func (s *SaaSPlugin) DefaultAppid() string {
@@ -32,6 +42,12 @@ func (s *SaaSPlugin) DefaultAppid() string {
 func (s *SaaSPlugin) Install(c *core.Core) error {
 	s.core = c
 	utils.SetupIDWorker(1) // TODO: Cluster id by redis
+
+	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
+		return fmt.Errorf("Failed to install custom config, %w", err)
+	}
+
 	return nil
 }
 
@@ -54,4 +70,14 @@ func (s *SaaSPlugin) UseLimiter(key string, method string, defaultRatelimit int)
 	}
 
 	return l
+}
+
+func (s *SaaSPlugin) FileUploader() core.FileStorage {
+	if s.FileStorage != nil {
+		return s.FileStorage
+	}
+
+	s.FileStorage = setupObjectStorage(s.customConfig.ObjectStorage)
+
+	return s.FileStorage
 }
