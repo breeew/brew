@@ -30,7 +30,7 @@ var provider = map[string]core.SetupFunc{
 
 type ObjectStorageDriver struct {
 	StaticDomain string    `toml:"static_domain"`
-	Driver       string    `toml:"driver"` // default: local
+	Driver       string    `toml:"driver"` // default: none
 	S3           *S3Config `toml:"s3"`
 }
 
