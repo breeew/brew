@@ -13,6 +13,7 @@ type FileManagement struct {
 }
 
 const (
-	FILE_UPLOAD_STATUS_UNKNOWN  int = 0
-	FILE_UPLOAD_STATUS_UPLOADED int = 1
+	FILE_UPLOAD_STATUS_UNKNOWN        int = 0
+	FILE_UPLOAD_STATUS_UPLOADED       int = 1
+	FILE_UPLOAD_STATUS_NEED_TO_DELETE int = 2
 )

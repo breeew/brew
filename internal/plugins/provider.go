@@ -51,13 +51,34 @@ func setupObjectStorage(cfg ObjectStorageDriver) core.FileStorage {
 			StaticDomain: cfg.StaticDomain,
 			S3:           s3.NewS3Client(s3Cfg.Endpoint, s3Cfg.Region, s3Cfg.Bucket, s3Cfg.AccessKey, s3Cfg.SecretKey),
 		}
-	default:
+	case "local":
 		s = &LocalFileStorage{
 			StaticDomain: cfg.StaticDomain,
 		}
+	default:
+		s = &NoneFileStorage{}
 	}
 
 	return s
+}
+
+type NoneFileStorage struct {
+}
+
+func (lfs *NoneFileStorage) GetStaticDomain() string {
+	return ""
+}
+
+func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+	return core.UploadFileMeta{}, fmt.Errorf("Unsupported")
+}
+
+func (lfs *NoneFileStorage) SaveFile(filePath, fileName string, content []byte) error {
+	return fmt.Errorf("Unsupported")
+}
+
+func (lfs *NoneFileStorage) DeleteFile(fullFilePath string) error {
+	return fmt.Errorf("Unsupported")
 }
 
 type LocalFileStorage struct {

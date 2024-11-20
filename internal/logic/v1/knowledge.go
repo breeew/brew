@@ -104,7 +104,21 @@ func (l *KnowledgeLogic) Delete(spaceID, id string) error {
 		return errors.Trace("KnowledgeLogic.Delete", err)
 	}
 
+	knowledge, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, spaceID, id)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("KnowledgeLogic.KnowledgeStore.GetKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+	if knowledge == nil {
+		return nil
+	}
+
 	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		if knowledge.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if err = updateFilesToDelete(ctx, l.core, spaceID, knowledge.Content); err != nil {
+				slog.Error("Failed to remark knowledge files to delete status", slog.String("knowledge_id", id), slog.String("space_id", spaceID), slog.Any("error", err))
+			}
+		}
+
 		if err := l.core.Store().KnowledgeStore().Delete(ctx, spaceID, id); err != nil {
 			return errors.New("KnowledgeLogic.Delete.KnowledgeStore.Delete", i18n.ERROR_INTERNAL, err)
 		}
@@ -403,13 +417,13 @@ type ImageBlockFile struct {
 	} `json:"file"`
 }
 
-func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+func filterKnowledgeFiles(content types.KnowledgeContent) ([]string, error) {
 	var blocks []goeditorjs.EditorJSBlock
 	if err := json.Unmarshal(content, &blocks); err != nil {
-		return errors.New("updateFilesUploaded.ParseContentBlocks", i18n.ERROR_INTERNAL, err)
+		// TODO: support markdown
+		return nil, errors.New("updateFilesUploaded.ParseContentBlocks", i18n.ERROR_INTERNAL, err)
 	}
 
-	// set files uploaded
 	var files []string
 	for _, v := range blocks {
 		if v.Type != "image" {
@@ -418,12 +432,21 @@ func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, c
 
 		var img ImageBlockFile
 		if err := json.Unmarshal(v.Data, &img); err != nil {
-			return errors.New("updateFilesUploaded.ParseImageBlock", i18n.ERROR_INTERNAL, err)
+			return nil, errors.New("updateFilesUploaded.ParseImageBlock", i18n.ERROR_INTERNAL, err)
 		}
 
 		if img.File.Url != "" {
 			files = append(files, img.File.Url)
 		}
+	}
+
+	return files, nil
+}
+
+func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	files, err := filterKnowledgeFiles(content)
+	if err != nil {
+		return errors.Trace("updateFilesUploaded", err)
 	}
 
 	if len(files) == 0 {
@@ -432,6 +455,22 @@ func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, c
 
 	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
 		return errors.New("updateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+	}
+	return nil
+}
+
+func updateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	files, err := filterKnowledgeFiles(content)
+	if err != nil {
+		return errors.Trace("updateFilesToDelete", err)
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_NEED_TO_DELETE); err != nil {
+		return errors.New("updateFilesToDelete.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
 }
