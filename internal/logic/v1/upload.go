@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,11 +53,21 @@ func hashFileName(fileName string) string {
 	return utils.MD5(fileName) + suffix
 }
 
+func randomFileName(fileName string) string {
+	result := strings.Split(fileName, ".")
+	var suffix string
+	if len(result) > 1 {
+		suffix = "." + result[len(result)-1]
+		fileName = strings.TrimSuffix(fileName, suffix)
+	}
+	return utils.MD5(fmt.Sprintf("%s%d", fileName, time.Now().Truncate(time.Second*10).Unix())) + suffix
+}
+
 func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (UploadKey, error) {
 	userID := l.UserInfo.GetUserInfo().User
 	spaceID, _ := InjectSpaceID(l.ctx)
 	filePath := genUserFilePath(spaceID, objectType)
-	fileName = hashFileName(fileName)
+	fileName = randomFileName(fileName)
 
 	fullPath := filepath.Join(filePath, fileName)
 	exist, err := l.core.Store().FileManagementStore().GetByID(l.ctx, spaceID, fullPath)

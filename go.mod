@@ -6,6 +6,11 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/abadojack/whatlanggo v1.0.1
+	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2/config v1.18.40
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.38
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.84
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.5
 	github.com/davidscottmills/goeditorjs v1.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.10.0
@@ -41,12 +46,8 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
 	github.com/avast/retry-go/v4 v4.6.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.21.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.13 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.18.40 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.38 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.11 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.84 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.41 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.35 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.42 // indirect
@@ -55,7 +56,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.36 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.15.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.16.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.22.0 // indirect
