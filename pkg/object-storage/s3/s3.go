@@ -32,11 +32,8 @@ func NewS3Client(endpoint, region, bucket, ak, sk string) *S3 {
 	}
 }
 
-func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	filePath = strings.TrimPrefix(filePath, "/")
-	cfg, err := config.LoadDefaultConfig(
+func (s *S3) DefaultConfig(ctx context.Context) (aws.Config, error) {
+	return config.LoadDefaultConfig(
 		ctx,
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
@@ -50,6 +47,35 @@ func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
 				SigningRegion: s.Region,
 			}, nil
 		})))
+}
+
+func (s *S3) GenGetObjectPreSignURL(filePath string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	cfg, err := s.DefaultConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	s3Client := s3.NewFromConfig(cfg)
+	s3PresignClient := s3.NewPresignClient(s3Client)
+	req, err := s3PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(filePath),
+	}, s3.WithPresignExpires(time.Minute))
+	if err != nil {
+		return "", err
+	}
+
+	return req.URL, nil
+}
+
+func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	filePath = strings.TrimPrefix(filePath, "/")
+
+	cfg, err := s.DefaultConfig(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -58,10 +84,11 @@ func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
 	req, err := s3PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(filepath.Join(filePath, file)),
-	}, s3.WithPresignExpires(100*time.Minute))
+	}, s3.WithPresignExpires(20*time.Second))
 	if err != nil {
 		return "", err
 	}
+
 	return req.URL, nil
 }
 

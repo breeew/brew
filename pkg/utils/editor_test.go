@@ -3,6 +3,9 @@ package utils
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/davidscottmills/goeditorjs"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConvertEditorJSBlocksToMarkdown(t *testing.T) {
@@ -14,4 +17,55 @@ func TestConvertEditorJSBlocksToMarkdown(t *testing.T) {
 	}
 
 	t.Log(md)
+}
+
+func TestConvertListv2(t *testing.T) {
+	testData := `{
+  "id": "H9yyjnIYeR",
+  "type": "listv2",
+  "data": {
+    "style": "unordered",
+    "meta": {},
+    "items": [
+      {
+        "content": "aaaaa",
+        "meta": {},
+        "items": [
+          {
+            "content": "bbbbb",
+            "meta": {},
+            "items": [
+              {
+                "content": "33333111",
+                "meta": {},
+                "items": []
+              }
+            ]
+          },
+		  {
+		  	"content": "ccccc"
+		  }
+        ]
+      }
+    ]
+  }
+}`
+	var block goeditorjs.EditorJSBlock
+
+	if err := json.Unmarshal([]byte(testData), &block); err != nil {
+		t.Fatal(err)
+	}
+	handler := ListV2Handler{}
+	result, err := handler.GenerateMarkdown(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "- aaaaa  \n  - bbbbb  \n    - 33333111  \n  - ccccc  ", result)
+
+	result, err = handler.GenerateHTML(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "<ul><li><span>aaaaa</span><ul><li><span>bbbbb</span><ul><li><span>33333111</span></li></ul></li><li>ccccc</li></ul></li></ul>", result)
 }
