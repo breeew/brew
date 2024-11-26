@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/sashabaranov/go-openai"
 	"google.golang.org/api/option"
 
 	"github.com/breeew/brew-api/pkg/ai"
@@ -133,7 +134,12 @@ func (s *Driver) Query(ctx context.Context, query string, docs []*types.PassageI
 			result.Received = append(result.Received, recipes...)
 		}
 	}
-	result.TokenCount = resp.Candidates[0].TokenCount
+
+	result.Usage = &openai.Usage{
+		PromptTokens:     int(resp.UsageMetadata.PromptTokenCount),
+		CompletionTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+		TotalTokens:      int(resp.UsageMetadata.TotalTokenCount),
+	}
 
 	return result, nil
 }
@@ -186,7 +192,11 @@ func (s *Driver) ProcessContent(ctx context.Context, doc *string) (ai.GenerateRe
 			result.Received = append(result.Received, recipes...)
 		}
 	}
-	result.TokenCount = resp.Candidates[0].TokenCount
+	result.Usage = &openai.Usage{
+		PromptTokens:     int(resp.UsageMetadata.PromptTokenCount),
+		CompletionTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+		TotalTokens:      int(resp.UsageMetadata.TotalTokenCount),
+	}
 
 	return result, nil
 }

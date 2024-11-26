@@ -9,7 +9,7 @@ CREATE TABLE bw_ai_token_usage (
     model VARCHAR(32) NOT NULL,                 -- ai模型名称
     usage_prompt INTEGER NOT NULL,              -- 使用的提示词令牌数
     usage_output INTEGER NOT NULL,              -- 使用的输出令牌数
-    created_at TIMESTAMP NOT NULL DEFAULT NOW() -- 记录创建时间
+    created_at BIGINT NOT NULL                  -- 记录创建时间
 );
 
 -- 索引设计

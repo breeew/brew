@@ -45,7 +45,7 @@ func Test_Embedding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(len(res))
+	t.Log(len(res.Data))
 
 	raw, err := json.Marshal(res)
 	if err != nil {
@@ -55,7 +55,7 @@ func Test_Embedding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Greater(t, len(res), 0)
+	assert.Greater(t, len(res.Data), 0)
 }
 
 func Test_Generate(t *testing.T) {

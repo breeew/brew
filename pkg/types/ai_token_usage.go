@@ -19,3 +19,12 @@ type UserTokenUsageWithType struct {
 	UsagePrompt int    `json:"usage_prompt" db:"usage_prompt"` // 使用的提示词令牌数
 	UsageOutput int    `json:"usage_output" db:"usage_output"` // 使用的输出令牌数
 }
+
+const (
+	USAGE_TYPE_KNOWLEDGE = "knowledge"
+	USAGE_TYPE_CHAT      = "chat"
+
+	USAGE_SUB_TYPE_EMBEDDING = "embedding"
+	USAGE_SUB_TYPE_SUMMARY   = "summary"
+	USAGE_SUB_TYPE_CHAT      = "chat"
+)

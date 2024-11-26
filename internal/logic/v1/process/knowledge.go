@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/holdno/firetower/protocol"
 	"github.com/pgvector/pgvector-go"
+	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/internal/core"
 	"github.com/breeew/brew-api/internal/core/srv"
@@ -27,12 +29,14 @@ var (
 func StartKnowledgeProcess(core *core.Core, concurrency int) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 	knowledgeProcess = &KnowledgeProcess{
-		concurrency:   concurrency,
-		ctx:           ctx,
-		core:          core,
-		SummaryChan:   make(chan *SummaryRequest, 100000),
-		EmbeddingChan: make(chan *EmbeddingRequest, 100000),
-		processingMap: make(map[string]struct{}),
+		concurrency:              concurrency,
+		ctx:                      ctx,
+		core:                     core,
+		SummaryChan:              make(chan *SummaryRequest, 1000),
+		EmbeddingChan:            make(chan *EmbeddingRequest, 1000),
+		RecordChatUsageChan:      make(chan *RecordChatUsageRequest, 100000),
+		RecordKnowledgeUsageChan: make(chan *RecordKnowledgeUsageRequest, 100000),
+		processingMap:            make(map[string]struct{}),
 	}
 
 	go safe.Run(knowledgeProcess.Start)
@@ -79,13 +83,15 @@ func (p *KnowledgeProcess) Flush() {
 }
 
 type KnowledgeProcess struct {
-	concurrency   int
-	ctx           context.Context
-	core          *core.Core
-	SummaryChan   chan *SummaryRequest
-	EmbeddingChan chan *EmbeddingRequest
-	mu            sync.Mutex
-	processingMap map[string]struct{}
+	concurrency              int
+	ctx                      context.Context
+	core                     *core.Core
+	SummaryChan              chan *SummaryRequest
+	EmbeddingChan            chan *EmbeddingRequest
+	RecordChatUsageChan      chan *RecordChatUsageRequest
+	RecordKnowledgeUsageChan chan *RecordKnowledgeUsageRequest
+	mu                       sync.Mutex
+	processingMap            map[string]struct{}
 }
 
 func (p *KnowledgeProcess) Start() {
@@ -99,11 +105,16 @@ func (p *KnowledgeProcess) Start() {
 			p.ProcessEmbedding()
 		})
 	}
+	for range 10 {
+		go safe.Run(func() {
+			p.ProcessUsage()
+		})
+	}
 }
 
 type SummaryRequest struct {
 	ctx      context.Context
-	data     types.Knowledge
+	data     *types.Knowledge
 	response chan SummaryResponse
 }
 
@@ -136,7 +147,7 @@ func NewSummaryRequest(data types.Knowledge) chan SummaryResponse {
 	resp := make(chan SummaryResponse, 1)
 	knowledgeProcess.SummaryChan <- &SummaryRequest{
 		ctx:      context.Background(),
-		data:     data,
+		data:     &data,
 		response: resp,
 	}
 	return resp
@@ -152,7 +163,7 @@ func NewEmbeddingRequest(data types.Knowledge) chan EmbeddingResponse {
 	resp := make(chan EmbeddingResponse, 1)
 	knowledgeProcess.EmbeddingChan <- &EmbeddingRequest{
 		ctx:      context.Background(),
-		data:     data,
+		data:     &data,
 		response: resp,
 	}
 	return resp
@@ -194,7 +205,7 @@ func (p *KnowledgeProcess) ProcessEmbedding() {
 
 type EmbeddingRequest struct {
 	ctx      context.Context
-	data     types.Knowledge
+	data     *types.Knowledge
 	response chan EmbeddingResponse
 }
 
@@ -277,12 +288,14 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 		return
 	}
 
-	if len(vectorResults) != len(vectors) {
+	NewRecordKnowledgeUsageRequest(vectorResults.Model, types.USAGE_SUB_TYPE_EMBEDDING, req.data, vectorResults.Usage)
+
+	if len(vectorResults.Data) != len(vectors) {
 		slog.Error("Embedding results count not matched chunks count", append(logAttrs, slog.String("error", err.Error()))...)
 		return
 	}
 
-	for i, v := range vectorResults {
+	for i, v := range vectorResults.Data {
 		vectors[i].Embedding = pgvector.NewVector(v)
 	}
 
@@ -390,6 +403,8 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 		return
 	}
 
+	NewRecordKnowledgeUsageRequest(summary.Model, types.USAGE_SUB_TYPE_SUMMARY, req.data, summary.Usage)
+
 	slog.Debug("Knowledge summary result", slog.String("knowledge_id", req.data.ID), slog.String("space_id", req.data.SpaceID), slog.Any("result", summary))
 
 	if summary.DateTime == "" {
@@ -477,4 +492,141 @@ func publishStageChangedMessage(tower *srv.Tower, spaceID, knowledgeID string, s
 	}
 
 	tower.Publish(fire)
+}
+
+type RecordChatUsageRequest struct {
+	ctx       context.Context
+	model     string
+	messageID string
+	usage     *openai.Usage
+	response  chan CommonProcessResponse
+}
+
+type RecordKnowledgeUsageRequest struct {
+	ctx       context.Context
+	model     string
+	knowledge *types.Knowledge
+	subType   string
+	usage     *openai.Usage
+	response  chan CommonProcessResponse
+}
+
+type CommonProcessResponse struct {
+	Error error
+}
+
+func NewRecordChatUsageRequest(model, messageID string, usage *openai.Usage) chan CommonProcessResponse {
+	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
+		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
+			slog.String("message", messageID), slog.Any("usage", usage))
+		return nil
+	}
+
+	resp := make(chan CommonProcessResponse, 1)
+	knowledgeProcess.RecordChatUsageChan <- &RecordChatUsageRequest{
+		ctx:       context.Background(),
+		model:     model,
+		messageID: messageID,
+		usage:     usage,
+		response:  resp,
+	}
+	return resp
+}
+
+func NewRecordKnowledgeUsageRequest(model, subType string, knowledge *types.Knowledge, usage *openai.Usage) chan CommonProcessResponse {
+	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
+		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
+			slog.String("space_id", knowledge.SpaceID), slog.String("knowledge_id", knowledge.ID))
+		return nil
+	}
+
+	resp := make(chan CommonProcessResponse, 1)
+	knowledgeProcess.RecordKnowledgeUsageChan <- &RecordKnowledgeUsageRequest{
+		ctx:       context.Background(),
+		model:     model,
+		subType:   subType,
+		knowledge: knowledge,
+		usage:     usage,
+		response:  resp,
+	}
+	return resp
+}
+
+func (p *KnowledgeProcess) ProcessUsage() {
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case req := <-p.RecordChatUsageChan:
+			if req == nil {
+				continue
+			}
+
+			p.CheckProcess(fmt.Sprintf("message_%s_usage", req.messageID), func() {
+				req.response <- CommonProcessResponse{
+					Error: p.RecordChatUsage(req),
+				}
+			})
+		case req := <-p.RecordKnowledgeUsageChan:
+			if req == nil {
+				continue
+			}
+
+			p.CheckProcess(fmt.Sprintf("knowledge_%s_usage_%s", req.subType, req.knowledge.ID), func() {
+				req.response <- CommonProcessResponse{
+					Error: p.RecordKnowledgeUsage(req),
+				}
+			})
+		}
+	}
+}
+
+func (p *KnowledgeProcess) RecordKnowledgeUsage(req *RecordKnowledgeUsageRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	err := p.core.Store().AITokenUsageStore().Create(ctx, types.AITokenUsage{
+		SpaceID:     req.knowledge.SpaceID,
+		UserID:      req.knowledge.UserID,
+		Type:        types.USAGE_TYPE_KNOWLEDGE,
+		SubType:     req.subType,
+		ObjectID:    req.knowledge.ID,
+		Model:       req.model,
+		UsagePrompt: req.usage.PromptTokens,
+		UsageOutput: req.usage.CompletionTokens,
+		CreatedAt:   time.Now().Unix(),
+	})
+	if err != nil {
+		slog.Error("Process RecordKnowledgeUsage failed", slog.String("error", err.Error()),
+			slog.String("space_id", req.knowledge.SpaceID), slog.String("knowledge_id", req.knowledge.ID), slog.Any("usage", req.usage))
+		return err
+	}
+	return nil
+}
+
+func (p *KnowledgeProcess) RecordChatUsage(req *RecordChatUsageRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	relMessage, err := p.core.Store().ChatMessageStore().GetOne(ctx, req.messageID)
+	if err != nil {
+		return err
+	}
+
+	err = p.core.Store().AITokenUsageStore().Create(ctx, types.AITokenUsage{
+		SpaceID:     relMessage.SpaceID,
+		UserID:      relMessage.UserID,
+		Type:        types.USAGE_TYPE_CHAT,
+		SubType:     types.USAGE_SUB_TYPE_CHAT,
+		ObjectID:    req.messageID,
+		Model:       req.model,
+		UsagePrompt: req.usage.PromptTokens,
+		UsageOutput: req.usage.CompletionTokens,
+		CreatedAt:   time.Now().Unix(),
+	})
+	if err != nil {
+		slog.Error("Process RecordKnowledgeUsage failed", slog.String("error", err.Error()),
+			slog.String("space_id", relMessage.SpaceID), slog.String("message_id", relMessage.ID), slog.String("user_id", relMessage.UserID), slog.Any("usage", req.usage))
+		return err
+	}
+	return nil
 }

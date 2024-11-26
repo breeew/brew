@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
@@ -204,15 +204,10 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 			}
 
 			if msg.Usage != nil {
-				// TODO: finished usage
-				recordUsage(msg.Model, msg.Usage, sessionContext.MessageID)
+				process.NewRecordChatUsageRequest(msg.Model, sessionContext.MessageID, msg.Usage)
 			}
 		}
 	}
-}
-
-func recordUsage(model string, useage *openai.Usage, messageID string) error {
-
 }
 
 func NewNormalAssistant(core *core.Core) *NormalAssistant {

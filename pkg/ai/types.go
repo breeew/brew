@@ -3,11 +3,13 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/pkg/mark"
@@ -377,6 +379,7 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 				return
 			}
 
+			// slog.Debug("message usage", slog.Any("usage", msg.Usage))
 			if msg.Usage != nil {
 				respChan <- ResponseChoice{
 					Usage: msg.Usage,
@@ -558,9 +561,9 @@ func convertPassageToPrompt(docs []*types.PassageInfo) string {
 }
 
 type GenerateResponse struct {
-	Received     []string `json:"received"`
-	FinishReason string
-	TokenCount   int32
+	Received []string      `json:"received"`
+	Usage    *openai.Usage `json:"-"`
+	Model    string        `json:"model"`
 }
 
 func (r GenerateResponse) Message() string {
@@ -577,24 +580,34 @@ func (r GenerateResponse) Message() string {
 }
 
 type SummarizeResult struct {
-	Title    string   `json:"title"`
-	Tags     []string `json:"tags"`
-	Summary  string   `json:"summary"`
-	DateTime string   `json:"date_time"`
-	Token    int
+	Title    string        `json:"title"`
+	Tags     []string      `json:"tags"`
+	Summary  string        `json:"summary"`
+	DateTime string        `json:"date_time"`
+	Usage    *openai.Usage `json:"-"`
+	Model    string        `json:"model"`
 }
 
 type ChunkResult struct {
-	Title    string   `json:"title"`
-	Tags     []string `json:"tags"`
-	Chunks   []string `json:"chunks"`
-	DateTime string   `json:"date_time"`
-	Token    int
+	Title    string        `json:"title"`
+	Tags     []string      `json:"tags"`
+	Chunks   []string      `json:"chunks"`
+	DateTime string        `json:"date_time"`
+	Usage    *openai.Usage `json:"-"`
+	Model    string        `json:"model"`
+}
+
+type EmbeddingResult struct {
+	Model string
+	Usage *openai.Usage
+	Data  [][]float32
 }
 
 type EnhanceQueryResult struct {
-	Original string   `json:"original"`
-	News     []string `json:"news"`
+	Original string        `json:"original"`
+	News     []string      `json:"news"`
+	Model    string        `json:"model"`
+	Usage    *openai.Usage `json:"-"`
 }
 
 const (
@@ -796,4 +809,45 @@ type ResponseChoice struct {
 
 type ReaderResult struct {
 	Content string `json:"content"`
+}
+
+func NumTokens(messages []openai.ChatCompletionMessage, model string) (numTokens int, err error) {
+	var tokensPerMessage, tokensPerName int
+	switch model {
+	case "gpt-3.5-turbo-0613",
+		"gpt-3.5-turbo-16k-0613",
+		"gpt-4-0314",
+		"gpt-4-32k-0314",
+		"gpt-4-0613",
+		"gpt-4-32k-0613":
+		tokensPerMessage = 3
+		tokensPerName = 1
+	case "gpt-3.5-turbo-0301":
+		tokensPerMessage = 4 // every message follows <|start|>{role/name}\n{content}<|end|>\n
+		tokensPerName = -1   // if there's a name, the role is omitted
+	default:
+		if strings.Contains(model, "gpt-4") {
+			return NumTokens(messages, "gpt-4-0613")
+		} else {
+			return NumTokens(messages, "gpt-3.5-turbo-0613")
+		}
+	}
+
+	tkm, err := tiktoken.EncodingForModel(model)
+	if err != nil {
+		err = fmt.Errorf("encoding for model: %v", err)
+		return
+	}
+
+	for _, message := range messages {
+		numTokens += tokensPerMessage
+		numTokens += len(tkm.Encode(message.Content, nil, nil))
+		numTokens += len(tkm.Encode(message.Role, nil, nil))
+		numTokens += len(tkm.Encode(message.Name, nil, nil))
+		if message.Name != "" {
+			numTokens += tokensPerName
+		}
+	}
+	numTokens += 3 // every reply is primed with <|start|>assistant<|message|>
+	return numTokens, nil
 }

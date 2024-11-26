@@ -27,8 +27,8 @@ type EnhanceAI interface {
 }
 
 type EmbeddingAI interface {
-	EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error)
-	EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error)
+	EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error)
+	EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error)
 }
 
 type ReaderAI interface {
@@ -196,14 +196,14 @@ func (s *AI) Lang() string {
 	return s.chatDefault.Lang()
 }
 
-func (s *AI) EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error) {
+func (s *AI) EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error) {
 	if d := s.embedUsage["embedding.query"]; d != nil {
 		return d.EmbeddingForQuery(ctx, content)
 	}
 	return s.embedDefault.EmbeddingForQuery(ctx, content)
 }
 
-func (s *AI) EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *AI) EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	if d := s.embedUsage["embedding.document"]; d != nil {
 		return d.EmbeddingForDocument(ctx, title, content)
 	}

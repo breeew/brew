@@ -229,7 +229,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	}
 
 	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{strings.Join(queryStrs, " ")})
-	if err != nil || len(vector) == 0 {
+	if err != nil || len(vector.Data) == 0 {
 		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
 
@@ -237,7 +237,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, pgvector.NewVector(vector[0]), 40)
+	}, pgvector.NewVector(vector.Data[0]), 40)
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -309,7 +309,7 @@ type KnowledgeQueryResult struct {
 
 func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, query string) (*KnowledgeQueryResult, error) {
 	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{query})
-	if err != nil || len(vector) == 0 {
+	if err != nil || len(vector.Data) == 0 {
 		return nil, errors.New("KnowledgeLogic.Query.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
 
@@ -319,7 +319,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		SpaceID:  spaceID,
 		UserID:   user.User,
 		Resource: resource,
-	}, pgvector.NewVector(vector[0]), 20)
+	}, pgvector.NewVector(vector.Data[0]), 20)
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.Query.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
