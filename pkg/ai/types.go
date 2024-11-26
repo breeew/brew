@@ -331,7 +331,7 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 					ID:      messageID,
 					Message: strs.String(),
 				}
-				strs = strings.Builder{}
+				strs.Reset()
 			}
 		}
 
@@ -375,6 +375,13 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 					Error: err,
 				}
 				return
+			}
+
+			if msg.Usage != nil {
+				respChan <- ResponseChoice{
+					Usage: msg.Usage,
+					Model: msg.Model,
+				}
 			}
 
 			for _, v := range msg.Choices {
@@ -783,6 +790,8 @@ type ResponseChoice struct {
 	Message      string
 	FinishReason string
 	Error        error
+	Usage        *openai.Usage
+	Model        string
 }
 
 type ReaderResult struct {

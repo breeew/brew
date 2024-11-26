@@ -43,10 +43,11 @@ func (s *SaaSPlugin) Install(c *core.Core) error {
 	s.core = c
 	utils.SetupIDWorker(1) // TODO: Cluster id by redis
 
-	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	customConfig := core.NewCustomConfigPayload[SaaSCustomConfig]()
 	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
+	s.customConfig = customConfig.CustomConfig
 
 	return nil
 }

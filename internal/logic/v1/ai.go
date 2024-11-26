@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/internal/core"
 	"github.com/breeew/brew-api/pkg/ai"
@@ -201,8 +202,17 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 				}
 				sended = append(sended, []rune(msg.Message)...)
 			}
+
+			if msg.Usage != nil {
+				// TODO: finished usage
+				recordUsage(msg.Model, msg.Usage, sessionContext.MessageID)
+			}
 		}
 	}
+}
+
+func recordUsage(model string, useage *openai.Usage, messageID string) error {
+
 }
 
 func NewNormalAssistant(core *core.Core) *NormalAssistant {

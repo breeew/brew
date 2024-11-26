@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/pgvector/pgvector-go"
 
@@ -166,4 +167,12 @@ type FileManagementStore interface {
 	GetByID(ctx context.Context, spaceID, file string) (*types.FileManagement, error)
 	UpdateStatus(ctx context.Context, spaceID string, files []string, status int) error
 	Delete(ctx context.Context, spaceID, file string) error
+}
+
+type AITokenUsageStore interface {
+	Create(ctx context.Context, data types.AITokenUsage) error
+	Get(ctx context.Context, _type, subType, objectID, userID string) (*types.AITokenUsage, error)
+	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.AITokenUsage, error)
+	SumUserUsageByType(ctx context.Context, userID string, st, et time.Time) ([]types.UserTokenUsageWithType, error)
+	Delete(ctx context.Context, spaceID, userID string, st, et time.Time) error
 }
