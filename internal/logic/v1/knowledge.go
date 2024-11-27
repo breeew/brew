@@ -213,7 +213,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
+func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, *ai.Usage, error) {
 	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
@@ -230,7 +230,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 
 	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{strings.Join(queryStrs, " ")})
 	if err != nil || len(vector.Data) == 0 {
-		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
+		return nil, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
 
 	refs, err := l.core.Store().VectorStore().Query(l.ctx, types.GetVectorsOptions{
@@ -239,12 +239,12 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		Resource: resource,
 	}, pgvector.NewVector(vector.Data[0]), 40)
 	if err != nil {
-		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
+		return nil, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
 
 	slog.Debug("got query result", slog.String("query", query), slog.Any("result", refs))
 	if len(refs) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var (
@@ -274,7 +274,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		Resource: resource,
 	}, 1, 20)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
+		return nil, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
 	if len(knowledges) == 0 {
 		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
@@ -299,7 +299,10 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 			SW:       sw,
 		})
 	}
-	return &result, nil
+	return &result, &ai.Usage{
+		Model: resp.Model,
+		Usage: resp.Usage,
+	}, nil
 }
 
 type KnowledgeQueryResult struct {

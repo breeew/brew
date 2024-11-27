@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/azure_openai"
@@ -289,11 +288,14 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 	// TODO: Gemini install
 
 	for k, v := range cfg.Usage {
-		if k == "reader" {
+		switch k {
+		case "reader":
 			a.readerUsage[k] = a.readerDrivers[v]
-		} else if strings.Contains(k, "embedding") {
+		case "embedding.document", "embedding.query":
 			a.embedUsage[k] = a.embedDrivers[v]
-		} else {
+		case "enhance_query":
+			a.enhanceUsage[k] = a.enhanceDrivers[v]
+		default:
 			a.chatUsage[k] = a.chatDrivers[v]
 		}
 	}

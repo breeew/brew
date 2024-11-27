@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -379,7 +380,7 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 				return
 			}
 
-			// slog.Debug("message usage", slog.Any("usage", msg.Usage))
+			slog.Debug("message usage", slog.Any("msg", msg))
 			if msg.Usage != nil {
 				respChan <- ResponseChoice{
 					Usage: msg.Usage,
@@ -396,7 +397,6 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 						Message:      v.Delta.Content,
 						FinishReason: string(v.FinishReason),
 					}
-					return
 				}
 
 				if v.Delta.Content == "" {
@@ -608,6 +608,11 @@ type EnhanceQueryResult struct {
 	News     []string      `json:"news"`
 	Model    string        `json:"model"`
 	Usage    *openai.Usage `json:"-"`
+}
+
+type Usage struct {
+	Model string        `json:"model"`
+	Usage *openai.Usage `json:"-"`
 }
 
 const (

@@ -498,6 +498,7 @@ type RecordChatUsageRequest struct {
 	ctx       context.Context
 	model     string
 	messageID string
+	subType   string
 	usage     *openai.Usage
 	response  chan CommonProcessResponse
 }
@@ -515,7 +516,7 @@ type CommonProcessResponse struct {
 	Error error
 }
 
-func NewRecordChatUsageRequest(model, messageID string, usage *openai.Usage) chan CommonProcessResponse {
+func NewRecordChatUsageRequest(model, subType, messageID string, usage *openai.Usage) chan CommonProcessResponse {
 	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
 		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
 			slog.String("message", messageID), slog.Any("usage", usage))
@@ -527,6 +528,7 @@ func NewRecordChatUsageRequest(model, messageID string, usage *openai.Usage) cha
 		ctx:       context.Background(),
 		model:     model,
 		messageID: messageID,
+		subType:   subType,
 		usage:     usage,
 		response:  resp,
 	}
@@ -616,7 +618,7 @@ func (p *KnowledgeProcess) RecordChatUsage(req *RecordChatUsageRequest) error {
 		SpaceID:     relMessage.SpaceID,
 		UserID:      relMessage.UserID,
 		Type:        types.USAGE_TYPE_CHAT,
-		SubType:     types.USAGE_SUB_TYPE_CHAT,
+		SubType:     req.subType,
 		ObjectID:    req.messageID,
 		Model:       req.model,
 		UsagePrompt: req.usage.PromptTokens,

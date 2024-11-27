@@ -24,7 +24,8 @@ const (
 	USAGE_TYPE_KNOWLEDGE = "knowledge"
 	USAGE_TYPE_CHAT      = "chat"
 
-	USAGE_SUB_TYPE_EMBEDDING = "embedding"
-	USAGE_SUB_TYPE_SUMMARY   = "summary"
-	USAGE_SUB_TYPE_CHAT      = "chat"
+	USAGE_SUB_TYPE_EMBEDDING     = "embedding"
+	USAGE_SUB_TYPE_SUMMARY       = "summary"
+	USAGE_SUB_TYPE_CHAT          = "chat"
+	USAGE_SUB_TYPE_QUERY_ENHANCE = "query_enhance"
 )

@@ -204,7 +204,7 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 			}
 
 			if msg.Usage != nil {
-				process.NewRecordChatUsageRequest(msg.Model, sessionContext.MessageID, msg.Usage)
+				process.NewRecordChatUsageRequest(msg.Model, types.USAGE_SUB_TYPE_CHAT, sessionContext.MessageID, msg.Usage)
 			}
 		}
 	}

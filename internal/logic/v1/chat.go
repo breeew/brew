@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/safe"
@@ -150,10 +151,14 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	})
 
 	go safe.Run(func() {
-		docs, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
 		if err != nil {
 			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
 			return
+		}
+
+		if usage != nil {
+			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
 		}
 
 		RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL)
