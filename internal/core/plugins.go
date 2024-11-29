@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/breeew/brew-api/pkg/types"
+	"github.com/gin-gonic/gin"
 )
 
 type Plugins interface {
@@ -13,6 +14,7 @@ type Plugins interface {
 	AIChatLogic() AIChatLogic
 	UseLimiter(key string, method string, defaultRatelimit int) Limiter
 	FileUploader() FileStorage
+	RegisterHTTPEngine(*gin.Engine)
 }
 
 type AIChatLogic interface {

@@ -120,6 +120,7 @@ type ChatSessionStore interface {
 	UpdateSessionTitle(ctx context.Context, sessionID string, title string) error
 	GetByUserID(ctx context.Context, userID string) ([]*types.ChatSession, error)
 	GetChatSession(ctx context.Context, spaceID, sessionID string) (*types.ChatSession, error)
+	UpdateChatSessionLatestAccessTime(ctx context.Context, spaceID, sessionID string) error
 	Delete(ctx context.Context, spaceID, sessionID string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error)

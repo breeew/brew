@@ -1,4 +1,4 @@
-package service
+package middleware
 
 import (
 	"database/sql"

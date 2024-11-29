@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -222,15 +221,13 @@ func (s *QueryOptions) Query() (GenerateResponse, error) {
 	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
 
-	if len(s.query) > 0 {
-		if s.query[0].Role != types.USER_ROLE_SYSTEM {
-			s.query = append([]*types.MessageContext{
-				{
-					Role:    types.USER_ROLE_SYSTEM,
-					Content: s.prompt,
-				},
-			}, s.query...)
-		}
+	if len(s.query) > 0 && s.query[0].Role != types.USER_ROLE_SYSTEM {
+		s.query = append([]*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
+		}, s.query...)
 	}
 
 	return s._driver.Query(s.ctx, s.query)
@@ -380,7 +377,7 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 				return
 			}
 
-			slog.Debug("message usage", slog.Any("msg", msg))
+			// slog.Debug("message usage", slog.Any("msg", msg))
 			if msg.Usage != nil {
 				respChan <- ResponseChoice{
 					Usage: msg.Usage,

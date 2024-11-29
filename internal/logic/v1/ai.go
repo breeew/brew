@@ -184,16 +184,19 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 			return ctx.Err()
 		case msg, ok := <-respChan:
 			// slog.Debug("got ai response", slog.Any("msg", msg), slog.Bool("status", ok))
-			if !ok {
+			if !ok || msg.FinishReason != "" {
 				done(int32(len(sended)))
-				return nil
+				if msg.FinishReason != "" && msg.FinishReason != "stop" {
+					slog.Error("AI srv unexpected exit", slog.String("error", msg.FinishReason), slog.String("id", msg.ID))
+					return errors.New("requestAI.Srv.AI.Query", i18n.ERROR_INTERNAL, fmt.Errorf("%s", msg.FinishReason))
+				}
+				if !ok {
+					return nil
+				}
 			}
+
 			if msg.Error != nil {
 				return err
-			}
-			if msg.FinishReason != "" && msg.FinishReason != "stop" {
-				slog.Error("AI srv unexpected exit", slog.String("error", msg.FinishReason), slog.String("id", msg.ID))
-				return errors.New("requestAI.Srv.AI.Query", i18n.ERROR_INTERNAL, fmt.Errorf("%s", msg.FinishReason))
 			}
 
 			if msg.Message != "" {
@@ -205,6 +208,7 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 
 			if msg.Usage != nil {
 				process.NewRecordChatUsageRequest(msg.Model, types.USAGE_SUB_TYPE_CHAT, sessionContext.MessageID, msg.Usage)
+				return nil
 			}
 		}
 	}

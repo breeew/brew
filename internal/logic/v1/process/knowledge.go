@@ -35,6 +35,7 @@ func StartKnowledgeProcess(core *core.Core, concurrency int) context.CancelFunc 
 		SummaryChan:              make(chan *SummaryRequest, 1000),
 		EmbeddingChan:            make(chan *EmbeddingRequest, 1000),
 		RecordChatUsageChan:      make(chan *RecordChatUsageRequest, 100000),
+		RecordSessionUsageChan:   make(chan *RecordSessionUsageRequest, 1000),
 		RecordKnowledgeUsageChan: make(chan *RecordKnowledgeUsageRequest, 100000),
 		processingMap:            make(map[string]struct{}),
 	}
@@ -89,6 +90,7 @@ type KnowledgeProcess struct {
 	SummaryChan              chan *SummaryRequest
 	EmbeddingChan            chan *EmbeddingRequest
 	RecordChatUsageChan      chan *RecordChatUsageRequest
+	RecordSessionUsageChan   chan *RecordSessionUsageRequest
 	RecordKnowledgeUsageChan chan *RecordKnowledgeUsageRequest
 	mu                       sync.Mutex
 	processingMap            map[string]struct{}
@@ -494,6 +496,16 @@ func publishStageChangedMessage(tower *srv.Tower, spaceID, knowledgeID string, s
 	tower.Publish(fire)
 }
 
+type RecordSessionUsageRequest struct {
+	ctx       context.Context
+	model     string
+	spaceID   string
+	sessionID string
+	subType   string
+	usage     *openai.Usage
+	response  chan CommonProcessResponse
+}
+
 type RecordChatUsageRequest struct {
 	ctx       context.Context
 	model     string
@@ -535,6 +547,26 @@ func NewRecordChatUsageRequest(model, subType, messageID string, usage *openai.U
 	return resp
 }
 
+func NewRecordSessionUsageRequest(model, subType, spaceID, sessionID string, usage *openai.Usage) chan CommonProcessResponse {
+	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
+		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
+			slog.String("session_id", sessionID), slog.Any("usage", usage))
+		return nil
+	}
+
+	resp := make(chan CommonProcessResponse, 1)
+	knowledgeProcess.RecordSessionUsageChan <- &RecordSessionUsageRequest{
+		ctx:       context.Background(),
+		model:     model,
+		spaceID:   spaceID,
+		sessionID: sessionID,
+		subType:   subType,
+		usage:     usage,
+		response:  resp,
+	}
+	return resp
+}
+
 func NewRecordKnowledgeUsageRequest(model, subType string, knowledge *types.Knowledge, usage *openai.Usage) chan CommonProcessResponse {
 	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
 		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
@@ -559,6 +591,16 @@ func (p *KnowledgeProcess) ProcessUsage() {
 		select {
 		case <-p.ctx.Done():
 			return
+		case req := <-p.RecordSessionUsageChan:
+			if req == nil {
+				continue
+			}
+
+			p.CheckProcess(fmt.Sprintf("session_%s_usage", req.sessionID), func() {
+				req.response <- CommonProcessResponse{
+					Error: p.RecordSessionUsage(req),
+				}
+			})
 		case req := <-p.RecordChatUsageChan:
 			if req == nil {
 				continue
@@ -581,6 +623,34 @@ func (p *KnowledgeProcess) ProcessUsage() {
 			})
 		}
 	}
+}
+
+func (p *KnowledgeProcess) RecordSessionUsage(req *RecordSessionUsageRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	session, err := p.core.Store().ChatSessionStore().GetChatSession(ctx, req.spaceID, req.sessionID)
+	if err != nil {
+		return err
+	}
+
+	err = p.core.Store().AITokenUsageStore().Create(ctx, types.AITokenUsage{
+		SpaceID:     session.SpaceID,
+		UserID:      session.UserID,
+		Type:        types.USAGE_TYPE_CHAT,
+		SubType:     req.subType,
+		ObjectID:    session.ID,
+		Model:       req.model,
+		UsagePrompt: req.usage.PromptTokens,
+		UsageOutput: req.usage.CompletionTokens,
+		CreatedAt:   time.Now().Unix(),
+	})
+	if err != nil {
+		slog.Error("Process RecordSessionUsage failed", slog.String("error", err.Error()),
+			slog.String("space_id", session.SpaceID), slog.String("session_id", session.ID), slog.String("user_id", session.UserID), slog.Any("usage", req.usage))
+		return err
+	}
+	return nil
 }
 
 func (p *KnowledgeProcess) RecordKnowledgeUsage(req *RecordKnowledgeUsageRequest) error {

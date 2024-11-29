@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/breeew/brew-api/internal/core"
+	"github.com/breeew/brew-api/internal/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
@@ -108,6 +109,9 @@ func (l *ChatSessionLogic) NamedSession(sessionID, firstQuery string) (NamedSess
 	if err != nil {
 		return NamedSessionResult{}, errors.New("ChatSessionLogic.NamedSession.ai.Query", i18n.ERROR_INTERNAL, err)
 	}
+
+	spaceID, _ := InjectSpaceID(l.ctx)
+	process.NewRecordSessionUsageRequest(resp.Model, types.USAGE_SUB_TYPE_NAMED_CHAT, spaceID, sessionID, resp.Usage)
 
 	title := resp.Message()
 	if len([]rune(title)) > 30 {

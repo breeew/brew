@@ -150,6 +150,12 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		return nil
 	})
 
+	// update session latest access time
+	if err := l.core.Store().ChatSessionStore().UpdateChatSessionLatestAccessTime(l.ctx, chatSession.SpaceID, chatSession.ID); err != nil {
+		slog.Error("Failed to update chat session latest access time", slog.String("error", err.Error()),
+			slog.String("space_id", chatSession.SpaceID), slog.String("session_id", chatSession.ID))
+	}
+
 	go safe.Run(func() {
 		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
 		if err != nil {
