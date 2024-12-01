@@ -13,6 +13,7 @@ import (
 	"github.com/davidscottmills/goeditorjs"
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
+	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/internal/core"
 	"github.com/breeew/brew-api/internal/core/srv"
@@ -213,7 +214,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, error) {
+func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (*types.RAGDocs, *ai.Usage, error) {
 	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
@@ -229,22 +230,22 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	}
 
 	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{strings.Join(queryStrs, " ")})
-	if err != nil || len(vector) == 0 {
-		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
+	if err != nil || len(vector.Data) == 0 {
+		return nil, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
 
 	refs, err := l.core.Store().VectorStore().Query(l.ctx, types.GetVectorsOptions{
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, pgvector.NewVector(vector[0]), 40)
+	}, pgvector.NewVector(vector.Data[0]), 40)
 	if err != nil {
-		return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
+		return nil, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
 
 	slog.Debug("got query result", slog.String("query", query), slog.Any("result", refs))
 	if len(refs) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var (
@@ -274,7 +275,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		Resource: resource,
 	}, 1, 20)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
+		return nil, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
 	if len(knowledges) == 0 {
 		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
@@ -299,7 +300,10 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 			SW:       sw,
 		})
 	}
-	return &result, nil
+	return &result, &ai.Usage{
+		Model: resp.Model,
+		Usage: resp.Usage,
+	}, nil
 }
 
 type KnowledgeQueryResult struct {
@@ -309,7 +313,7 @@ type KnowledgeQueryResult struct {
 
 func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, query string) (*KnowledgeQueryResult, error) {
 	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{query})
-	if err != nil || len(vector) == 0 {
+	if err != nil || len(vector.Data) == 0 {
 		return nil, errors.New("KnowledgeLogic.Query.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
 
@@ -319,7 +323,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		SpaceID:  spaceID,
 		UserID:   user.User,
 		Resource: resource,
-	}, pgvector.NewVector(vector[0]), 20)
+	}, pgvector.NewVector(vector.Data[0]), 20)
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.Query.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -631,4 +635,35 @@ func (l *KnowledgeLogic) processKnowledgeAsync(knowledge types.Knowledge) error 
 	}
 
 	return nil
+}
+
+func (l *KnowledgeLogic) DescribeImage(imageURL string) (string, error) {
+	url, err := l.core.FileUploader().GenGetObjectPreSignURL(imageURL)
+	if err != nil {
+		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
+	}
+	opts := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{
+		{
+			Role: types.USER_ROLE_USER,
+			MultiContent: []openai.ChatMessagePart{
+				{
+					Type: openai.ChatMessagePartTypeImageURL,
+					ImageURL: &openai.ChatMessageImageURL{
+						URL: url,
+					},
+				},
+			},
+		},
+	})
+
+	opts.WithPrompt(lo.If(l.core.Srv().AI().Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
+
+	resp, err := opts.Query()
+	if err != nil {
+		return "", errors.New("KnowledgeLogic.DescribeImage.Query", i18n.ERROR_INTERNAL, err)
+	}
+
+	process.NewRecordUsageRequest(resp.Model, types.USAGE_TYPE_SYSTEM, types.USAGE_SUB_TYPE_DESCRIBE_IMAGE, "", l.GetUserInfo().User, resp.Usage)
+
+	return resp.Message(), nil
 }

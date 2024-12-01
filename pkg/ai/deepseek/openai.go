@@ -50,6 +50,21 @@ func (s *Driver) Lang() string {
 	return ai.MODEL_BASE_LANGUAGE_CN
 }
 
+func (s *Driver) MsgIsOverLimit(msgs []*types.MessageContext) bool {
+	tokenNum, err := ai.NumTokens(lo.Map(msgs, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		return openai.ChatCompletionMessage{
+			Role:    item.Role.String(),
+			Content: item.Content,
+		}
+	}), s.model.ChatModel)
+	if err != nil {
+		slog.Error("Failed to tik request token", slog.String("error", err.Error()), slog.String("driver", NAME), slog.String("model", s.model.ChatModel))
+		return false
+	}
+
+	return tokenNum > 8000
+}
+
 func convertPassageToPrompt(docs []*types.PassageInfo) string {
 	raw, _ := json.MarshalIndent(docs, "", "  ")
 	b := strings.Builder{}
@@ -77,6 +92,9 @@ func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext)
 		Model:    s.model.ChatModel,
 		Messages: messages,
 		Stream:   true,
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	for _, v := range query {
@@ -126,7 +144,8 @@ func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.G
 	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME))
 
 	result.Received = append(result.Received, resp.Choices[0].Message.Content)
-	result.TokenCount = int32(resp.Usage.TotalTokens)
+	result.Usage = &resp.Usage
+	result.Model = resp.Model
 
 	return result, nil
 }
@@ -177,7 +196,9 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_CN)},
 		{Role: openai.ChatMessageRoleUser, Content: *doc},
 	}
-	var result ai.SummarizeResult
+	result := ai.SummarizeResult{
+		Model: s.model.ChatModel,
+	}
 	resp, err := s.client.CreateChatCompletion(ctx,
 		openai.ChatCompletionRequest{
 			Model:    "deepseek-chat",
@@ -199,6 +220,6 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		}
 	}
 
-	result.Token = resp.Usage.TotalTokens
+	result.Usage = &resp.Usage
 	return result, nil
 }

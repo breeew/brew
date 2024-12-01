@@ -47,7 +47,7 @@ func (s *Driver) Lang() string {
 	return ai.MODEL_BASE_LANGUAGE_CN
 }
 
-func (s *Driver) embedding(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *Driver) embedding(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	slog.Debug("Embedding", slog.String("driver", NAME))
 	queryReq := openai.EmbeddingRequest{
 		Model:      openai.EmbeddingModel(s.model.EmbeddingModel),
@@ -67,26 +67,35 @@ func (s *Driver) embedding(ctx context.Context, title string, content []string) 
 		groups[len(groups)-1] = append(groups[len(groups)-1], v)
 	}
 
+	r := ai.EmbeddingResult{
+		Usage: &openai.Usage{},
+	}
+
 	for _, v := range groups {
 		// Create an embedding for the user query
 		queryReq.Input = v
 		resp, err := s.client.CreateEmbeddings(ctx, queryReq)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating embedding: %w", err)
+			return ai.EmbeddingResult{}, fmt.Errorf("Error creating embedding: %w", err)
 		}
 		for _, v := range resp.Data {
 			result = append(result, v.Embedding)
 		}
+		r.Usage.PromptTokens += resp.Usage.PromptTokens
+		r.Usage.CompletionTokens += resp.Usage.CompletionTokens
+		r.Usage.TotalTokens += resp.Usage.TotalTokens
+		r.Model = string(resp.Model)
 	}
+	r.Data = result
 
-	return result, nil
+	return r, nil
 }
 
-func (s *Driver) EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error) {
+func (s *Driver) EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error) {
 	return s.embedding(ctx, "", content)
 }
 
-func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	return s.embedding(ctx, title, content)
 }
 
@@ -99,16 +108,41 @@ func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 	return ai.NewEnhance(ctx, s)
 }
 
+func convertModelToVLModel(model string) string {
+	if strings.Contains(model, "vl") {
+		return model
+	}
+	switch model {
+	case "qwen-plus":
+		return "qwen-vl-plus"
+	case "qwen-max":
+		return "qwen-vl-max"
+	default:
+		return "qwen-vl-plus"
+	}
+}
+
 func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error) {
+	needToSwitchVL := false
+	messages := lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		if len(item.MultiContent) > 0 {
+			needToSwitchVL = true
+		}
+		return openai.ChatCompletionMessage{
+			Role:         item.Role.String(),
+			Content:      item.Content,
+			MultiContent: item.MultiContent,
+		}
+	})
+
+	model := lo.If(needToSwitchVL, convertModelToVLModel(s.model.ChatModel)).Else(s.model.ChatModel)
 	req := openai.ChatCompletionRequest{
-		Model:  s.model.ChatModel,
-		Stream: true,
-		Messages: lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
-			return openai.ChatCompletionMessage{
-				Role:    item.Role.String(),
-				Content: item.Content,
-			}
-		}),
+		Model:    model,
+		Stream:   true,
+		Messages: messages,
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	resp, err := s.client.CreateChatCompletionStream(ctx, req)
@@ -122,36 +156,34 @@ func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext)
 }
 
 func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.GenerateResponse, error) {
+	needToSwitchVL := false
 	messages := lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		if len(item.MultiContent) > 0 {
+			needToSwitchVL = true
+		}
 		return openai.ChatCompletionMessage{
-			Role:    item.Role.String(),
-			Content: item.Content,
+			Role:         item.Role.String(),
+			Content:      item.Content,
+			MultiContent: item.MultiContent,
 		}
 	})
-
+	model := lo.If(needToSwitchVL, convertModelToVLModel(s.model.ChatModel)).Else(s.model.ChatModel)
 	req := openai.ChatCompletionRequest{
-		Model:    s.model.ChatModel,
+		Model:    model,
 		Messages: messages,
-	}
-
-	for _, v := range query {
-		req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-			Role:    v.Role.String(),
-			Content: v.Content,
-		})
 	}
 
 	var result ai.GenerateResponse
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return result, fmt.Errorf("Completion error: %w", err)
-
 	}
 
 	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME))
 
 	result.Received = append(result.Received, resp.Choices[0].Message.Content)
-	result.TokenCount = int32(resp.Usage.TotalTokens)
+	result.Usage = &resp.Usage
+	result.Model = resp.Model
 
 	return result, nil
 }
@@ -223,12 +255,24 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		}
 	}
 
-	result.Token = resp.Usage.TotalTokens
+	result.Usage = &resp.Usage
+	result.Model = resp.Model
 	return result, nil
 }
 
 func (s *Driver) MsgIsOverLimit(msgs []*types.MessageContext) bool {
-	return false
+	tokenNum, err := ai.NumTokens(lo.Map(msgs, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		return openai.ChatCompletionMessage{
+			Role:    item.Role.String(),
+			Content: item.Content,
+		}
+	}), s.model.ChatModel)
+	if err != nil {
+		slog.Error("Failed to tik request token", slog.String("error", err.Error()), slog.String("driver", NAME), slog.String("model", s.model.ChatModel))
+		return false
+	}
+
+	return tokenNum > 8000
 }
 
 type EnhanceQueryResult struct {
@@ -300,6 +344,8 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 	}
 
 	result.Original = query
+	result.Model = resp.Model
+	result.Usage = &resp.Usage
 	return result, nil
 }
 
@@ -371,6 +417,7 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 		}
 	}
 
-	result.Token = resp.Usage.TotalTokens
+	result.Model = resp.Model
+	result.Usage = &resp.Usage
 	return result, nil
 }

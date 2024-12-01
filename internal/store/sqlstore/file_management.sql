@@ -24,4 +24,3 @@ COMMENT ON COLUMN bw_file_management.created_at IS '记录文件的上传时间'
 
 -- 添加唯一约束
 CREATE UNIQUE INDEX idx_user_id_file_name ON bw_file_management (user_id, file);
-CREATE INDEX idx_user_id_object_id ON bw_file_management (user_id, object_id);

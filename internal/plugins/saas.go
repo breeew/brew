@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
+
 	"github.com/breeew/brew-api/internal/core"
 	v1 "github.com/breeew/brew-api/internal/logic/v1"
 	"github.com/breeew/brew-api/pkg/utils"
-	"golang.org/x/time/rate"
 )
 
 var _ core.Plugins = (*SaaSPlugin)(nil)
@@ -28,11 +30,15 @@ type SaaSPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
-
+	httpSrv    *gin.Engine
 	core.FileStorage
 
 	// custom config
 	customConfig SaaSCustomConfig
+}
+
+func (s *SaaSPlugin) RegisterHTTPEngine(e *gin.Engine) {
+	s.httpSrv = e
 }
 
 func (s *SaaSPlugin) DefaultAppid() string {
@@ -43,10 +49,11 @@ func (s *SaaSPlugin) Install(c *core.Core) error {
 	s.core = c
 	utils.SetupIDWorker(1) // TODO: Cluster id by redis
 
-	customConfig := core.NewCustomConfigPayload[SelfHostCustomConfig]()
+	customConfig := core.NewCustomConfigPayload[SaaSCustomConfig]()
 	if err := s.core.Cfg().LoadCustomConfig(&customConfig); err != nil {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
+	s.customConfig = customConfig.CustomConfig
 
 	return nil
 }

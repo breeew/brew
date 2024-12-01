@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/azure_openai"
@@ -27,8 +26,8 @@ type EnhanceAI interface {
 }
 
 type EmbeddingAI interface {
-	EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error)
-	EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error)
+	EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error)
+	EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error)
 }
 
 type ReaderAI interface {
@@ -196,14 +195,14 @@ func (s *AI) Lang() string {
 	return s.chatDefault.Lang()
 }
 
-func (s *AI) EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error) {
+func (s *AI) EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error) {
 	if d := s.embedUsage["embedding.query"]; d != nil {
 		return d.EmbeddingForQuery(ctx, content)
 	}
 	return s.embedDefault.EmbeddingForQuery(ctx, content)
 }
 
-func (s *AI) EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *AI) EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	if d := s.embedUsage["embedding.document"]; d != nil {
 		return d.EmbeddingForDocument(ctx, title, content)
 	}
@@ -289,11 +288,14 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 	// TODO: Gemini install
 
 	for k, v := range cfg.Usage {
-		if k == "reader" {
+		switch k {
+		case "reader":
 			a.readerUsage[k] = a.readerDrivers[v]
-		} else if strings.Contains(k, "embedding") {
+		case "embedding.document", "embedding.query":
 			a.embedUsage[k] = a.embedDrivers[v]
-		} else {
+		case "enhance_query":
+			a.enhanceUsage[k] = a.enhanceDrivers[v]
+		default:
 			a.chatUsage[k] = a.chatDrivers[v]
 		}
 	}

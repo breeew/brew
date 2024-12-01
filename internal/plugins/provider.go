@@ -69,6 +69,10 @@ func (lfs *NoneFileStorage) GetStaticDomain() string {
 	return ""
 }
 
+func (lfs *NoneFileStorage) GenGetObjectPreSignURL(url string) (string, error) {
+	return "", fmt.Errorf("Unsupported")
+}
+
 func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{}, fmt.Errorf("Unsupported")
 }
@@ -130,6 +134,10 @@ func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
 	return nil
 }
 
+func (lfs *LocalFileStorage) GenGetObjectPreSignURL(url string) (string, error) {
+	return url, nil
+}
+
 type S3FileStorage struct {
 	StaticDomain string
 	*s3.S3
@@ -158,4 +166,8 @@ func (fs *S3FileStorage) SaveFile(filePath, fileName string, content []byte) err
 // DeleteFile deletes a file
 func (fs *S3FileStorage) DeleteFile(fullFilePath string) error {
 	return fs.Delete(fullFilePath)
+}
+
+func (fs *S3FileStorage) GenGetObjectPreSignURL(url string) (string, error) {
+	return fs.S3.GenGetObjectPreSignURL(strings.TrimPrefix(url, fs.GetStaticDomain()))
 }

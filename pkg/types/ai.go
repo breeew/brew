@@ -17,7 +17,7 @@ type ChatMessagePart struct {
 type MessageContext struct {
 	Role         MessageUserRole `json:"role"`
 	Content      string          `json:"content"`
-	MultiContent []ChatMessagePart
+	MultiContent []openai.ChatMessagePart
 }
 
 type ResponseChoice struct {

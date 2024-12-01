@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/pkoukk/tiktoken-go"
 	"github.com/samber/lo"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
@@ -51,7 +50,7 @@ func (s *Driver) Lang() string {
 	return ai.MODEL_BASE_LANGUAGE_EN
 }
 
-func (s *Driver) embedding(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *Driver) embedding(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	slog.Debug("Embedding", slog.String("driver", NAME))
 	queryReq := openai.EmbeddingRequest{
 		Model:      openai.EmbeddingModel(s.model.EmbeddingModel),
@@ -70,72 +69,36 @@ func (s *Driver) embedding(ctx context.Context, title string, content []string) 
 		}
 		groups[len(groups)-1] = append(groups[len(groups)-1], v)
 	}
-
+	r := ai.EmbeddingResult{
+		Usage: &openai.Usage{},
+	}
 	for _, v := range groups {
 		// Create an embedding for the user query
 		queryReq.Input = v
 		resp, err := s.client.CreateEmbeddings(ctx, queryReq)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating embedding: %w", err)
+			return r, fmt.Errorf("Error creating embedding: %w", err)
 		}
 		for _, v := range resp.Data {
 			result = append(result, v.Embedding)
 		}
-	}
 
-	return result, nil
+		r.Usage.CompletionTokens += resp.Usage.CompletionTokens
+		r.Usage.PromptTokens += resp.Usage.PromptTokens
+		r.Usage.TotalTokens += resp.Usage.TotalTokens
+		r.Model = string(resp.Model)
+	}
+	r.Data = result
+
+	return r, nil
 }
 
-func (s *Driver) EmbeddingForQuery(ctx context.Context, content []string) ([][]float32, error) {
+func (s *Driver) EmbeddingForQuery(ctx context.Context, content []string) (ai.EmbeddingResult, error) {
 	return s.embedding(ctx, "", content)
 }
 
-func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content []string) ([][]float32, error) {
+func (s *Driver) EmbeddingForDocument(ctx context.Context, title string, content []string) (ai.EmbeddingResult, error) {
 	return s.embedding(ctx, title, content)
-}
-
-func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (numTokens int, err error) {
-	tkm, err := tiktoken.EncodingForModel(model)
-	if err != nil {
-		err = fmt.Errorf("encoding for model: %v", err)
-		return
-	}
-
-	var tokensPerMessage, tokensPerName int
-	switch model {
-	case "gpt-3.5-turbo-0613",
-		"gpt-3.5-turbo-16k-0613",
-		"gpt-4-0314",
-		"gpt-4-32k-0314",
-		"gpt-4-0613",
-		"gpt-4-32k-0613":
-		tokensPerMessage = 3
-		tokensPerName = 1
-	case "gpt-3.5-turbo-0301":
-		tokensPerMessage = 4 // every message follows <|start|>{role/name}\n{content}<|end|>\n
-		tokensPerName = -1   // if there's a name, the role is omitted
-	default:
-		if strings.Contains(model, "gpt-3.5-turbo") {
-			return NumTokensFromMessages(messages, "gpt-3.5-turbo-0613")
-		} else if strings.Contains(model, "gpt-4") {
-			return NumTokensFromMessages(messages, "gpt-4-0613")
-		} else {
-			err = fmt.Errorf("num_tokens_from_messages() is not implemented for model %s. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.", model)
-			return
-		}
-	}
-
-	for _, message := range messages {
-		numTokens += tokensPerMessage
-		numTokens += len(tkm.Encode(message.Content, nil, nil))
-		numTokens += len(tkm.Encode(message.Role, nil, nil))
-		numTokens += len(tkm.Encode(message.Name, nil, nil))
-		if message.Name != "" {
-			numTokens += tokensPerName
-		}
-	}
-	numTokens += 3 // every reply is primed with <|start|>assistant<|message|>
-	return numTokens, nil
 }
 
 func (s *Driver) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
@@ -147,7 +110,7 @@ func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 }
 
 func (s *Driver) MsgIsOverLimit(msgs []*types.MessageContext) bool {
-	tokenNum, err := NumTokensFromMessages(lo.Map(msgs, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+	tokenNum, err := ai.NumTokens(lo.Map(msgs, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
 		return openai.ChatCompletionMessage{
 			Role:    item.Role.String(),
 			Content: item.Content,
@@ -158,7 +121,7 @@ func (s *Driver) MsgIsOverLimit(msgs []*types.MessageContext) bool {
 		return false
 	}
 
-	return tokenNum > 6000
+	return tokenNum > 8000
 }
 
 type EnhanceQueryResult struct {
@@ -230,6 +193,8 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 	}
 
 	result.Original = query
+	result.Usage = &resp.Usage
+	result.Model = resp.Model
 	return result, nil
 }
 
@@ -244,6 +209,9 @@ func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext)
 				Content: item.Content,
 			}
 		}),
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	resp, err := s.client.CreateChatCompletionStream(ctx, req)
@@ -268,7 +236,9 @@ func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.G
 		}),
 	}
 
-	var result ai.GenerateResponse
+	result := ai.GenerateResponse{
+		Model: s.model.ChatModel,
+	}
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return result, fmt.Errorf("Completion error: %w", err)
@@ -278,7 +248,7 @@ func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.G
 	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME), slog.String("model", s.model.ChatModel))
 
 	result.Received = append(result.Received, resp.Choices[0].Message.Content)
-	result.TokenCount = int32(resp.Usage.TotalTokens)
+	result.Usage = &resp.Usage
 
 	return result, nil
 }
@@ -329,7 +299,9 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_PROCESS_CONTENT_EN)},
 		{Role: openai.ChatMessageRoleUser, Content: *doc},
 	}
-	var result ai.SummarizeResult
+	result := ai.SummarizeResult{
+		Model: s.model.ChatModel,
+	}
 	resp, err := s.client.CreateChatCompletion(ctx,
 		openai.ChatCompletionRequest{
 			Model:    s.model.ChatModel,
@@ -350,7 +322,7 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		}
 	}
 
-	result.Token = resp.Usage.TotalTokens
+	result.Usage = &resp.Usage
 	return result, nil
 }
 
@@ -422,7 +394,9 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_CHUNK_CONTENT_EN)},
 		{Role: openai.ChatMessageRoleUser, Content: strings.ReplaceAll(*doc, "\n", "")},
 	}
-	var result ai.ChunkResult
+	result := ai.ChunkResult{
+		Model: s.model.ChatModel,
+	}
 	resp, err := s.client.CreateChatCompletion(ctx,
 		openai.ChatCompletionRequest{
 			Model:    s.model.ChatModel,
@@ -444,6 +418,6 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 		}
 	}
 
-	result.Token = resp.Usage.TotalTokens
+	result.Usage = &resp.Usage
 	return result, nil
 }

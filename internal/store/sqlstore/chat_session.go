@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -94,6 +95,21 @@ func (s *ChatSessionStore) GetByUserID(ctx context.Context, userID string) ([]*t
 	return res, nil
 }
 
+func (s *ChatSessionStore) UpdateChatSessionLatestAccessTime(ctx context.Context, spaceID, sessionID string) error {
+	query := sq.Update(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "id": sessionID}).Set("latest_access_time", time.Now().Unix())
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+	fmt.Println(queryString, args)
+
+	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ChatSessionStore) GetChatSession(ctx context.Context, spaceID, sessionID string) (*types.ChatSession, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "id": sessionID})
 
@@ -138,7 +154,9 @@ func (s *ChatSessionStore) DeleteAll(ctx context.Context, spaceID string) error 
 }
 
 func (s *ChatSessionStore) List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).OrderBy("created_at DESC")
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
+		Where(sq.Eq{"space_id": spaceID, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).
+		OrderBy("latest_access_time DESC")
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

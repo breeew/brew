@@ -13,6 +13,7 @@ import (
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
+	"github.com/gin-gonic/gin"
 )
 
 func NewSingleLock() *SingleLock {
@@ -63,6 +64,10 @@ type SelfHostPlugin struct {
 	core.FileStorage
 
 	customConfig SelfHostCustomConfig
+}
+
+func (s *SelfHostPlugin) RegisterHTTPEngine(e *gin.Engine) {
+	return
 }
 
 func (s *SelfHostPlugin) DefaultAppid() string {
