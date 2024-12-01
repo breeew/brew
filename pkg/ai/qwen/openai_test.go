@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	openai "github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/breeew/brew-api/pkg/ai"
-	openai "github.com/breeew/brew-api/pkg/ai/qwen"
+	"github.com/breeew/brew-api/pkg/ai/qwen"
 	"github.com/breeew/brew-api/pkg/types"
 )
 
@@ -22,10 +23,10 @@ func init() {
 	})))
 }
 
-func new() *openai.Driver {
+func new() *qwen.Driver {
 	fmt.Println(os.Getenv("BREW_API_AI_ALI_TOKEN"), os.Getenv("BREW_API_AI_ALI_ENDPOINT"))
-	return openai.New(os.Getenv("BREW_API_AI_ALI_TOKEN"), os.Getenv("BREW_API_AI_ALI_ENDPOINT"), ai.ModelName{
-		ChatModel:      "qwen-plus",
+	return qwen.New(os.Getenv("BREW_API_AI_ALI_TOKEN"), os.Getenv("BREW_API_AI_ALI_ENDPOINT"), ai.ModelName{
+		ChatModel:      "qwen-vl-plus",
 		EmbeddingModel: "text-embedding-v3",
 	})
 }
@@ -174,4 +175,29 @@ pgvector/pgvector:pg16`
 	}
 
 	t.Log(resp)
+}
+
+func Test_DescribeImage(t *testing.T) {
+	d := new()
+	opts := d.NewQuery(context.Background(), []*types.MessageContext{
+		{
+			Role: types.USER_ROLE_USER,
+			MultiContent: []openai.ChatMessagePart{
+				{
+					Type: openai.ChatMessagePartTypeImageURL,
+					ImageURL: &openai.ChatMessageImageURL{
+						URL: "",
+					},
+				},
+			},
+		},
+	})
+
+	opts.WithPrompt(ai.IMAGE_GENERATE_PROMPT_CN)
+	resp, err := opts.Query()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(resp.Message())
 }

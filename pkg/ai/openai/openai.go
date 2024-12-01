@@ -235,8 +235,9 @@ func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.G
 		Model: s.model.ChatModel,
 		Messages: lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
 			return openai.ChatCompletionMessage{
-				Role:    item.Role.String(),
-				Content: item.Content,
+				Role:         item.Role.String(),
+				Content:      item.Content,
+				MultiContent: item.MultiContent,
 			}
 		}),
 	}

@@ -26,7 +26,7 @@ func init() {
 func new() *openai.Driver {
 	fmt.Println(os.Getenv("BREW_API_AI_OPENAI_ENDPOINT"))
 	return openai.New(os.Getenv("BREW_API_AI_OPENAI_TOKEN"), os.Getenv("BREW_API_AI_OPENAI_ENDPOINT"), ai.ModelName{
-		ChatModel:      oai.GPT4oMini,
+		ChatModel:      "openai/gpt-4o-mini",
 		EmbeddingModel: string(oai.LargeEmbedding3),
 	})
 }
@@ -137,4 +137,29 @@ pgvector/pgvector:pg16
 	}
 
 	t.Log(resp)
+}
+
+func Test_DescribeImage(t *testing.T) {
+	d := new()
+	opts := d.NewQuery(context.Background(), []*types.MessageContext{
+		{
+			Role: types.USER_ROLE_USER,
+			MultiContent: []oai.ChatMessagePart{
+				{
+					Type: oai.ChatMessagePartTypeImageURL,
+					ImageURL: &oai.ChatMessageImageURL{
+						URL: "",
+					},
+				},
+			},
+		},
+	})
+
+	opts.WithPrompt(ai.IMAGE_GENERATE_PROMPT_CN)
+	resp, err := opts.Query()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(resp.Message())
 }

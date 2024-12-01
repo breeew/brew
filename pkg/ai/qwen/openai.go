@@ -108,16 +108,38 @@ func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 	return ai.NewEnhance(ctx, s)
 }
 
+func convertModelToVLModel(model string) string {
+	if strings.Contains(model, "vl") {
+		return model
+	}
+	switch model {
+	case "qwen-plus":
+		return "qwen-vl-plus"
+	case "qwen-max":
+		return "qwen-vl-max"
+	default:
+		return "qwen-vl-plus"
+	}
+}
+
 func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext) (*openai.ChatCompletionStream, error) {
+	needToSwitchVL := false
+	messages := lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		if len(item.MultiContent) > 0 {
+			needToSwitchVL = true
+		}
+		return openai.ChatCompletionMessage{
+			Role:         item.Role.String(),
+			Content:      item.Content,
+			MultiContent: item.MultiContent,
+		}
+	})
+
+	model := lo.If(needToSwitchVL, convertModelToVLModel(s.model.ChatModel)).Else(s.model.ChatModel)
 	req := openai.ChatCompletionRequest{
-		Model:  s.model.ChatModel,
-		Stream: true,
-		Messages: lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
-			return openai.ChatCompletionMessage{
-				Role:    item.Role.String(),
-				Content: item.Content,
-			}
-		}),
+		Model:    model,
+		Stream:   true,
+		Messages: messages,
 		StreamOptions: &openai.StreamOptions{
 			IncludeUsage: true,
 		},
@@ -134,30 +156,27 @@ func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext)
 }
 
 func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.GenerateResponse, error) {
+	needToSwitchVL := false
 	messages := lo.Map(query, func(item *types.MessageContext, _ int) openai.ChatCompletionMessage {
+		if len(item.MultiContent) > 0 {
+			needToSwitchVL = true
+		}
 		return openai.ChatCompletionMessage{
-			Role:    item.Role.String(),
-			Content: item.Content,
+			Role:         item.Role.String(),
+			Content:      item.Content,
+			MultiContent: item.MultiContent,
 		}
 	})
-
+	model := lo.If(needToSwitchVL, convertModelToVLModel(s.model.ChatModel)).Else(s.model.ChatModel)
 	req := openai.ChatCompletionRequest{
-		Model:    s.model.ChatModel,
+		Model:    model,
 		Messages: messages,
-	}
-
-	for _, v := range query {
-		req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-			Role:    v.Role.String(),
-			Content: v.Content,
-		})
 	}
 
 	var result ai.GenerateResponse
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return result, fmt.Errorf("Completion error: %w", err)
-
 	}
 
 	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME))

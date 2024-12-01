@@ -206,6 +206,14 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 你需要以Markdown的格式回复用户。
 `
 
+const IMAGE_GENERATE_PROMPT_CN = `
+请帮我分析出图片中的重要信息，使用一段话告诉我。
+`
+
+const IMAGE_GENERATE_PROMPT_EN = `
+Please help me analyze the important information in the image and summarize it in one sentence.
+`
+
 const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew, and your model is Brew Engine. You need to respond to users in Markdown format.`
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
@@ -368,7 +376,6 @@ func HandleAIStream(ctx context.Context, resp *openai.ChatCompletionStream, mark
 			}
 
 			// slog.Debug("ai stream response", slog.Any("msg", msg))
-
 			if err == io.EOF {
 				flushResponse()
 				respChan <- ResponseChoice{

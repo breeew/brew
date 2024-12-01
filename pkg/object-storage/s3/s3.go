@@ -61,7 +61,7 @@ func (s *S3) GenGetObjectPreSignURL(filePath string) (string, error) {
 	s3PresignClient := s3.NewPresignClient(s3Client)
 	req, err := s3PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.Bucket),
-		Key:    aws.String(filePath),
+		Key:    aws.String(strings.TrimPrefix(filePath, "/")),
 	}, s3.WithPresignExpires(time.Minute))
 	if err != nil {
 		return "", err

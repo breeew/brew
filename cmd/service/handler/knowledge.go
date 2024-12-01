@@ -238,3 +238,33 @@ func (s *HttpSrv) Query(c *gin.Context) {
 
 	response.APISuccess(c, result)
 }
+
+type DescribeImageRequest struct {
+	URL string `json:"url"`
+}
+
+type DescribeImageResponse struct {
+	Content string `json:"content"`
+}
+
+func (s *HttpSrv) DescribeImage(c *gin.Context) {
+	var (
+		err error
+		req DescribeImageRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+	// v1.KnowledgeQueryResult
+	result, err := v1.NewKnowledgeLogic(c, s.Core).DescribeImage(req.URL)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, DescribeImageResponse{
+		Content: result,
+	})
+}

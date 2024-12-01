@@ -13,6 +13,7 @@ import (
 	"github.com/davidscottmills/goeditorjs"
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
+	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/internal/core"
 	"github.com/breeew/brew-api/internal/core/srv"
@@ -634,4 +635,35 @@ func (l *KnowledgeLogic) processKnowledgeAsync(knowledge types.Knowledge) error 
 	}
 
 	return nil
+}
+
+func (l *KnowledgeLogic) DescribeImage(imageURL string) (string, error) {
+	url, err := l.core.FileUploader().GenGetObjectPreSignURL(imageURL)
+	if err != nil {
+		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
+	}
+	opts := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{
+		{
+			Role: types.USER_ROLE_USER,
+			MultiContent: []openai.ChatMessagePart{
+				{
+					Type: openai.ChatMessagePartTypeImageURL,
+					ImageURL: &openai.ChatMessageImageURL{
+						URL: url,
+					},
+				},
+			},
+		},
+	})
+
+	opts.WithPrompt(lo.If(l.core.Srv().AI().Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
+
+	resp, err := opts.Query()
+	if err != nil {
+		return "", errors.New("KnowledgeLogic.DescribeImage.Query", i18n.ERROR_INTERNAL, err)
+	}
+
+	process.NewRecordUsageRequest(resp.Model, types.USAGE_TYPE_SYSTEM, types.USAGE_SUB_TYPE_DESCRIBE_IMAGE, "", l.GetUserInfo().User, resp.Usage)
+
+	return resp.Message(), nil
 }

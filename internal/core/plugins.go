@@ -35,6 +35,7 @@ type FileStorage interface {
 	GenUploadFileMeta(filePath, fileName string) (UploadFileMeta, error)
 	SaveFile(filePath, fileName string, content []byte) error
 	DeleteFile(fullFilePath string) error
+	GenGetObjectPreSignURL(url string) (string, error)
 }
 
 type Limiter interface {

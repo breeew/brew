@@ -136,6 +136,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		{
 			tools.Use(userLimit("tools"))
 			tools.GET("/reader", s.ToolsReader)
+			tools.POST("/describe/image", s.DescribeImage)
 		}
 	}
 }

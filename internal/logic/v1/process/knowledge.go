@@ -34,9 +34,10 @@ func StartKnowledgeProcess(core *core.Core, concurrency int) context.CancelFunc 
 		core:                     core,
 		SummaryChan:              make(chan *SummaryRequest, 1000),
 		EmbeddingChan:            make(chan *EmbeddingRequest, 1000),
-		RecordChatUsageChan:      make(chan *RecordChatUsageRequest, 100000),
-		RecordSessionUsageChan:   make(chan *RecordSessionUsageRequest, 1000),
-		RecordKnowledgeUsageChan: make(chan *RecordKnowledgeUsageRequest, 100000),
+		RecordUsageChan:          make(chan *RecordUsageRequest, 100),
+		RecordChatUsageChan:      make(chan *RecordChatUsageRequest, 10000),
+		RecordSessionUsageChan:   make(chan *RecordSessionUsageRequest, 100),
+		RecordKnowledgeUsageChan: make(chan *RecordKnowledgeUsageRequest, 10000),
 		processingMap:            make(map[string]struct{}),
 	}
 
@@ -89,6 +90,7 @@ type KnowledgeProcess struct {
 	core                     *core.Core
 	SummaryChan              chan *SummaryRequest
 	EmbeddingChan            chan *EmbeddingRequest
+	RecordUsageChan          chan *RecordUsageRequest
 	RecordChatUsageChan      chan *RecordChatUsageRequest
 	RecordSessionUsageChan   chan *RecordSessionUsageRequest
 	RecordKnowledgeUsageChan chan *RecordKnowledgeUsageRequest
@@ -506,6 +508,17 @@ type RecordSessionUsageRequest struct {
 	response  chan CommonProcessResponse
 }
 
+type RecordUsageRequest struct {
+	ctx      context.Context
+	spaceID  string
+	userID   string
+	model    string
+	subType  string
+	_type    string
+	usage    *openai.Usage
+	response chan CommonProcessResponse
+}
+
 type RecordChatUsageRequest struct {
 	ctx       context.Context
 	model     string
@@ -526,6 +539,21 @@ type RecordKnowledgeUsageRequest struct {
 
 type CommonProcessResponse struct {
 	Error error
+}
+
+func NewRecordUsageRequest(model, _type, subType, spaceID, userID string, usage *openai.Usage) chan CommonProcessResponse {
+	resp := make(chan CommonProcessResponse, 1)
+	knowledgeProcess.RecordUsageChan <- &RecordUsageRequest{
+		ctx:      context.Background(),
+		model:    model,
+		spaceID:  spaceID,
+		userID:   userID,
+		_type:    _type,
+		subType:  subType,
+		usage:    usage,
+		response: resp,
+	}
+	return resp
 }
 
 func NewRecordChatUsageRequest(model, subType, messageID string, usage *openai.Usage) chan CommonProcessResponse {
@@ -591,6 +619,13 @@ func (p *KnowledgeProcess) ProcessUsage() {
 		select {
 		case <-p.ctx.Done():
 			return
+		case req := <-p.RecordUsageChan:
+			if req == nil {
+				continue
+			}
+			req.response <- CommonProcessResponse{
+				Error: p.RecordUsage(req),
+			}
 		case req := <-p.RecordSessionUsageChan:
 			if req == nil {
 				continue
@@ -623,6 +658,29 @@ func (p *KnowledgeProcess) ProcessUsage() {
 			})
 		}
 	}
+}
+
+func (p *KnowledgeProcess) RecordUsage(req *RecordUsageRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	err := p.core.Store().AITokenUsageStore().Create(ctx, types.AITokenUsage{
+		SpaceID:     req.spaceID,
+		UserID:      req.userID,
+		Type:        req._type,
+		SubType:     req.subType,
+		ObjectID:    "",
+		Model:       req.model,
+		UsagePrompt: req.usage.PromptTokens,
+		UsageOutput: req.usage.CompletionTokens,
+		CreatedAt:   time.Now().Unix(),
+	})
+	if err != nil {
+		slog.Error("Process RecordUsage failed", slog.String("error", err.Error()),
+			slog.String("space_id", req.spaceID), slog.String("user_id", req.userID), slog.Any("usage", req.usage))
+		return err
+	}
+	return nil
 }
 
 func (p *KnowledgeProcess) RecordSessionUsage(req *RecordSessionUsageRequest) error {
