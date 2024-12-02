@@ -3,5 +3,9 @@
 .env
 _build
 
+go.work 
+go.work.*
+
 config-dev.toml
 config-*.toml
+commercial

@@ -28,3 +28,8 @@ const (
 	GEN_MODE_NORMAL RequestAssistantMode = 1
 	GEN_MODE_REGEN  RequestAssistantMode = 2
 )
+
+const (
+	LANGUAGE_EN_KEY = "en"
+	LANGUAGE_CN_KEY = "zh-CN"
+)

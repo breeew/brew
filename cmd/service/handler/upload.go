@@ -3,8 +3,8 @@ package handler
 import (
 	"fmt"
 
-	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/internal/response"
+	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/utils"
 	"github.com/gin-gonic/gin"
 )

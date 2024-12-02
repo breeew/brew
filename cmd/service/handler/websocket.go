@@ -11,10 +11,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/holdno/firetower/protocol"
 
-	"github.com/breeew/brew-api/internal/core"
-	"github.com/breeew/brew-api/internal/core/srv"
-	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/app/core"
+	"github.com/breeew/brew-api/app/core/srv"
+	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/utils"
 )

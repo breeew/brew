@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 
-	"github.com/breeew/brew-api/internal/core"
-	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/app/core"
+	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
@@ -237,34 +237,4 @@ func (s *HttpSrv) Query(c *gin.Context) {
 	}
 
 	response.APISuccess(c, result)
-}
-
-type DescribeImageRequest struct {
-	URL string `json:"url"`
-}
-
-type DescribeImageResponse struct {
-	Content string `json:"content"`
-}
-
-func (s *HttpSrv) DescribeImage(c *gin.Context) {
-	var (
-		err error
-		req DescribeImageRequest
-	)
-
-	if err = utils.BindArgsWithGin(c, &req); err != nil {
-		response.APIError(c, err)
-		return
-	}
-	// v1.KnowledgeQueryResult
-	result, err := v1.NewKnowledgeLogic(c, s.Core).DescribeImage(req.URL)
-	if err != nil {
-		response.APIError(c, err)
-		return
-	}
-
-	response.APISuccess(c, DescribeImageResponse{
-		Content: result,
-	})
 }

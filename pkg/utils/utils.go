@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -95,4 +96,44 @@ func IsAlphabetic(s string) bool {
 
 func GenUserPassword(salt string, pwd string) string {
 	return MD5(MD5(salt) + salt + MD5(pwd))
+}
+
+// Language represents a language and its weight (priority)
+type Language struct {
+	Tag    string  // Language tag, e.g., "en-US"
+	Weight float64 // Weight (priority), default is 1.0
+}
+
+// ParseAcceptLanguage parses the Accept-Language header and returns a sorted list of languages by weight.
+func ParseAcceptLanguage(header string) []Language {
+	if header == "" {
+		return []Language{}
+	}
+
+	// Regular expression to match language and optional weight
+	re := regexp.MustCompile(`([a-zA-Z\-]+)(?:;q=([0-9\.]+))?`)
+
+	// Find all matches
+	matches := re.FindAllStringSubmatch(header, -1)
+
+	// Parse languages
+	var languages []Language
+	for _, match := range matches {
+		tag := match[1]
+		weight := 1.0 // Default weight
+		if len(match) > 2 && match[2] != "" {
+			parsedWeight, err := strconv.ParseFloat(match[2], 64)
+			if err == nil {
+				weight = parsedWeight
+			}
+		}
+		languages = append(languages, Language{Tag: tag, Weight: weight})
+	}
+
+	// Sort languages by weight in descending order
+	sort.Slice(languages, func(i, j int) bool {
+		return languages[i].Weight > languages[j].Weight
+	})
+
+	return languages
 }

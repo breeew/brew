@@ -4,15 +4,19 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 
-	"github.com/breeew/brew-api/internal/core"
-	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/internal/response"
+	"github.com/breeew/brew-api/app/core"
+	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 func I18n() gin.HandlerFunc {
@@ -23,6 +27,25 @@ func I18n() gin.HandlerFunc {
 	l := i18n.NewLocalizer(allowList...)
 
 	return response.ProvideResponseLocalizer(l)
+}
+
+// AcceptLanguage 目前服务端支持 en: English, zh-CN: 简体中文
+func AcceptLanguage() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		lang := ctx.Request.Header.Get("Accept-Language")
+		if lang == "" {
+			ctx.Set(v1.LANGUAGE_KEY, types.LANGUAGE_EN_KEY)
+			return
+		}
+
+		res := utils.ParseAcceptLanguage(lang)
+		if len(res) == 0 {
+			ctx.Set(v1.LANGUAGE_KEY, types.LANGUAGE_EN_KEY)
+			return
+		}
+
+		ctx.Set(v1.LANGUAGE_KEY, lo.If[string](strings.Contains(res[0].Tag, "zh"), types.LANGUAGE_CN_KEY).Else(types.LANGUAGE_EN_KEY))
+	}
 }
 
 const (
