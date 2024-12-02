@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 
-	v1 "github.com/breeew/brew-api/internal/logic/v1"
-	"github.com/breeew/brew-api/internal/response"
+	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/types"
@@ -16,7 +16,7 @@ import (
 )
 
 func (s *HttpSrv) GenMessageID(c *gin.Context) {
-	response.APISuccess(c, s.Core.Srv().SeqSrv().GenMessageID())
+	response.APISuccess(c, s.Core.Plugins.AIChatLogic().GenMessageID())
 }
 
 type ListChatSessionRequest struct {

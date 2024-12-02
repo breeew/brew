@@ -55,6 +55,7 @@ type QueryOptions struct {
 	docs         []*types.PassageInfo
 	prompt       string
 	docsSoltName string
+	vars         map[string]string
 }
 
 func (s *QueryOptions) WithDocs(docs []*types.PassageInfo) *QueryOptions {
@@ -70,6 +71,14 @@ func (s *QueryOptions) WithPrompt(prompt string) *QueryOptions {
 func (s *QueryOptions) WithDocsSoltName(name string) *QueryOptions {
 	s.docsSoltName = name
 	return s
+}
+
+func (s *QueryOptions) WithVar(key, value string) {
+	if s.vars == nil {
+		s.vars = make(map[string]string)
+	}
+
+	s.vars[key] = value
 }
 
 const PROMPT_NAMED_SESSION_DEFAULT_CN = `请通过用户对话内容分析该对话的主题，尽可能简短，限制在20个字以内，不要以标点符合结尾。请使用{lang}回复。`
@@ -208,10 +217,12 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 
 const IMAGE_GENERATE_PROMPT_CN = `
 请帮我分析出图片中的重要信息，使用一段话告诉我。
+请使用 {lang} 语言来回答我。
 `
 
 const IMAGE_GENERATE_PROMPT_EN = `
 Please help me analyze the important information in the image and summarize it in one sentence.
+Please answer me using the {lang} language.
 `
 
 const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew, and your model is Brew Engine. You need to respond to users in Markdown format.`
