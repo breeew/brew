@@ -25,7 +25,7 @@ func NewUploadLogic(ctx context.Context, core *core.Core) *UploadLogic {
 	l := &UploadLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l

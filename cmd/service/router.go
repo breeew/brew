@@ -25,7 +25,15 @@ func serve(core *core.Core) {
 	engine.Run(core.Cfg().Addr)
 }
 
-func getUserLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
+func GetIPLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
+	return func(key string) gin.HandlerFunc {
+		return middleware.UseLimit(core, key, func(c *gin.Context) string {
+			return key + ":" + c.ClientIP()
+		})
+	}
+}
+
+func GetUserLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
 	return func(key string) gin.HandlerFunc {
 		return middleware.UseLimit(core, key, func(c *gin.Context) string {
 			token, _ := v1.InjectTokenClaim(c)
@@ -34,7 +42,7 @@ func getUserLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
 	}
 }
 
-func getSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
+func GetSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
 	return func(key string) gin.HandlerFunc {
 		return middleware.UseLimit(core, key, func(c *gin.Context) string {
 			spaceid, _ := c.Params.Get("spaceid")
@@ -44,8 +52,8 @@ func getSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
 }
 
 func setupHttpRouter(s *handler.HttpSrv) {
-	userLimit := getUserLimitBuilder(s.Core)
-	spaceLimit := getSpaceLimitBuilder(s.Core)
+	userLimit := GetUserLimitBuilder(s.Core)
+	spaceLimit := GetSpaceLimitBuilder(s.Core)
 	// auth
 	s.Engine.Use(middleware.I18n(), response.NewResponse())
 	s.Engine.Use(middleware.Cors)

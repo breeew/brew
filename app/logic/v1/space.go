@@ -24,7 +24,7 @@ func NewSpaceLogic(ctx context.Context, core *core.Core) *SpaceLogic {
 	l := &SpaceLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l

@@ -26,7 +26,7 @@ func NewReaderLogic(ctx context.Context, core *core.Core) *ReaderLogic {
 	l := &ReaderLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l
@@ -67,9 +67,8 @@ func (l *ReaderLogic) DescribeImage(imageURL string) (string, error) {
 		},
 	})
 
-	clientAcceptLanguage, _ := InjectLanguage(l.ctx)
 	opts.WithPrompt(lo.If(l.core.Srv().AI().Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
-	opts.WithVar("{lang}", lo.If(clientAcceptLanguage == types.LANGUAGE_EN_KEY, "English").Else("中文"))
+	opts.WithVar("{lang}", GetContentByClientLanguage(l.ctx, "English", "中文"))
 	resp, err := opts.Query()
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.Query", i18n.ERROR_INTERNAL, err)

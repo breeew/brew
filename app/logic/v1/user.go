@@ -124,7 +124,7 @@ func NewAuthedUserLogic(ctx context.Context, core *core.Core) *AuthedUserLogic {
 	l := &AuthedUserLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l

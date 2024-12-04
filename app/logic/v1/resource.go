@@ -24,7 +24,7 @@ func NewResourceLogic(ctx context.Context, core *core.Core) *ResourceLogic {
 	l := &ResourceLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l

@@ -29,7 +29,7 @@ func NewChatLogic(ctx context.Context, core *core.Core) *ChatLogic {
 	return &ChatLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/breeew/brew-api/pkg/security"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/samber/lo"
 )
 
 const (
@@ -27,4 +29,9 @@ func InjectSpaceID(ctx context.Context) (string, bool) {
 func InjectLanguage(ctx context.Context) (string, bool) {
 	val, ok := ctx.Value(LANGUAGE_KEY).(string)
 	return val, ok
+}
+
+func GetContentByClientLanguage[T any](c context.Context, enRes T, cnRes T) T {
+	clientLang, _ := InjectLanguage(c)
+	return lo.If(clientLang == types.LANGUAGE_EN_KEY, enRes).Else(cnRes)
 }

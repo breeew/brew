@@ -173,13 +173,13 @@ func (s *Driver) Query(ctx context.Context, query []*types.MessageContext) (ai.G
 		Messages: messages,
 	}
 
+	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME))
+
 	var result ai.GenerateResponse
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return result, fmt.Errorf("Completion error: %w", err)
 	}
-
-	slog.Debug("Query", slog.Any("query", req), slog.String("driver", NAME))
 
 	result.Received = append(result.Received, resp.Choices[0].Message.Content)
 	result.Usage = &resp.Usage

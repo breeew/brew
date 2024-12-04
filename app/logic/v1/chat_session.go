@@ -26,7 +26,7 @@ func NewChatSessionLogic(ctx context.Context, core *core.Core) *ChatSessionLogic
 	return &ChatSessionLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 
