@@ -282,6 +282,15 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 
+	spaceResources, err := l.core.Store().ResourceStore().ListResources(l.ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		return nil, nil, errors.New("KnowledgeLogic.Query.ResourceStore.ListResources", i18n.ERROR_INTERNAL, err)
+	}
+
+	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
+		return item.ID, item.Title
+	})
+
 	for _, v := range knowledges {
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
@@ -295,6 +304,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		result.Docs = append(result.Docs, &types.PassageInfo{
 			ID:       v.ID,
 			Content:  sw.Do(content),
+			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
 			DateTime: v.MaybeDate,
 			SW:       sw,
 		})

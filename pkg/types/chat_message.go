@@ -26,6 +26,7 @@ type RAGDocs struct {
 type PassageInfo struct {
 	ID       string `json:"id"`
 	Content  string `json:"content"`
+	Resource string `json:"resource"`
 	DateTime string `json:"date_time"`
 	SW       Undo   `json:"-"`
 }

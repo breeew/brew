@@ -17,11 +17,12 @@ func init() {
 		&goeditorjs.HeaderHandler{},
 		&goeditorjs.ParagraphHandler{},
 		&goeditorjs.ListHandler{},
-		&ListV2Handler{},
 		&goeditorjs.CodeBoxHandler{},
 		&goeditorjs.CodeHandler{},
 		&goeditorjs.ImageHandler{},
 		&goeditorjs.TableHandler{},
+		&VideoHandler{},
+		&ListV2Handler{},
 	)
 }
 
@@ -136,4 +137,54 @@ func (h *ListV2Handler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock)
 	}
 
 	return renderListv2Markdown(list.Style, 0, list.Items)
+}
+
+// image represents image data from EditorJS
+type video struct {
+	File           videoFile `json:"file"`
+	Caption        string    `json:"caption"`
+	WithBorder     bool      `json:"withBorder"`
+	WithBackground bool      `json:"withBackground"`
+	Stretched      bool      `json:"stretched"`
+}
+
+type videoFile struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
+type VideoHandler struct{}
+
+func (*VideoHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*video, error) {
+	data := &video{}
+	return data, json.Unmarshal(editorJSBlock.Data, data)
+}
+
+// Type "video"
+func (*VideoHandler) Type() string {
+	return "video"
+}
+
+// GenerateHTML generates html for ListBlocks
+func (h *VideoHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	data, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	html := strings.Builder{}
+	html.WriteString("<video controls preload=\"metadata\">")
+	html.WriteString(fmt.Sprintf("<source src=\"%s\">", data.File.URL))
+	html.WriteString("</video>")
+	if data.Caption != "" {
+		html.WriteString("\n")
+		html.WriteString(data.Caption)
+	}
+
+	return html.String(), nil
+}
+
+// GenerateMarkdown generates markdown for ListBlocks
+func (h *VideoHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	return h.GenerateHTML(editorJSBlock)
 }

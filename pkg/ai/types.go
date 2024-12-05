@@ -188,9 +188,10 @@ const GENERATE_PROMPT_TPL_CN = GENERATE_PROMPT_TPL_NONE_CONTENT_CN + `
 --------------------------------------
 你需要结合“参考内容”来回答用户的提问，
 注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
-如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID，并尽可能地将关联内容中的图片、音视频也一同告诉我(URL等)。
+如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID，并尽可能地将参考内容中相关的图片、音视频也一同告诉我(URL等)。
 以下是参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
 {symbol}
+Markdown中有些内容是通过HTML标签表示的，请不要额外处理这些HTML标签，例如<video>等。
 它们都是系统语法，请不要语义化这些内容。
 用户使用什么语言与你沟通，你就使用什么语言回复用户，如果你不会该语言则使用英语来与用户交流。
 `
@@ -546,6 +547,9 @@ func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 		s.WriteString("\n")
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
+		s.WriteString("\n")
+		s.WriteString("内容类型：")
+		s.WriteString(v.Resource)
 		s.WriteString("\n内容：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
@@ -565,6 +569,9 @@ func convertPassageToPromptTextEN(docs []*types.PassageInfo) string {
 		s.WriteString("\n")
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
+		s.WriteString("\n")
+		s.WriteString("Resource Kind：")
+		s.WriteString(v.Resource)
 		s.WriteString("\nContent：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
