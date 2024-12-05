@@ -2,7 +2,6 @@ package sqlstore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -102,7 +101,6 @@ func (s *ChatSessionStore) UpdateChatSessionLatestAccessTime(ctx context.Context
 	if err != nil {
 		return err
 	}
-	fmt.Println(queryString, args)
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
 		return err
