@@ -63,7 +63,7 @@ func randomFileName(fileName string) string {
 	return utils.MD5(fmt.Sprintf("%s%d", fileName, time.Now().Truncate(time.Second*10).Unix())) + suffix
 }
 
-func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (UploadKey, error) {
+func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size int64) (UploadKey, error) {
 	userID := l.UserInfo.GetUserInfo().User
 	spaceID, _ := InjectSpaceID(l.ctx)
 	filePath := genUserFilePath(spaceID, objectType)
@@ -89,6 +89,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (Upl
 			SpaceID:    spaceID,
 			UserID:     userID,
 			File:       filepath.Join(filePath, fileName),
+			FileSize:   size,
 			Status:     types.FILE_UPLOAD_STATUS_UNKNOWN,
 			Kind:       kind,
 			ObjectType: objectType,
@@ -98,7 +99,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string) (Upl
 			return errors.New("UploadLogic.GenClientUploadKey.FileManagementStore.Create", i18n.ERROR_INTERNAL, err)
 		}
 
-		meta, err = l.core.Plugins.FileUploader().GenUploadFileMeta(filePath, fileName)
+		meta, err = l.core.Plugins.FileUploader().GenUploadFileMeta(filePath, fileName, size)
 		if err != nil {
 			return errors.New("UploadLogic.GenClientUploadKey.FileUploader.GenUploadFileMeta", i18n.ERROR_INTERNAL, err)
 		}

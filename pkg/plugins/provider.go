@@ -76,7 +76,7 @@ func (lfs *NoneFileStorage) GenGetObjectPreSignURL(url string) (string, error) {
 	return "", fmt.Errorf("Unsupported")
 }
 
-func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string, _ int64) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{}, fmt.Errorf("Unsupported")
 }
 
@@ -96,7 +96,7 @@ func (lfs *LocalFileStorage) GetStaticDomain() string {
 	return lfs.StaticDomain
 }
 
-func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string, _ int64) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{
 		FullPath: filepath.Join(filePath, fileName),
 		Domain:   lfs.StaticDomain,
@@ -150,8 +150,8 @@ func (fs *S3FileStorage) GetStaticDomain() string {
 	return fs.StaticDomain
 }
 
-func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
-	key, err := fs.S3.GenClientUploadKey(filePath, fileName)
+func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string, contentLength int64) (core.UploadFileMeta, error) {
+	key, err := fs.S3.GenClientUploadKey(filePath, fileName, contentLength)
 	if err != nil {
 		return core.UploadFileMeta{}, err
 	}

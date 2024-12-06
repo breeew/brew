@@ -70,7 +70,7 @@ func (s *S3) GenGetObjectPreSignURL(filePath string) (string, error) {
 	return req.URL, nil
 }
 
-func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
+func (s *S3) GenClientUploadKey(filePath, file string, contentLength int64) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	filePath = strings.TrimPrefix(filePath, "/")
@@ -82,8 +82,9 @@ func (s *S3) GenClientUploadKey(filePath, file string) (string, error) {
 	s3Client := s3.NewFromConfig(cfg)
 	s3PresignClient := s3.NewPresignClient(s3Client)
 	req, err := s3PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.Bucket),
-		Key:    aws.String(filepath.Join(filePath, file)),
+		Bucket:        aws.String(s.Bucket),
+		Key:           aws.String(filepath.Join(filePath, file)),
+		ContentLength: contentLength,
 	}, s3.WithPresignExpires(20*time.Second))
 	if err != nil {
 		return "", err

@@ -34,7 +34,7 @@ type UploadFileMeta struct {
 // FileStorage interface defines methods for file operations.
 type FileStorage interface {
 	GetStaticDomain() string
-	GenUploadFileMeta(filePath, fileName string) (UploadFileMeta, error)
+	GenUploadFileMeta(filePath, fileName string, contentLength int64) (UploadFileMeta, error)
 	SaveFile(filePath, fileName string, content []byte) error
 	DeleteFile(fullFilePath string) error
 	GenGetObjectPreSignURL(url string) (string, error)

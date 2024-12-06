@@ -424,26 +424,32 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	return &result, nil
 }
 
-type ImageBlockFile struct {
+type BlockFile struct {
 	File struct {
 		Url string `json:"url"`
 	} `json:"file"`
 }
 
+type BlockContent struct {
+	Blocks  []goeditorjs.EditorJSBlock `json:"blocks"`
+	Time    int64                      `json:"time"` // javascript time
+	Version string                     `json:"version"`
+}
+
 func filterKnowledgeFiles(content types.KnowledgeContent) ([]string, error) {
-	var blocks []goeditorjs.EditorJSBlock
-	if err := json.Unmarshal(content, &blocks); err != nil {
+	var parsedData BlockContent
+	if err := json.Unmarshal(content, &parsedData); err != nil {
 		// TODO: support markdown
 		return nil, errors.New("updateFilesUploaded.ParseContentBlocks", i18n.ERROR_INTERNAL, err)
 	}
 
 	var files []string
-	for _, v := range blocks {
-		if v.Type != "image" {
+	for _, v := range parsedData.Blocks {
+		if v.Type != "image" && v.Type != "video" {
 			continue
 		}
 
-		var img ImageBlockFile
+		var img BlockFile
 		if err := json.Unmarshal(v.Data, &img); err != nil {
 			return nil, errors.New("updateFilesUploaded.ParseImageBlock", i18n.ERROR_INTERNAL, err)
 		}
@@ -457,32 +463,41 @@ func filterKnowledgeFiles(content types.KnowledgeContent) ([]string, error) {
 }
 
 func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
-	files, err := filterKnowledgeFiles(content)
+	paths, err := parseEditorJsonToFilesPath(core, content)
 	if err != nil {
 		return errors.Trace("updateFilesUploaded", err)
 	}
 
-	if len(files) == 0 {
-		return nil
-	}
-
-	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, paths, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
 		return errors.New("updateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
 }
 
-func updateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+func parseEditorJsonToFilesPath(core *core.Core, content types.KnowledgeContent) ([]string, error) {
 	files, err := filterKnowledgeFiles(content)
 	if err != nil {
-		return errors.Trace("updateFilesToDelete", err)
+		return nil, err
 	}
 
 	if len(files) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, files, types.FILE_UPLOAD_STATUS_NEED_TO_DELETE); err != nil {
+	domain := core.FileUploader().GetStaticDomain()
+	paths := lo.Map(files, func(item string, _ int) string {
+		return strings.TrimPrefix(item, domain)
+	})
+
+	return paths, nil
+}
+
+func updateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+	paths, err := parseEditorJsonToFilesPath(core, content)
+	if err != nil {
+		return errors.Trace("updateFilesToDelete", err)
+	}
+	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, paths, types.FILE_UPLOAD_STATUS_NEED_TO_DELETE); err != nil {
 		return errors.New("updateFilesToDelete.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
