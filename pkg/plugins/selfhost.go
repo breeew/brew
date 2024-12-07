@@ -72,6 +72,10 @@ func (s *SelfHostPlugin) RegisterHTTPEngine(e *gin.Engine) {
 	return
 }
 
+func (s *SelfHostPlugin) Name() string {
+	return "selfhost"
+}
+
 func (s *SelfHostPlugin) DefaultAppid() string {
 	return s.Appid
 }

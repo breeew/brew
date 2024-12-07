@@ -12,17 +12,13 @@ import (
 )
 
 func serve(core *core.Core) {
-	engine := gin.New()
-
-	core.Plugins.RegisterHTTPEngine(engine)
-
 	httpSrv := &handler.HttpSrv{
 		Core:   core,
-		Engine: engine,
+		Engine: core.HttpEngine(),
 	}
 	setupHttpRouter(httpSrv)
 
-	engine.Run(core.Cfg().Addr)
+	core.HttpEngine().Run(core.Cfg().Addr)
 }
 
 func GetIPLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
@@ -59,6 +55,9 @@ func setupHttpRouter(s *handler.HttpSrv) {
 	s.Engine.Use(middleware.Cors)
 	apiV1 := s.Engine.Group("/api/v1")
 	{
+		apiV1.GET("/mode", func(c *gin.Context) {
+			response.APISuccess(c, s.Core.Plugins.Name())
+		})
 		apiV1.GET("/connect", middleware.AuthorizationFromQuery(s.Core), handler.Websocket(s.Core))
 		apiV1.POST("/login/token", middleware.Authorization(s.Core), s.AccessLogin)
 		authed := apiV1.Group("")

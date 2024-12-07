@@ -1,6 +1,8 @@
 module github.com/breeew/brew-api
 
-go 1.22.0
+go 1.23
+
+toolchain go1.23.1
 
 require (
 	github.com/BurntSushi/toml v1.4.0
@@ -110,6 +112,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/resend/resend-go/v2 v2.13.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect

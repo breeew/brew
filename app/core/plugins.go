@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/breeew/brew-api/pkg/types"
-	"github.com/gin-gonic/gin"
 )
 
 type Plugins interface {
+	Name() string
 	Install(*Core) error
 	DefaultAppid() string
 	TryLock(ctx context.Context, key string) (bool, error)
 	UseLimiter(key string, method string, defaultRatelimit int) Limiter
 	FileUploader() FileStorage
-	RegisterHTTPEngine(*gin.Engine)
 	AIChatLogic() AIChatLogic
 }
 
