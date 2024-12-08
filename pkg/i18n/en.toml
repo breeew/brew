@@ -1,3 +1,15 @@
+[error.email_has_already_registed]
+one = "Email has already registed"
+other = "Email has already registed"
+
+[error.incorrect.verifycode]
+one = "Incorrect verification code"
+other = "Incorrect verification code"
+
+[error.verifycodesended]
+one = "The verification code email has been sent. Please do not resend it"
+other = "The verification code email has been sent. Please do not resend it"
+
 [error.unsupported.feature]
 one = "Unsupported Feature"
 other = "Unsupported Feature"
