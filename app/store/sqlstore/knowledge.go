@@ -14,7 +14,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.KnowledgeStore = NewKnowledgeStore(provider)
+		provider.stores.KnowledgeStore = NewKnowledgeStore(provider)
 	})
 }
 

@@ -12,7 +12,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.AccessTokenStore = NewAccessTokenStore(provider)
+		provider.stores.AccessTokenStore = NewAccessTokenStore(provider)
 	})
 }
 

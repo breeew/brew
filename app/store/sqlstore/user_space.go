@@ -12,7 +12,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.UserSpaceStore = NewUserSpaceStore(provider)
+		provider.stores.UserSpaceStore = NewUserSpaceStore(provider)
 	})
 }
 

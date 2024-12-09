@@ -13,7 +13,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.ChatMessageExtStore = NewChatMessageExtStore(provider)
+		provider.stores.ChatMessageExtStore = NewChatMessageExtStore(provider)
 	})
 }
 

@@ -12,7 +12,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.KnowledgeChunkStore = NewKnowledgeChunkStore(provider)
+		provider.stores.KnowledgeChunkStore = NewKnowledgeChunkStore(provider)
 	})
 }
 

@@ -46,7 +46,7 @@ func TestQuery(t *testing.T) {
 	if err = json.Unmarshal(raw, &vectors); err != nil {
 		t.Fatal(err)
 	}
-	res, err := provider.Stores.VectorStore.Query(ctx, types.GetVectorsOptions{SpaceID: "test"}, pgvector.NewVector(vectors), 5)
+	res, err := provider.stores.VectorStore.Query(ctx, types.GetVectorsOptions{SpaceID: "test"}, pgvector.NewVector(vectors), 5)
 	if err != nil {
 		t.Fatal(err)
 	}

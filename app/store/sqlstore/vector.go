@@ -13,7 +13,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.VectorStore = NewVectorStore(provider)
+		provider.stores.VectorStore = NewVectorStore(provider)
 	})
 }
 

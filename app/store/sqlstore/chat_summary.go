@@ -12,7 +12,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.ChatSummaryStore = NewChatSummaryStore(provider)
+		provider.stores.ChatSummaryStore = NewChatSummaryStore(provider)
 	})
 }
 

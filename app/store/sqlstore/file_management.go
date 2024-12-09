@@ -11,7 +11,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.Stores.FileManagementStore = NewFileManagementStore(provider)
+		provider.stores.FileManagementStore = NewFileManagementStore(provider)
 	})
 }
 

@@ -16,7 +16,7 @@ func init() {
 }
 
 var provider = &Provider{
-	Stores: &Stores{},
+	stores: &Stores{},
 }
 
 func GetProvider() *Provider {
@@ -25,7 +25,7 @@ func GetProvider() *Provider {
 
 type Provider struct {
 	*sqlstore.SqlProvider
-	Stores *Stores
+	stores *Stores
 }
 
 type Stores struct {
@@ -46,7 +46,7 @@ type Stores struct {
 }
 
 func (s *Provider) batchExecStoreFuncs(fname string) {
-	val := reflect.ValueOf(s.Stores)
+	val := reflect.ValueOf(s.stores)
 	num := val.NumField()
 	for i := 0; i < num; i++ {
 		val.Field(i).MethodByName(fname).Call([]reflect.Value{})
@@ -96,61 +96,61 @@ func MustSetup(m sqlstore.ConnectConfig, s ...sqlstore.ConnectConfig) func() *Pr
 // }
 
 func (p *Provider) store() *Stores {
-	return p.Stores
+	return p.stores
 }
 
 func (p *Provider) KnowledgeStore() store.KnowledgeStore {
-	return p.Stores.KnowledgeStore
+	return p.stores.KnowledgeStore
 }
 
 func (p *Provider) VectorStore() store.VectorStore {
-	return p.Stores.VectorStore
+	return p.stores.VectorStore
 }
 
 func (p *Provider) AccessTokenStore() store.AccessTokenStore {
-	return p.Stores.AccessTokenStore
+	return p.stores.AccessTokenStore
 }
 
 func (p *Provider) UserSpaceStore() store.UserSpaceStore {
-	return p.Stores.UserSpaceStore
+	return p.stores.UserSpaceStore
 }
 
 func (p *Provider) SpaceStore() store.SpaceStore {
-	return p.Stores.SpaceStore
+	return p.stores.SpaceStore
 }
 
 func (p *Provider) ResourceStore() store.ResourceStore {
-	return p.Stores.ResourceStore
+	return p.stores.ResourceStore
 }
 
 func (p *Provider) UserStore() store.UserStore {
-	return p.Stores.UserStore
+	return p.stores.UserStore
 }
 
 func (p *Provider) KnowledgeChunkStore() store.KnowledgeChunkStore {
-	return p.Stores.KnowledgeChunkStore
+	return p.stores.KnowledgeChunkStore
 }
 
 func (p *Provider) ChatSessionStore() store.ChatSessionStore {
-	return p.Stores.ChatSessionStore
+	return p.stores.ChatSessionStore
 }
 
 func (p *Provider) ChatMessageStore() store.ChatMessageStore {
-	return p.Stores.ChatMessageStore
+	return p.stores.ChatMessageStore
 }
 
 func (p *Provider) ChatSummaryStore() store.ChatSummaryStore {
-	return p.Stores.ChatSummaryStore
+	return p.stores.ChatSummaryStore
 }
 
 func (p *Provider) ChatMessageExtStore() store.ChatMessageExtStore {
-	return p.Stores.ChatMessageExtStore
+	return p.stores.ChatMessageExtStore
 }
 
 func (p *Provider) FileManagementStore() store.FileManagementStore {
-	return p.Stores.FileManagementStore
+	return p.stores.FileManagementStore
 }
 
 func (p *Provider) AITokenUsageStore() store.AITokenUsageStore {
-	return p.Stores.AITokenUsageStore
+	return p.stores.AITokenUsageStore
 }
