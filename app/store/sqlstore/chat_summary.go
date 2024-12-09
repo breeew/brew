@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.ChatSummaryStore = NewChatSummaryStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.ChatSummaryStore = NewChatSummaryStore(provider)
 	})
 }
 
@@ -33,7 +33,7 @@ func (s *ChatSummaryStore) GetChatSessionLatestSummary(ctx context.Context, sess
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.ChatSummary
@@ -53,7 +53,7 @@ func (s *ChatSummaryStore) Create(ctx context.Context, data types.ChatSummary) e
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)

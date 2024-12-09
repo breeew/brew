@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.AccessTokenStore = NewAccessTokenStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.AccessTokenStore = NewAccessTokenStore(provider)
 	})
 }
 
@@ -40,7 +40,7 @@ func (s *AccessTokenStore) Create(ctx context.Context, data types.AccessToken) e
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -56,7 +56,7 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.AccessToken
@@ -91,7 +91,7 @@ func (s *AccessTokenStore) Delete(ctx context.Context, appid, token string) erro
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -105,7 +105,7 @@ func (s *AccessTokenStore) ListAccessTokens(ctx context.Context, appid, userID s
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.AccessToken
@@ -120,7 +120,7 @@ func (s *AccessTokenStore) ClearUserTokens(ctx context.Context, appid, userID st
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)

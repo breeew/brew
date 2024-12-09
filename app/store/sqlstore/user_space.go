@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.UserSpaceStore = NewUserSpaceStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.UserSpaceStore = NewUserSpaceStore(provider)
 	})
 }
 
@@ -41,7 +41,7 @@ func (s *UserSpaceStore) Create(ctx context.Context, data types.UserSpace) error
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -57,7 +57,7 @@ func (s *UserSpaceStore) GetUserSpaceRole(ctx context.Context, userID, spaceID s
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.UserSpace
@@ -75,7 +75,7 @@ func (s *UserSpaceStore) Update(ctx context.Context, userID, spaceID, role strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -88,7 +88,7 @@ func (s *UserSpaceStore) Delete(ctx context.Context, spaceID, userID string) err
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -100,7 +100,7 @@ func (s *UserSpaceStore) DeleteAll(ctx context.Context, spaceID string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -116,7 +116,7 @@ func (s *UserSpaceStore) List(ctx context.Context, opts types.ListUserSpaceOptio
 	opts.Apply(&query)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.UserSpace
@@ -131,7 +131,7 @@ func (s *UserSpaceStore) Total(ctx context.Context, opts types.ListUserSpaceOpti
 	opts.Apply(&query)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var res int64
@@ -145,7 +145,7 @@ func (s *UserSpaceStore) ListSpaceUsers(ctx context.Context, spaceID string) ([]
 	query := sq.Select("user_id").From(s.GetTable()).Where(sq.Eq{"space_id": spaceID}).GroupBy("user_id").OrderBy("create_at")
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 	var res []string
 	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {

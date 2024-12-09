@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.ResourceStore = NewResourceStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.ResourceStore = NewResourceStore(provider)
 	})
 }
 
@@ -41,7 +41,7 @@ func (s *ResourceStore) Create(ctx context.Context, data types.Resource) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -57,7 +57,7 @@ func (s *ResourceStore) GetResource(ctx context.Context, spaceID, id string) (*t
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Resource
@@ -78,7 +78,7 @@ func (s *ResourceStore) Update(ctx context.Context, spaceID, id, title, desc, pr
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -91,7 +91,7 @@ func (s *ResourceStore) Delete(ctx context.Context, spaceID, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -107,7 +107,7 @@ func (s *ResourceStore) ListResources(ctx context.Context, spaceID string, page,
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Resource

@@ -10,14 +10,13 @@ import (
 	"github.com/breeew/brew-api/pkg/types"
 )
 
-func errorSqlBuild(err error) error {
+func ErrorSqlBuild(err error) error {
 	return fmt.Errorf("failed to build sql query, %w", err)
 }
 
 type SqlProviderAchieve interface {
 	GetMaster() *sqlx.DB
 	GetReplica() *sqlx.DB
-	store() *Stores
 	GetDBName() (string, error)
 	GetTxFromCtx(ctx context.Context) *sqlx.Tx
 }

@@ -12,8 +12,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.ChatMessageStore = NewChatMessageStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.ChatMessageStore = NewChatMessageStore(provider)
 	})
 }
 
@@ -39,7 +39,7 @@ func (s *ChatMessageStore) Create(ctx context.Context, data *types.ChatMessage) 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -53,7 +53,7 @@ func (s *ChatMessageStore) GetOne(ctx context.Context, id string) (*types.ChatMe
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"id": id})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var msg types.ChatMessage
@@ -67,7 +67,7 @@ func (s *ChatMessageStore) RewriteMessage(ctx context.Context, spaceID, sessionI
 	query := sq.Update(s.GetTable()).Set("message", message).Set("complete", complete).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "id": id})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *ChatMessageStore) AppendMessage(ctx context.Context, spaceID, sessionID
 	query := sq.Update(s.GetTable()).Set("message", sq.Expr("message || ?", message)).Set("complete", complete).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "id": id})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -94,7 +94,7 @@ func (s *ChatMessageStore) UpdateMessageCompleteStatus(ctx context.Context, sess
 	query := sq.Update(s.GetTable()).Set("complete", complete).Where(sq.Eq{"session_id": sessionID, "id": id})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *ChatMessageStore) DeleteMessage(ctx context.Context, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"id": id})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *ChatMessageStore) DeleteAll(ctx context.Context, spaceID string) error 
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	if err != nil {
@@ -137,7 +137,7 @@ func (s *ChatMessageStore) ListSessionMessageUpToGivenID(ctx context.Context, sp
 	}
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var list []*types.ChatMessage
@@ -157,7 +157,7 @@ func (s *ChatMessageStore) ListSessionMessage(ctx context.Context, spaceID, sess
 	}
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var list []*types.ChatMessage
@@ -174,7 +174,7 @@ func (s *ChatMessageStore) TotalSessionMessage(ctx context.Context, spaceID, ses
 	}
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var total int64
@@ -188,7 +188,7 @@ func (s *ChatMessageStore) Exist(ctx context.Context, spaceID, sessionID, msgID 
 	query := sq.Select("1").From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "id": msgID})
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return false, errorSqlBuild(err)
+		return false, ErrorSqlBuild(err)
 	}
 
 	var exist bool
@@ -203,7 +203,7 @@ func (s *ChatMessageStore) GetMessagesByIDs(ctx context.Context, msgIDs []string
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var msgs []*types.ChatMessage
@@ -218,7 +218,7 @@ func (s *ChatMessageStore) GetSessionLatestUserMessage(ctx context.Context, spac
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "role": types.USER_ROLE_USER}).OrderBy("send_time DESC, id DESC").Limit(1)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var msg types.ChatMessage
@@ -232,7 +232,7 @@ func (s *ChatMessageStore) GetSessionLatestMessage(ctx context.Context, spaceID,
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID}).OrderBy("send_time DESC, id DESC").Limit(1)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var msg types.ChatMessage
@@ -246,7 +246,7 @@ func (s *ChatMessageStore) GetSessionLatestUserMsgIDBeforeGivenID(ctx context.Co
 	query := sq.Select("id").From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID}).Where(sq.LtOrEq{"id": msgID}).Where(sq.Eq{"role": types.USER_ROLE_USER}).OrderBy("id DESC").Limit(1)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return "", errorSqlBuild(err)
+		return "", ErrorSqlBuild(err)
 	}
 
 	var id string

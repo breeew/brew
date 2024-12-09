@@ -12,8 +12,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.VectorStore = NewVectorStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.VectorStore = NewVectorStore(provider)
 	})
 }
 
@@ -44,7 +44,7 @@ func (s *VectorStore) Create(ctx context.Context, data types.Vector) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	// fmt.Println(queryString, args)
@@ -73,7 +73,7 @@ func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) err
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -89,7 +89,7 @@ func (s *VectorStore) GetVector(ctx context.Context, spaceID, knowledgeID, id st
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Vector
@@ -108,7 +108,7 @@ func (s *VectorStore) Update(ctx context.Context, spaceID, knowledgeID, id strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -121,7 +121,7 @@ func (s *VectorStore) Delete(ctx context.Context, spaceID, knowledgeID, id strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -133,7 +133,7 @@ func (s *VectorStore) BatchDelete(ctx context.Context, spaceID, knowledgeID stri
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -145,7 +145,7 @@ func (s *VectorStore) DeleteAll(ctx context.Context, spaceID string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -158,7 +158,7 @@ func (s *VectorStore) ListVectors(ctx context.Context, opts types.GetVectorsOpti
 	opts.Apply(&query)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Vector
@@ -181,7 +181,7 @@ func (s *VectorStore) Query(ctx context.Context, opts types.GetVectorsOptions, v
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	args = append(vectorArgs, args...)

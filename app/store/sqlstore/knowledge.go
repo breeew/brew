@@ -13,8 +13,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.KnowledgeStore = NewKnowledgeStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.KnowledgeStore = NewKnowledgeStore(provider)
 	})
 }
 
@@ -47,7 +47,7 @@ func (s *KnowledgeStore) Create(ctx context.Context, data types.Knowledge) error
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -63,7 +63,7 @@ func (s *KnowledgeStore) GetKnowledge(ctx context.Context, spaceID string, id st
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Knowledge
@@ -92,7 +92,7 @@ func (s *KnowledgeStore) FinishedStageSummarize(ctx context.Context, spaceID, id
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -108,7 +108,7 @@ func (s *KnowledgeStore) FinishedStageEmbedding(ctx context.Context, spaceID, id
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -156,7 +156,7 @@ func (s *KnowledgeStore) Update(ctx context.Context, spaceID, id string, data ty
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -171,7 +171,7 @@ func (s *KnowledgeStore) SetRetryTimes(ctx context.Context, spaceID, id string, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -184,7 +184,7 @@ func (s *KnowledgeStore) Delete(ctx context.Context, spaceID, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -197,7 +197,7 @@ func (s *KnowledgeStore) DeleteAll(ctx context.Context, spaceID string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -212,7 +212,7 @@ func (s *KnowledgeStore) ListFailedKnowledges(ctx context.Context, stage types.K
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Knowledge
@@ -230,7 +230,7 @@ func (s *KnowledgeStore) ListProcessingKnowledges(ctx context.Context, retryTime
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Knowledge
@@ -249,7 +249,7 @@ func (s *KnowledgeStore) ListLiteKnowledges(ctx context.Context, opts types.GetK
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []*types.KnowledgeLite
@@ -269,7 +269,7 @@ func (s *KnowledgeStore) ListKnowledges(ctx context.Context, opts types.GetKnowl
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []*types.Knowledge
@@ -285,7 +285,7 @@ func (s *KnowledgeStore) Total(ctx context.Context, opts types.GetKnowledgeOptio
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var total uint64

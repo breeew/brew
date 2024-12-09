@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.KnowledgeChunkStore = NewKnowledgeChunkStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.KnowledgeChunkStore = NewKnowledgeChunkStore(provider)
 	})
 }
 
@@ -44,7 +44,7 @@ func (s *KnowledgeChunkStore) Create(ctx context.Context, data types.KnowledgeCh
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
@@ -75,7 +75,7 @@ func (s *KnowledgeChunkStore) BatchCreate(ctx context.Context, data []types.Know
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -90,7 +90,7 @@ func (s *KnowledgeChunkStore) Get(ctx context.Context, spaceID, knowledgeID, id 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.KnowledgeChunk
@@ -109,7 +109,7 @@ func (s *KnowledgeChunkStore) Update(ctx context.Context, spaceID, knowledgeID, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -122,7 +122,7 @@ func (s *KnowledgeChunkStore) BatchDelete(ctx context.Context, spaceID, knowledg
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -135,7 +135,7 @@ func (s *KnowledgeChunkStore) Delete(ctx context.Context, spaceID, knowledgeID, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -149,7 +149,7 @@ func (s *KnowledgeChunkStore) List(ctx context.Context, spaceID, knowledgeID str
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.KnowledgeChunk

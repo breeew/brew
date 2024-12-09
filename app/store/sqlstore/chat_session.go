@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.ChatSessionStore = NewChatSessionStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.ChatSessionStore = NewChatSessionStore(provider)
 	})
 }
 
@@ -43,7 +43,7 @@ func (s *ChatSessionStore) Create(ctx context.Context, data types.ChatSession) e
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -57,7 +57,7 @@ func (s *ChatSessionStore) UpdateSessionTitle(ctx context.Context, sessionID str
 	query := sq.Update(s.GetTable()).Where(sq.Eq{"id": sessionID}).Set("title", title)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
@@ -70,7 +70,7 @@ func (s *ChatSessionStore) UpdateSessionStatus(ctx context.Context, sessionID st
 	query := sq.Update(s.GetTable()).Where(sq.Eq{"id": sessionID}).Set("status", status)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
@@ -84,7 +84,7 @@ func (s *ChatSessionStore) GetByUserID(ctx context.Context, userID string) ([]*t
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []*types.ChatSession
@@ -113,7 +113,7 @@ func (s *ChatSessionStore) GetChatSession(ctx context.Context, spaceID, sessionI
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.ChatSession
@@ -128,7 +128,7 @@ func (s *ChatSessionStore) Delete(ctx context.Context, spaceID, sessionID string
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
@@ -142,7 +142,7 @@ func (s *ChatSessionStore) DeleteAll(ctx context.Context, spaceID string) error 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
@@ -158,7 +158,7 @@ func (s *ChatSessionStore) List(ctx context.Context, spaceID, userID string, pag
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var list []types.ChatSession
@@ -173,7 +173,7 @@ func (s *ChatSessionStore) Total(ctx context.Context, spaceID, userID string) (i
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var total int64

@@ -11,8 +11,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.UserStore = NewUserStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.UserStore = NewUserStore(provider)
 	})
 }
 
@@ -38,7 +38,7 @@ func (s *UserStore) Create(ctx context.Context, data types.User) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -54,7 +54,7 @@ func (s *UserStore) GetUser(ctx context.Context, appid, id string) (*types.User,
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.User
@@ -70,7 +70,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, appid, email string) (*types
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.User
@@ -90,7 +90,7 @@ func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -103,7 +103,7 @@ func (s *UserStore) Delete(ctx context.Context, appid, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -121,7 +121,7 @@ func (s *UserStore) ListUsers(ctx context.Context, opts types.ListUserOptions, p
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.User
@@ -138,7 +138,7 @@ func (s *UserStore) Total(ctx context.Context, opts types.ListUserOptions) (int6
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var res int64

@@ -12,8 +12,8 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
-		provider.stores.ChatMessageExtStore = NewChatMessageExtStore(provider)
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
+		provider.Stores.ChatMessageExtStore = NewChatMessageExtStore(provider)
 	})
 }
 
@@ -47,7 +47,7 @@ func (s *ChatMessageExtStore) Create(ctx context.Context, data types.ChatMessage
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -63,7 +63,7 @@ func (s *ChatMessageExtStore) GetChatMessageExt(ctx context.Context, spaceID, se
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.ChatMessageExt
@@ -85,7 +85,7 @@ func (s *ChatMessageExtStore) Update(ctx context.Context, messageID string, data
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -98,7 +98,7 @@ func (s *ChatMessageExtStore) Delete(ctx context.Context, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -110,7 +110,7 @@ func (s *ChatMessageExtStore) DeleteAll(ctx context.Context, spaceID string) err
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -123,7 +123,7 @@ func (s *ChatMessageExtStore) ListChatMessageExts(ctx context.Context, messageID
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.ChatMessageExt
