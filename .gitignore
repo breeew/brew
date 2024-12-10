@@ -8,4 +8,6 @@ go.work.*
 
 config-dev.toml
 config-*.toml
+
 commercial
+cmd/inject_*
