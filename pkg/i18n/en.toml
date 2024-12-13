@@ -1,3 +1,7 @@
+[error.login.account.incorrect]
+one = "Incorrect account or password."
+other = "Incorrect account or password."
+
 [error.email_has_already_registed]
 one = "Email has already registed"
 other = "Email has already registed"

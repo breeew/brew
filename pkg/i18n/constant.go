@@ -20,6 +20,7 @@ const (
 	ERROR_UNSUPPORTED_FEATURE        = "error.unsupported.feature"
 	ERROR_VERIFY_CODE_ALREADY_SENDED = "error.verifycodesended"
 	ERROR_VERIFY_CODE_INCORRECT      = "error.incorrect.verifycode"
+	ERROR_LOGIN_ACCOUNT_INCORRECT    = "error.login.account.incorrect"
 	ERROR_EMAIL_ALREADY_REGISTED     = "error.email_has_already_registed"
 
 	ERROR_INVALID_TOKEN   = "error.invalid.token"

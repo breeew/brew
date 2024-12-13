@@ -9,10 +9,11 @@ import (
 )
 
 type AccessLoginResponse struct {
-	UserName string `json:"user_name"`
-	UserID   string `json:"user_id"`
-	Avatar   string `json:"avatar"`
-	Email    string `json:"email"`
+	UserName    string `json:"user_name"`
+	UserID      string `json:"user_id"`
+	Avatar      string `json:"avatar"`
+	Email       string `json:"email"`
+	ServiceMode string `json:"service_mode"`
 }
 
 func (s *HttpSrv) AccessLogin(c *gin.Context) {
@@ -23,11 +24,13 @@ func (s *HttpSrv) AccessLogin(c *gin.Context) {
 		response.APIError(c, err)
 		return
 	}
+
 	response.APISuccess(c, AccessLoginResponse{
-		UserID:   user.ID,
-		Avatar:   user.Avatar,
-		UserName: user.Name,
-		Email:    user.Email,
+		UserID:      user.ID,
+		Avatar:      user.Avatar,
+		UserName:    user.Name,
+		Email:       user.Email,
+		ServiceMode: s.Core.Plugins.Name(),
 	})
 }
 
