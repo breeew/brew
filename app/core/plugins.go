@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/breeew/brew-api/pkg/types"
 )
@@ -14,6 +15,12 @@ type Plugins interface {
 	UseLimiter(key string, method string, defaultRatelimit int) Limiter
 	FileUploader() FileStorage
 	AIChatLogic() AIChatLogic
+	Cache() Cache
+}
+
+type Cache interface {
+	SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
 }
 
 type AIChatLogic interface {

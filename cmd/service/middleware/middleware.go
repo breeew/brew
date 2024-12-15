@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/security"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
@@ -50,25 +53,46 @@ func AcceptLanguage() gin.HandlerFunc {
 
 const (
 	ACCESS_TOKEN_HEADER_KEY = "X-Access-Token"
+	AUTH_TOKEN_HEADER_KEY   = "X-Authorization"
 )
 
 func AuthorizationFromQuery(core *core.Core) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenValue := c.Query("token")
+		tokenType := c.Query("token-type")
+		if tokenType == "atuhorization" {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+			defer cancel()
+			tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
+			if err != nil {
+				response.APIError(c, errors.New("AuthorizationFromQuery.GetFromCache", i18n.ERROR_INTERNAL, err))
+				return
+			}
+
+			var tokenMeta types.UserTokenMeta
+			if err := json.Unmarshal([]byte(tokenMetaStr), &tokenMeta); err != nil {
+				response.APIError(c, errors.New("AuthorizationFromQuery.GetFromCache.json.Unmarshal", i18n.ERROR_INTERNAL, err))
+				return
+			}
+
+			c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(tokenMeta.Appid, "brew", tokenMeta.UserID, "", tokenMeta.ExpireAt))
+			return
+		}
+
 		token, err := core.Store().AccessTokenStore().GetAccessToken(c, core.DefaultAppid(), tokenValue)
 		if err != nil && err != sql.ErrNoRows {
-			response.APIError(c, errors.New("checkAccessToken.AccessTokenStore.GetAccessToken", i18n.ERROR_INTERNAL, err))
+			response.APIError(c, errors.New("AuthorizationFromQuery.AccessTokenStore.GetAccessToken", i18n.ERROR_INTERNAL, err))
 			return
 		}
 
 		if token == nil || token.ExpiresAt < time.Now().Unix() {
-			response.APIError(c, errors.New("checkAccessToken.token.check", i18n.ERROR_PERMISSION_DENIED, fmt.Errorf("nil token")).Code(http.StatusForbidden))
+			response.APIError(c, errors.New("AuthorizationFromQuery.token.check", i18n.ERROR_PERMISSION_DENIED, fmt.Errorf("nil token")).Code(http.StatusForbidden))
 			return
 		}
 
 		claims, err := token.TokenClaims()
 		if err != nil {
-			response.APIError(c, errors.New("checkAccessToken.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err))
+			response.APIError(c, errors.New("AuthorizationFromQuery.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err))
 			return
 		}
 
@@ -85,9 +109,12 @@ func Authorization(core *core.Core) gin.HandlerFunc {
 			return
 		}
 
-		if !matched {
-			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusForbidden))
+		if matched {
 			return
+		}
+
+		if matched, err = checkAuthToken(ctx, core); err != nil || !matched {
+			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusForbidden))
 		}
 	}
 }
@@ -96,8 +123,8 @@ func checkAccessToken(ctx *gin.Context, core *core.Core) (bool, error) {
 	tokenValue := ctx.GetHeader(ACCESS_TOKEN_HEADER_KEY)
 	if tokenValue == "" {
 		// try get
-		// response.APIError(ctx, errors.New("middleware.AccessTokenVerify.GetHeader", i18n.ERROR_UNAUTHORIZED, nil))
-		return false, errors.New("checkAccessToken.GetHeader.ACCESS_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		// errors.New("checkAccessToken.GetHeader.ACCESS_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		return false, nil
 	}
 
 	appid := core.DefaultAppid()
@@ -117,6 +144,31 @@ func checkAccessToken(ctx *gin.Context, core *core.Core) (bool, error) {
 	}
 
 	ctx.Set(v1.TOKEN_CONTEXT_KEY, *claims)
+	return true, nil
+}
+
+func checkAuthToken(c *gin.Context, core *core.Core) (bool, error) {
+	tokenValue := c.GetHeader(AUTH_TOKEN_HEADER_KEY)
+	if tokenValue == "" {
+		// try get
+		// errors.New("checkAuthToken.GetHeader.AUTH_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		return false, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+
+	tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
+	if err != nil {
+		return false, errors.New("AuthorizationFromQuery.GetFromCache", i18n.ERROR_INTERNAL, err)
+	}
+
+	var tokenMeta types.UserTokenMeta
+	if err := json.Unmarshal([]byte(tokenMetaStr), &tokenMeta); err != nil {
+		return false, errors.New("AuthorizationFromQuery.GetFromCache.json.Unmarshal", i18n.ERROR_INTERNAL, err)
+	}
+
+	c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(tokenMeta.Appid, "brew", tokenMeta.UserID, "", tokenMeta.ExpireAt))
 	return true, nil
 }
 

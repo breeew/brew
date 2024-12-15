@@ -33,3 +33,9 @@ func (opt ListUserOptions) Apply(query *sq.SelectBuilder) {
 		*query = query.Where(sq.Eq{"email": opt.Email})
 	}
 }
+
+type UserTokenMeta struct {
+	UserID   string `json:"user_id"`
+	Appid    string `json:"appid"`
+	ExpireAt int64  `json:"expire_at"`
+}

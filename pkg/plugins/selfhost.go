@@ -58,12 +58,23 @@ func newSelfHostMode() *SelfHostPlugin {
 	}
 }
 
+type Cache struct{}
+
+func (c *Cache) SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error {
+	return nil
+}
+
+func (c *Cache) Get(ctx context.Context, key string) (string, error) {
+	return "", nil
+}
+
 type SelfHostPlugin struct {
 	core        *core.Core
 	Appid       string
 	singleLock  *SingleLock
 	aiChatLogic core.AIChatLogic
 	core.FileStorage
+	cache *Cache
 
 	customConfig SelfHostCustomConfig
 }
@@ -94,6 +105,7 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 		core:            c,
 		NormalAssistant: v1.NewNormalAssistant(c),
 	}
+	s.cache = &Cache{}
 
 	var tokenCount int
 	if err := s.core.Store().GetMaster().Get(&tokenCount, "SELECT COUNT(*) FROM "+types.TABLE_ACCESS_TOKEN.Name()+" WHERE true"); err != nil {
@@ -146,6 +158,10 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 	fmt.Println("Access token:", token)
 	fmt.Println("Space id:", spaceID)
 	return nil
+}
+
+func (s *SelfHostPlugin) Cache() core.Cache {
+	return s.cache
 }
 
 func (s *SelfHostPlugin) TryLock(ctx context.Context, key string) (bool, error) {
