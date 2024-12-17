@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/gin-gonic/gin"
 
 	"github.com/breeew/brew-api/app/core/srv"
 	"github.com/breeew/brew-api/app/store"
 	"github.com/breeew/brew-api/app/store/sqlstore"
-	"github.com/gin-gonic/gin"
 )
 
 type Core struct {

@@ -130,6 +130,8 @@ type Knowledge struct {
 	RetryTimes  int                  `json:"retry_times" db:"retry_times"`
 }
 
+type RawMessage = KnowledgeContent
+
 // StringArray represents a one-dimensional array of the PostgreSQL character types.
 type KnowledgeContent json.RawMessage
 

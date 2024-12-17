@@ -5,10 +5,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/breeew/brew-api/app/core"
 	v1 "github.com/breeew/brew-api/app/logic/v1"
 	"github.com/breeew/brew-api/pkg/plugins"
-	"github.com/stretchr/testify/assert"
 )
 
 func newCore() *core.Core {

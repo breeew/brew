@@ -54,6 +54,7 @@ func AcceptLanguage() gin.HandlerFunc {
 const (
 	ACCESS_TOKEN_HEADER_KEY = "X-Access-Token"
 	AUTH_TOKEN_HEADER_KEY   = "X-Authorization"
+	APPID_HEADER            = "X-Appid"
 )
 
 func AuthorizationFromQuery(core *core.Core) gin.HandlerFunc {
@@ -116,6 +117,14 @@ func Authorization(core *core.Core) gin.HandlerFunc {
 		if matched, err = checkAuthToken(ctx, core); err != nil || !matched {
 			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusForbidden))
 		}
+	}
+}
+
+func SetAppid(core *core.Core) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// appid := ctx.Request.Header.Get(APPID_HEADER)
+		// check appid exist
+		ctx.Set(v1.APPID_KEY, core.DefaultAppid())
 	}
 }
 
@@ -206,7 +215,7 @@ func Cors(c *gin.Context) {
 	if origin != "" {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-		c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Access-Token")
+		c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Access-Token, X-Authorization, X-Appid")
 		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
 		c.Header("Access-Control-Allow-Credentials", "true")
 	}

@@ -16,9 +16,9 @@ type AccessToken struct {
 	UserID    string `json:"user_id" db:"user_id"`       // 用户ID，标识该 token 所属的用户
 	Token     string `json:"token" db:"token"`           // 第三方用户的 access_token
 	Version   string `json:"version" db:"version"`       // token存储格式的版本号，不同版本号对应的token claim结构可能不同
+	Info      string `json:"info" db:"info"`             // token 描述，描述 token 的用途或其他信息
 	CreatedAt int64  `json:"created_at" db:"created_at"` // 创建时间，UNIX时间戳
 	ExpiresAt int64  `json:"expires_at" db:"expires_at"` // 过期时间，UNIX时间戳
-	Info      string `json:"info" db:"info"`             // token 描述，描述 token 的用途或其他信息
 }
 
 func (s *AccessToken) TokenClaims() (*security.TokenClaims, error) {

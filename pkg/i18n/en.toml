@@ -1,6 +1,22 @@
+[error.already_invited]
+one = "Already invited"
+other = "Already invited"
+
+[error.email_not_registered]
+one = "This email is not registered"
+other = "This email is not registered"
+
+[error.email_not_match]
+one = "No valid email matched"
+other = "No valid email matched"
+
 [error.login.account.incorrect]
-one = "Incorrect account or password."
-other = "Incorrect account or password."
+one = "Incorrect account or password"
+other = "Incorrect account or password"
+
+[error.reset_email_sended]
+one = "The password reset email has been sent. Please do not repeat the operation" 
+other = "The password reset email has been sent. Please do not repeat the operation"
 
 [error.email_has_already_registed]
 one = "Email has already registed"

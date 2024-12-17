@@ -53,6 +53,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 	// auth
 	s.Engine.Use(middleware.I18n(), response.NewResponse())
 	s.Engine.Use(middleware.Cors)
+	s.Engine.Use(middleware.SetAppid(s.Core))
 	apiV1 := s.Engine.Group("/api/v1")
 	{
 		apiV1.GET("/mode", func(c *gin.Context) {

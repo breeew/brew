@@ -86,8 +86,8 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 // }
 
 // Delete 删除 access_token 记录
-func (s *AccessTokenStore) Delete(ctx context.Context, appid, token string) error {
-	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "token": token})
+func (s *AccessTokenStore) Delete(ctx context.Context, appid, userID string, id int64) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "userID": userID, "id": id})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -101,7 +101,7 @@ func (s *AccessTokenStore) Delete(ctx context.Context, appid, token string) erro
 // ListBwAccessTokens 分页获取 access_token 记录列表
 func (s *AccessTokenStore) ListAccessTokens(ctx context.Context, appid, userID string, page, pageSize uint64) ([]types.AccessToken, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
-		Where(sq.Eq{"appid": appid, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize)
+		Where(sq.Eq{"appid": appid, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).OrderBy("created_at DESC")
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

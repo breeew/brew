@@ -97,6 +97,23 @@ func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, 
 	return err
 }
 
+// Update 更新用户密码
+func (s *UserStore) UpdateUserPassword(ctx context.Context, appid, id, salt, password string) error {
+	query := sq.Update(s.GetTable()).
+		Set("salt", salt).
+		Set("password", password).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 // Delete 删除用户
 func (s *UserStore) Delete(ctx context.Context, appid, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "id": id})

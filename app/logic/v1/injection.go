@@ -11,7 +11,13 @@ import (
 const (
 	TOKEN_CONTEXT_KEY = "__brew.access_token"
 	LANGUAGE_KEY      = "__brew.accept_language"
+	APPID_KEY         = "__brew.appid"
 )
+
+func InjectAppid(ctx context.Context) (string, bool) {
+	val, ok := ctx.Value(APPID_KEY).(string)
+	return val, ok
+}
 
 // InjectTokenClaim get user/platform token claims from context
 func InjectTokenClaim(ctx context.Context) (security.TokenClaims, bool) {

@@ -67,7 +67,7 @@ type AccessTokenStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.AccessToken) error
 	GetAccessToken(ctx context.Context, appid, token string) (*types.AccessToken, error)
-	Delete(ctx context.Context, appid, token string) error
+	Delete(ctx context.Context, appid, userID string, id int64) error
 	ListAccessTokens(ctx context.Context, appid, userID string, page, pageSize uint64) ([]types.AccessToken, error)
 	ClearUserTokens(ctx context.Context, appid, userID string) error
 }
@@ -108,6 +108,7 @@ type UserStore interface {
 	GetUser(ctx context.Context, appid, id string) (*types.User, error)
 	GetByEmail(ctx context.Context, appid, email string) (*types.User, error)
 	UpdateUserProfile(ctx context.Context, appid, id, userName, email string) error
+	UpdateUserPassword(ctx context.Context, appid, id, salt, password string) error
 	Delete(ctx context.Context, appid, id string) error
 	ListUsers(ctx context.Context, opts types.ListUserOptions, page, pageSize uint64) ([]types.User, error)
 	Total(ctx context.Context, opts types.ListUserOptions) (int64, error)

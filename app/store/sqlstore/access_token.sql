@@ -5,9 +5,9 @@ CREATE TABLE bw_access_token (
     user_id VARCHAR(32) NOT NULL,
     token VARCHAR(255) NOT NULL,
     version VARCHAR(10) NOT NULL,
+    info TEXT
     created_at BIGINT NOT NULL,
     expires_at BIGINT NOT NULL,
-    info TEXT
 );
 
 -- 添加字段注释
