@@ -29,6 +29,10 @@ func SetupIDWorker(clusterID int64) {
 	idWorker, _ = snowFlakeByGo.NewWorker(clusterID)
 }
 
+func GenUniqID() int64 {
+	return idWorker.GetId()
+}
+
 func GenSpecID() int64 {
 	return idWorker.GetId()
 }

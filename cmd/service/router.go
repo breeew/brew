@@ -61,6 +61,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		})
 		apiV1.GET("/connect", middleware.AuthorizationFromQuery(s.Core), handler.Websocket(s.Core))
 		apiV1.POST("/login/token", middleware.Authorization(s.Core), s.AccessLogin)
+		share := apiV1.Group("/share")
+		{
+			share.GET("/knowledge/:token", s.GetKnowledgeByShareToken)
+		}
+
 		authed := apiV1.Group("")
 		authed.Use(middleware.Authorization(s.Core))
 		user := authed.Group("/user")
@@ -80,6 +85,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
+			space.POST("/:spaceid/knowledge/share", s.CreateKnowledgeShareToken)
 
 			object := space.Group("/:spaceid/object")
 			{

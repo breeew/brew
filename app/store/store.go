@@ -178,3 +178,12 @@ type AITokenUsageStore interface {
 	SumUserUsageByType(ctx context.Context, userID string, st, et time.Time) ([]types.UserTokenUsageWithType, error)
 	Delete(ctx context.Context, spaceID, userID string, st, et time.Time) error
 }
+
+type ShareTokenStore interface {
+	sqlstore.SqlCommons // 继承通用SQL操作
+	Create(ctx context.Context, link *types.ShareToken) error
+	Get(ctx context.Context, _type, spaceID, objectID string) (*types.ShareToken, error)
+	GetByToken(ctx context.Context, token string) (*types.ShareToken, error)
+	UpdateExpireTime(ctx context.Context, id, expireAt int64) error
+	Delete(ctx context.Context, token string) error
+}

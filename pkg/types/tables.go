@@ -25,4 +25,5 @@ const (
 	TABLE_CHAT_MESSAGE_EXT = TableName("chat_message_ext")
 	TABLE_FILE_MANAGEMENT  = TableName("file_management")
 	TABLE_AI_TOKEN_USAGE   = TableName("ai_token_usage")
+	TABLE_SHARE_TOKEN      = TableName("share_token")
 )

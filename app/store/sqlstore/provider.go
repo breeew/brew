@@ -43,6 +43,7 @@ type Stores struct {
 	store.ChatMessageExtStore
 	store.FileManagementStore
 	store.AITokenUsageStore
+	store.ShareTokenStore
 }
 
 func (s *Provider) batchExecStoreFuncs(fname string) {
@@ -153,4 +154,8 @@ func (p *Provider) FileManagementStore() store.FileManagementStore {
 
 func (p *Provider) AITokenUsageStore() store.AITokenUsageStore {
 	return p.stores.AITokenUsageStore
+}
+
+func (p *Provider) ShareTokenStore() store.ShareTokenStore {
+	return p.stores.ShareTokenStore
 }
