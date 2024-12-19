@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/breeew/brew-api/app/core"
@@ -33,7 +34,7 @@ func NewManageShareLogic(ctx context.Context, core *core.Core) *ManageShareLogic
 	return l
 }
 
-func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID string) (string, error) {
+func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID, embeddingURL string) (string, error) {
 	userSpaceRole, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, l.GetUserInfo().User, spaceID)
 	if err != nil && err != sql.ErrNoRows {
 		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
@@ -60,15 +61,18 @@ func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID string
 	}
 
 	shareToken := utils.MD5(fmt.Sprintf("%s_%s_%d", spaceID, knowledgeID, utils.GenUniqID()))
+	embeddingURL = strings.ReplaceAll(embeddingURL, "{token}", shareToken)
 
 	err = l.core.Store().ShareTokenStore().Create(l.ctx, &types.ShareToken{
-		Appid:     l.GetUserInfo().Appid,
-		Type:      types.SHARE_TYPE_KNOWLEDGE,
-		SpaceID:   spaceID,
-		ObjectID:  knowledgeID,
-		Token:     shareToken,
-		ExpireAt:  time.Now().AddDate(0, 0, 7).Unix(),
-		CreatedAt: time.Now().Unix(),
+		Appid:        l.GetUserInfo().Appid,
+		Type:         types.SHARE_TYPE_KNOWLEDGE,
+		SpaceID:      spaceID,
+		ObjectID:     knowledgeID,
+		Token:        shareToken,
+		ShareUserID:  l.GetUserInfo().User,
+		EmbeddingURL: embeddingURL,
+		ExpireAt:     time.Now().AddDate(0, 0, 7).Unix(),
+		CreatedAt:    time.Now().Unix(),
 	})
 	if err != nil {
 		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.ShareTokenStore.Create", i18n.ERROR_INTERNAL, err)

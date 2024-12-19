@@ -32,8 +32,8 @@ type ShareTokenStoreImpl struct {
 // Create 创建新的文章分享链接
 func (s *ShareTokenStoreImpl) Create(ctx context.Context, link *types.ShareToken) error {
 	query := sq.Insert(s.GetTable()).
-		Columns("appid", "space_id", "object_id", "type", "token", "expire_at", "created_at").
-		Values(link.SpaceID, link.ObjectID, link.Type, link.Token, link.ExpireAt, link.CreatedAt)
+		Columns("appid", "space_id", "object_id", "share_user_id", "embedding_url", "type", "token", "expire_at", "created_at").
+		Values(link.SpaceID, link.ObjectID, link.ShareUserID, link.EmbeddingURL, link.Type, link.Token, link.ExpireAt, link.CreatedAt)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

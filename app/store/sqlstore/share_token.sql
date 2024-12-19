@@ -5,6 +5,8 @@ CREATE TABLE bw_share_token (
     space_id VARCHAR(32) NOT NULL,  -- 空间ID，用于区分不同的空间
     appid VARCHAR(32) NOT NULL,     -- 应用ID，标识分享来源的应用
     token VARCHAR(32) NOT NULL,     -- 分享链接的 Token (生成的唯一标识符)
+    share_user_id VARCHAR(32) NOT NULL,     -- 分享用户id
+    embedding_url TEXT NOT NULL,     -- 实际前端路径
     type VARCHAR(20) NOT NULL,      -- 类型，可能的值如"normal", "restricted" 等
     expire_at BIGINT NOT NULL,      -- 过期时间戳，单位为秒
     created_at BIGINT NOT NULL,     -- 创建时间戳，单位为秒
@@ -21,6 +23,8 @@ COMMENT ON COLUMN bw_share_token.object_id IS '文章的唯一标识符 (原 kno
 COMMENT ON COLUMN bw_share_token.space_id IS '空间ID，用于区分不同的空间';
 COMMENT ON COLUMN bw_share_token.appid IS '应用ID，标识分享来源的应用';
 COMMENT ON COLUMN bw_share_token.token IS '分享链接的 Token (生成的唯一标识符)';
+COMMENT ON COLUMN bw_share_token.share_user_id IS '分享链接的用户id';
+COMMENT ON COLUMN bw_share_token.embedding_url IS '实际前端路径';
 COMMENT ON COLUMN bw_share_token.type IS '类型，可能的值如"normal", "restricted" 等';
 COMMENT ON COLUMN bw_share_token.expire_at IS '过期时间戳，单位为秒';
 COMMENT ON COLUMN bw_share_token.created_at IS '创建时间戳，单位为秒';

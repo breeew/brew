@@ -9,7 +9,8 @@ import (
 )
 
 type CreateKnowledgeShareTokenRequest struct {
-	KnowledgeID string `json:"knowledge_id" binding:"required"`
+	EmbeddingURL string `json:"embedding_url" binding:"required"`
+	KnowledgeID  string `json:"knowledge_id" binding:"required"`
 }
 
 func (s *HttpSrv) CreateKnowledgeShareToken(c *gin.Context) {
@@ -23,7 +24,7 @@ func (s *HttpSrv) CreateKnowledgeShareToken(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	token, err := v1.NewManageShareLogic(c, s.Core).CreateKnowledgeShareToken(spaceID, req.KnowledgeID)
+	token, err := v1.NewManageShareLogic(c, s.Core).CreateKnowledgeShareToken(spaceID, req.KnowledgeID, req.EmbeddingURL)
 	if err != nil {
 		response.APIError(c, err)
 		return
