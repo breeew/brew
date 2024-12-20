@@ -61,7 +61,7 @@ func AuthorizationFromQuery(core *core.Core) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenValue := c.Query("token")
 		tokenType := c.Query("token-type")
-		if tokenType == "atuhorization" {
+		if tokenType == "authorization" {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 			defer cancel()
 			tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
