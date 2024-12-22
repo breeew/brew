@@ -9,13 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/app/core/srv"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
-	"github.com/lib/pq"
 )
 
 type ManageShareLogic struct {

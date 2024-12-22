@@ -68,6 +68,23 @@ func (s *JournalStore) Get(ctx context.Context, spaceID, userID, date string) (*
 	return &res, nil
 }
 
+func (s *JournalStore) Update(ctx context.Context, id int64, content types.KnowledgeContent) error {
+	query := sq.Update(s.GetTable()).SetMap(map[string]interface{}{
+		"content":    content.String(),
+		"updated_at": time.Now().Unix(),
+	}).Where(sq.Eq{"id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Delete
 func (s *JournalStore) Delete(ctx context.Context, id int64) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"id": id})

@@ -194,4 +194,5 @@ type JournalStore interface {
 	Get(ctx context.Context, spaceID, userID, date string) (*types.Journal, error)
 	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.Journal, error)
+	Update(ctx context.Context, id int64, content types.KnowledgeContent) error
 }
