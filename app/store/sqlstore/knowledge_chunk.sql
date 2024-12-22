@@ -21,4 +21,5 @@ COMMENT ON COLUMN bw_knowledge_chunk.space_id IS '空间ID';
 COMMENT ON COLUMN bw_knowledge_chunk.user_id IS '用户ID';
 COMMENT ON COLUMN bw_knowledge_chunk.chunk IS '知识片段';
 COMMENT ON COLUMN bw_knowledge_chunk.original_length IS '关联知识点长度';
+COMMENT ON COLUMN bw_knowledge_chunk.updated_at IS '创建时间';
 COMMENT ON COLUMN bw_knowledge_chunk.created_at IS '创建时间';

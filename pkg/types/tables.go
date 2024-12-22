@@ -26,4 +26,5 @@ const (
 	TABLE_FILE_MANAGEMENT  = TableName("file_management")
 	TABLE_AI_TOKEN_USAGE   = TableName("ai_token_usage")
 	TABLE_SHARE_TOKEN      = TableName("share_token")
+	TABLE_JOURNAL          = TableName("journal")
 )

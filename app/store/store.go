@@ -187,3 +187,11 @@ type ShareTokenStore interface {
 	UpdateExpireTime(ctx context.Context, id, expireAt int64) error
 	Delete(ctx context.Context, token string) error
 }
+
+type JournalStore interface {
+	sqlstore.SqlCommons
+	Create(ctx context.Context, data types.Journal) error
+	Get(ctx context.Context, spaceID, userID, date string) (*types.Journal, error)
+	Delete(ctx context.Context, id int64) error
+	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.Journal, error)
+}
