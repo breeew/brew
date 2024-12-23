@@ -116,7 +116,7 @@ func (l *ShareLogic) GetKnowledgeByShareToken(token string) (*KnowledgeShareInfo
 	}
 
 	if link == nil {
-		return nil, errors.New("ShareLogic.GetKnowledgeByShareToken.ShareTokenStore.GetByToken.nil", i18n.ERROR_NOTFOUND, nil).Code(http.StatusNoContent)
+		return nil, errors.New("ShareLogic.GetKnowledgeByShareToken.ShareTokenStore.GetByToken.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
 	}
 
 	knowledge, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, link.SpaceID, link.ObjectID)
@@ -125,7 +125,7 @@ func (l *ShareLogic) GetKnowledgeByShareToken(token string) (*KnowledgeShareInfo
 	}
 
 	if knowledge == nil {
-		return nil, errors.New("ShareLogic.GetKnowledgeByShareToken.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOTFOUND, nil).Code(http.StatusNoContent)
+		return nil, errors.New("ShareLogic.GetKnowledgeByShareToken.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
 	}
 
 	user, err := l.core.Store().UserStore().GetUser(l.ctx, link.Appid, knowledge.UserID)

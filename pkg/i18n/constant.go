@@ -9,7 +9,7 @@ const DEFAULT_LANG = "en"
 
 const (
 	ERROR_INTERNAL                   = "error.internal"
-	ERROR_NOTFOUND                   = "error.notfound"
+	ERROR_NOT_FOUND                  = "error.notfound"
 	ERROR_INVALIDARGUMENT            = "error.invalidargument"
 	ERROR_PERMISSION_DENIED          = "error.permission.denied"
 	ERROR_UNAUTHORIZED               = "error.unauthorized"

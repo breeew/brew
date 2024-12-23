@@ -73,7 +73,7 @@ func (l *KnowledgeLogic) GetKnowledge(spaceID, id string) (*types.Knowledge, err
 	}
 
 	if data == nil {
-		return nil, errors.New("KnowledgeLogic.GetKnowledge.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOTFOUND, err).Code(http.StatusNotFound)
+		return nil, errors.New("KnowledgeLogic.GetKnowledge.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, err).Code(http.StatusNotFound)
 	}
 
 	return data, nil
@@ -142,7 +142,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	}
 
 	if oldKnowledge == nil || oldKnowledge.UserID != l.GetUserInfo().User {
-		return errors.New("KnowledgeLogic.Update.KnowledgeStore.GetKnowledge", i18n.ERROR_NOTFOUND, err).Code(http.StatusNotFound)
+		return errors.New("KnowledgeLogic.Update.KnowledgeStore.GetKnowledge", i18n.ERROR_NOT_FOUND, err).Code(http.StatusNotFound)
 	}
 
 	tagsChanged := false

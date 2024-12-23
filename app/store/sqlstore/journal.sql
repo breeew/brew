@@ -1,6 +1,6 @@
 -- 创建表 bw_journal
 CREATE TABLE bw_journal (
-    id SERIAL PRIMARY KEY,         -- 自增主键
+    id BIGINT PRIMARY KEY,         -- 自增主键
     space_id VARCHAR(32) NOT NULL, -- 空间ID
     user_id VARCHAR(32) NOT NULL, -- 用户ID
     content TEXT NOT NULL, -- 知识片段
@@ -10,7 +10,8 @@ CREATE TABLE bw_journal (
 );
 
 -- 创建索引
-CREATE INDEX bw_journal_space_id_user_id_date ON bw_journal (space_id,user_id,date);
+CREATE UNIQUE INDEX bw_journal_space_id_user_id_date ON bw_journal (space_id, user_id, date);
+CREATE INDEX bw_journal_date ON bw_journal (date);
 
 -- 为字段添加注释
 COMMENT ON COLUMN bw_knowledge_chunk.id IS '主键，自增ID';

@@ -99,17 +99,17 @@ type KnowledgeProcess struct {
 }
 
 func (p *KnowledgeProcess) Start() {
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessSummary()
 		})
 	}
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessEmbedding()
 		})
 	}
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessUsage()
 		})

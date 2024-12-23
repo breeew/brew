@@ -37,7 +37,7 @@ func Run(opts *Options) error {
 
 	app := core.MustSetupCore(core.MustLoadBaseConfig(opts.ConfigPath))
 	plugins.Setup(app.InstallPlugins, opts.Init)
-	process.StartKnowledgeProcess(app, 10)
+	process.NewProcess(app).Start()
 	serve(app)
 
 	return nil

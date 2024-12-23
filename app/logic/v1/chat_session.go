@@ -36,7 +36,7 @@ func (l *ChatSessionLogic) CheckUserChatSession(spaceID, sessionID string) (*typ
 		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSession", i18n.ERROR_INTERNAL, err)
 	}
 	if session == nil {
-		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSessionnil", i18n.ERROR_NOTFOUND, nil).Code(http.StatusNotFound)
+		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSessionnil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNotFound)
 	}
 
 	if session.UserID != l.GetUserInfo().User {

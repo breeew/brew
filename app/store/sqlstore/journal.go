@@ -37,8 +37,8 @@ func (s *JournalStore) Create(ctx context.Context, data types.Journal) error {
 		data.UpdatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("space_id", "user_id", "date", "content", "updated_at", "created_at").
-		Values(data.SpaceID, data.UserID, data.Date, data.Content, data.UpdatedAt, data.CreatedAt)
+		Columns("id", "space_id", "user_id", "date", "content", "updated_at", "created_at").
+		Values(data.ID, data.SpaceID, data.UserID, data.Date, data.Content, data.UpdatedAt, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -113,4 +113,32 @@ func (s *JournalStore) List(ctx context.Context, spaceID, userID string, page, p
 		return nil, err
 	}
 	return res, nil
+}
+
+func (s *JournalStore) ListWithDate(ctx context.Context, spaceID, userID, startDate, endDate string) ([]types.Journal, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.And{sq.Eq{"space_id": spaceID, "user_id": userID},
+		sq.GtOrEq{"date": startDate}, sq.LtOrEq{"date": endDate}}).OrderBy("date DESC")
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []types.Journal
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *JournalStore) DeleteByDate(ctx context.Context, date string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.LtOrEq{"date": date})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
 }

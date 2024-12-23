@@ -91,6 +91,14 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			{
 				object.POST("/upload/key", userLimit("upload"), s.GenUploadKey)
 			}
+
+			journal := space.Group("/:spaceid/journal")
+			{
+				journal.GET("/list", s.ListJournal)
+				journal.GET("", s.GetJournal)
+				journal.PUT("", s.UpsertJournal)
+				journal.DELETE("", s.DeleteJournal)
+			}
 		}
 
 		knowledge := authed.Group("/:spaceid/knowledge")
