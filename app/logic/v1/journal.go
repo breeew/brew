@@ -21,8 +21,9 @@ type JournalLogic struct {
 
 func NewJournalLogic(ctx context.Context, core *core.Core) *JournalLogic {
 	return &JournalLogic{
-		ctx:  ctx,
-		core: core,
+		ctx:      ctx,
+		core:     core,
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 
