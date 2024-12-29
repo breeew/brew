@@ -60,7 +60,6 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			response.APISuccess(c, s.Core.Plugins.Name())
 		})
 		apiV1.GET("/connect", middleware.AuthorizationFromQuery(s.Core), handler.Websocket(s.Core))
-		apiV1.POST("/login/token", middleware.Authorization(s.Core), s.AccessLogin)
 		share := apiV1.Group("/share")
 		{
 			share.GET("/knowledge/:token", s.GetKnowledgeByShareToken)
@@ -70,6 +69,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		authed.Use(middleware.Authorization(s.Core))
 		user := authed.Group("/user")
 		{
+			user.GET("/info", s.GetUser)
 			user.PUT("/profile", userLimit("profile"), s.UpdateUserProfile)
 		}
 

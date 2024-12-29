@@ -23,6 +23,7 @@ func init() {
 		&goeditorjs.TableHandler{},
 		&VideoHandler{},
 		&ListV2Handler{},
+		&LineHandler{},
 	)
 }
 
@@ -187,4 +188,51 @@ func (h *VideoHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (str
 // GenerateMarkdown generates markdown for ListBlocks
 func (h *VideoHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
 	return h.GenerateHTML(editorJSBlock)
+}
+
+// Line
+type line struct {
+	Style         string `json:"style"`
+	LineThickness int    `json:"lineThickness"`
+	LineWidth     int    `json:"lineWidth"`
+}
+
+type LineHandler struct{}
+
+func (*LineHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*line, error) {
+	line := &line{}
+	return line, json.Unmarshal(editorJSBlock.Data, line)
+}
+
+// Type "listv2"
+func (*LineHandler) Type() string {
+	return "listv2"
+}
+
+func renderLineHtml(line *line) (string, error) {
+	return fmt.Sprintf("<div class=\"ce-delimiter cdx-block ce-delimiter-line\"><hr class=\"ce-delimiter-thickness-%d\" style=\"width: %d%%;\"></div>", line.LineThickness, line.LineWidth), nil
+}
+
+// GenerateHTML generates html for ListBlocks
+func (h *LineHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	line, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	return renderLineHtml(line)
+}
+
+func renderLineMarkdown(line *line) (string, error) {
+	return "---", nil
+}
+
+// GenerateMarkdown generates markdown for ListBlocks
+func (h *LineHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	list, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	return renderLineMarkdown(list)
 }
