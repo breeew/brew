@@ -33,6 +33,10 @@ func GenUniqID() int64 {
 	return idWorker.GetId()
 }
 
+func GenUniqIDStr() string {
+	return strconv.FormatInt(GenUniqID(), 10)
+}
+
 func GenSpecID() int64 {
 	return idWorker.GetId()
 }
