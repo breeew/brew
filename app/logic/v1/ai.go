@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/types/protocol"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -69,7 +71,7 @@ func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage
 }
 
 // handleAssistantMessage 通过ws通知前端智能助理完成用户请求
-func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) DoneFunc {
+func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage, callback func()) DoneFunc {
 	imTopic := protocol.GenIMTopic(msg.SessionID)
 	return func(startAt int32) error {
 		// todo retry
@@ -92,6 +94,10 @@ func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) D
 				slog.Error("failed to finished assistant answer message", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
 					slog.String("error", err.Error()))
 				return err
+			}
+
+			if callback != nil {
+				callback()
 			}
 		}
 
@@ -164,7 +170,6 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	}
 
 	marks := make(map[string]string)
-
 	for _, v := range docs.Docs {
 		for fake, real := range v.SW.Map() {
 			marks[fake] = real
@@ -214,14 +219,16 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	}
 }
 
-func NewNormalAssistant(core *core.Core) *NormalAssistant {
+func NewNormalAssistant(core *core.Core, agentType string) *NormalAssistant {
 	return &NormalAssistant{
-		core: core,
+		core:      core,
+		agentType: agentType,
 	}
 }
 
 type NormalAssistant struct {
-	core *core.Core
+	core      *core.Core
+	agentType string
 }
 
 func (s *NormalAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
@@ -249,12 +256,93 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs *types.RAGD
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
 	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
-	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo)
+	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
+		// set chat session pin
+		if docs == nil || len(docs.Refs) == 0 {
+			return
+		}
+		go safe.Run(func() {
+			switch s.agentType {
+			case types.AGENT_TYPE_NORMAL:
+				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, docs); err != nil {
+					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
+				}
+			case types.AGENT_TYPE_JOURNAL:
+				// TODO
+			default:
+			}
+		})
+	})
 	if err = requestAI(ctx, s.core, chatSessionContext, docs, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
 		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
 	}
 	return nil
+}
+
+// createChatSessionKnowledgePin Create this chat session prompt pin docs
+func createChatSessionKnowledgePin(core *core.Core, recvMsgInfo *types.ChatMessage, docs *types.RAGDocs) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6)
+	defer cancel()
+	msg, err := core.Store().ChatMessageStore().GetOne(ctx, recvMsgInfo.ID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if msg == nil {
+		return nil
+	}
+
+	var pinDocs []string
+	for _, v := range docs.Refs {
+		if strings.Contains(msg.Message, v.KnowledgeID) {
+			pinDocs = append(pinDocs, v.KnowledgeID)
+		}
+	}
+
+	if len(pinDocs) == 0 {
+		return nil
+	}
+
+	var p types.ContentPinV1
+
+	pin, err := core.Store().ChatSessionPinStore().GetBySessionID(ctx, recvMsgInfo.SessionID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if pin == nil {
+		pin = &types.ChatSessionPin{
+			SessionID: recvMsgInfo.SessionID,
+			SpaceID:   recvMsgInfo.SpaceID,
+			UserID:    recvMsgInfo.UserID,
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+			Version:   types.CHAT_SESSION_PIN_VERSION_V1,
+		}
+
+		p.Knowledges = append(p.Knowledges, pinDocs...)
+		pin.Content, _ = json.Marshal(p)
+
+		if err = core.Store().ChatSessionPinStore().Create(ctx, *pin); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if pin.Version == types.CHAT_SESSION_PIN_VERSION_V1 {
+		if err = json.Unmarshal(pin.Content, &p); err != nil {
+			return err
+		}
+	}
+
+	p.Knowledges = append(p.Knowledges, pinDocs...)
+	pin.Content, _ = json.Marshal(p)
+
+	if err = core.Store().ChatSessionPinStore().Update(ctx, pin.SessionID, pin.SpaceID, pin.Content, types.CHAT_SESSION_PIN_VERSION_V1); err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func initAssistantMessage(ctx context.Context, core *core.Core, userReqMsg *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
@@ -291,8 +379,9 @@ func initAssistantMessage(ctx context.Context, core *core.Core, userReqMsg *type
 
 func prepareTheAnswerMsg(ctx context.Context, core *core.Core, spaceID, sessionID string) (*types.ChatMessage, error) {
 	// generate message meta
-	msgID := core.Plugins.AIChatLogic().GenMessageID()
-	seqID, err := core.Plugins.AIChatLogic().GetChatSessionSeqID(ctx, spaceID, sessionID)
+	chatLogic := core.Plugins.AIChatLogic("")
+	msgID := chatLogic.GenMessageID()
+	seqID, err := chatLogic.GetChatSessionSeqID(ctx, spaceID, sessionID)
 	if err != nil {
 		slog.Error("Failed to get session message sequence id", slog.String("session_id", sessionID), slog.String("error", err.Error()))
 		return nil, err

@@ -109,6 +109,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 				viewScope.GET("", s.GetKnowledge)
 				viewScope.GET("/list", spaceLimit("knowledge_list"), s.ListKnowledge)
 				viewScope.POST("/query", spaceLimit("query"), s.Query)
+				viewScope.GET("/time/list", spaceLimit("knowledge_list"), s.GetDateCreatedKnowledge)
 			}
 
 			editScope := knowledge.Group("")

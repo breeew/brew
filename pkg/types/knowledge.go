@@ -209,6 +209,10 @@ type GetKnowledgeOptions struct {
 	Stage      KnowledgeStage
 	RetryTimes int
 	Keywords   string
+	TimeRange  *struct {
+		St int64
+		Et int64
+	}
 }
 
 func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
@@ -242,6 +246,9 @@ func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
 			or = append(or, sq.Eq{"id": opts.Keywords})
 		}
 		*query = query.Where(append(or, sq.Like{"title": fmt.Sprintf("%%%s%%", opts.Keywords)}))
+	}
+	if opts.TimeRange != nil {
+		*query = query.Where(sq.And{sq.GtOrEq{"created_at": opts.TimeRange.St}, sq.LtOrEq{"created_at": opts.TimeRange.Et}})
 	}
 }
 

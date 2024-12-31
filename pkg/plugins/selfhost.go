@@ -69,10 +69,9 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 }
 
 type SelfHostPlugin struct {
-	core        *core.Core
-	Appid       string
-	singleLock  *SingleLock
-	aiChatLogic core.AIChatLogic
+	core       *core.Core
+	Appid      string
+	singleLock *SingleLock
 	core.FileStorage
 	cache *Cache
 
@@ -101,10 +100,6 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
 	s.customConfig = customConfig.CustomConfig
-	s.aiChatLogic = &AIChatLogic{
-		core:            c,
-		NormalAssistant: v1.NewNormalAssistant(c),
-	}
 	s.cache = &Cache{}
 
 	var tokenCount int
@@ -190,8 +185,11 @@ func (s *AIChatLogic) GenMessageID() string {
 	return utils.GenRandomID()
 }
 
-func (s *SelfHostPlugin) AIChatLogic() core.AIChatLogic {
-	return s.aiChatLogic
+func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
+	return &AIChatLogic{
+		core:            s.core,
+		NormalAssistant: v1.NewNormalAssistant(s.core, agentType),
+	}
 }
 
 var limiter = make(map[string]*rate.Limiter)

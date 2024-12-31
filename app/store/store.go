@@ -196,5 +196,14 @@ type JournalStore interface {
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.Journal, error)
 	ListWithDate(ctx context.Context, spaceID, userID, startDate, endDate string) ([]types.Journal, error)
 	Update(ctx context.Context, id int64, content types.KnowledgeContent) error
-	DeleteByDate(ctx context.Context, date string) error 
+	DeleteByDate(ctx context.Context, date string) error
+}
+
+type ChatSessionPinStore interface {
+	sqlstore.SqlCommons
+	Create(ctx context.Context, data types.ChatSessionPin) error
+	GetBySessionID(ctx context.Context, sessionID string) (*types.ChatSessionPin, error)
+	Update(ctx context.Context, spaceID, sessionID string, content types.RawMessage, version string) error
+	Delete(ctx context.Context, spaceID, sessionID string) error
+	List(ctx context.Context, page, pageSize uint64) ([]types.ChatSessionPin, error)
 }

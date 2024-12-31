@@ -38,6 +38,7 @@ type Stores struct {
 	store.ResourceStore
 	store.UserStore
 	store.ChatSessionStore
+	store.ChatSessionPinStore
 	store.ChatMessageStore
 	store.ChatSummaryStore
 	store.ChatMessageExtStore
@@ -163,4 +164,8 @@ func (p *Provider) ShareTokenStore() store.ShareTokenStore {
 
 func (p *Provider) JournalStore() store.JournalStore {
 	return p.stores.JournalStore
+}
+
+func (p *Provider) ChatSessionPinStore() store.ChatSessionPinStore {
+	return p.stores.ChatSessionPinStore
 }

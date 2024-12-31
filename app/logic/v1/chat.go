@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -120,7 +120,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	if msg.Sequence == 0 {
-		seqid, err = l.core.Plugins.AIChatLogic().GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
+		seqid, err = l.core.Plugins.AIChatLogic("").GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
 		if err != nil {
 			err = errors.Trace("ChatLogic.NewUserMessageSend.GetDialogSeqID", err)
 			return
@@ -130,9 +130,9 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	queryMsg := msg.Message
-	if len([]rune(queryMsg)) < 20 && latestMessage != nil {
-		queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
-	}
+	// if len([]rune(queryMsg)) < 20 && latestMessage != nil {
+	// 	queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
+	// }
 
 	err = l.core.Store().Transaction(ctx, func(ctx context.Context) error {
 		if err = l.core.Store().ChatMessageStore().Create(l.ctx, msg); err != nil {
@@ -167,26 +167,74 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
 		}
 
+		// Supplement associated document content.
+		SupplementSessionChatDocs(l.core, chatSession, docs)
+
 		RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL)
 	})
 
 	return msg.Sequence, err
 }
 
+func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs *types.RAGDocs) {
+	if chatSession == nil || docs == nil {
+		return
+	}
+
+	pin, err := core.Store().ChatSessionPinStore().GetBySessionID(context.Background(), chatSession.ID)
+	if err != nil && err != sql.ErrNoRows {
+		slog.Error("Failed to get chat session pin", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
+
+	if pin == nil || len(pin.Content) == 0 || pin.Version != types.CHAT_SESSION_PIN_VERSION_V1 {
+		return
+	}
+
+	var p types.ContentPinV1
+	if err = json.Unmarshal(pin.Content, &p); err != nil {
+		slog.Error("Failed to unmarshal chat session pin content", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
+
+	if len(p.Knowledges) == 0 {
+		return
+	}
+
+	differenceItems, _ := lo.Difference(p.Knowledges, lo.Map(docs.Refs, func(item types.QueryResult, _ int) string { return item.KnowledgeID }))
+	if len(differenceItems) == 0 {
+		return
+	}
+
+	// Get the knowledge content of the difference item
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	knowledges, err := core.Store().KnowledgeStore().ListKnowledges(ctx, types.GetKnowledgeOptions{
+		SpaceID: chatSession.SpaceID,
+		IDs:     differenceItems,
+	}, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		slog.Error("Failed to get knowledge content", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()), slog.Any("knowledge_ids", differenceItems))
+		return
+	}
+
+	docs.Docs = AppendKnowledgeContentToDocs(core, docs.Docs, knowledges)
+}
+
 // genMode new request or re-request
 func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *types.RAGDocs, genMode types.RequestAssistantMode) error {
-	logic := core.AIChatLogic()
+	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL)
 
 	relDocs := lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
 		return item.KnowledgeID
 	})
 
-	var marks = make(map[string]string)
-	for _, v := range docs.Docs {
-		for fakeData, realData := range v.SW.Map() {
-			marks[fakeData] = realData
-		}
-	}
+	// var marks = make(map[string]string)
+	// for _, v := range docs.Docs {
+	// 	for fakeData, realData := range v.SW.Map() {
+	// 		marks[fakeData] = realData
+	// 	}
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

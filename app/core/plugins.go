@@ -14,7 +14,7 @@ type Plugins interface {
 	TryLock(ctx context.Context, key string) (bool, error)
 	UseLimiter(key string, method string, defaultRatelimit int) Limiter
 	FileUploader() FileStorage
-	AIChatLogic() AIChatLogic
+	AIChatLogic(agentType string) AIChatLogic
 	Cache() Cache
 }
 

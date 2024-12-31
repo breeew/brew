@@ -6,6 +6,11 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+const (
+	AGENT_TYPE_NORMAL  = "rag"
+	AGENT_TYPE_JOURNAL = "journal"
+)
+
 const AssistantFailedMessage = "Sorry, I'm wrong"
 
 type ChatMessagePart struct {

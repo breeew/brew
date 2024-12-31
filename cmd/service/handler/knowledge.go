@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -236,5 +237,30 @@ func (s *HttpSrv) Query(c *gin.Context) {
 		return
 	}
 
+	response.APISuccess(c, result)
+}
+
+type GetDateCreatedKnowledgeRequest struct {
+	StartTime int64 `json:"start_time" form:"start_time" binding:"required"`
+	EndTime   int64 `json:"end_time" form:"end_time" binding:"required"`
+}
+
+func (s *HttpSrv) GetDateCreatedKnowledge(c *gin.Context) {
+	var (
+		err error
+		req GetDateCreatedKnowledgeRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	spaceID, _ := v1.InjectSpaceID(c)
+	result, err := v1.NewKnowledgeLogic(c, s.Core).GetTimeRangeLiteKnowledges(spaceID, time.Unix(req.StartTime, 0), time.Unix(req.EndTime, 0))
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
 	response.APISuccess(c, result)
 }

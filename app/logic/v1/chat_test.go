@@ -62,3 +62,8 @@ func Test_NewMessageSend(t *testing.T) {
 
 	time.Sleep(time.Minute * 3)
 }
+
+func TestLoUniq(t *testing.T) {
+	t.Log(lo.Union([]int64{1, 2, 3}, []int64{2, 3, 4}))
+	t.Log(lo.Difference([]int64{1, 2, 3}, []int64{2, 3, 4}))
+}

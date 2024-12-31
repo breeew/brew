@@ -70,3 +70,18 @@ func TestHidden(t *testing.T) {
 	text = s.Undo(text)
 	fmt.Println("undo:", text)
 }
+
+func TestAppendRagDocs(t *testing.T) {
+	var docs types.RAGDocs
+
+	a := func(a []*types.PassageInfo) {
+		a = append(a, &types.PassageInfo{})
+		t.Log(a)
+	}
+
+	a(docs.Docs)
+
+	if len(docs.Docs) == 0 {
+		t.Fatal("fatal")
+	}
+}

@@ -79,6 +79,28 @@ func (l *KnowledgeLogic) GetKnowledge(spaceID, id string) (*types.Knowledge, err
 	return data, nil
 }
 
+func (l *KnowledgeLogic) GetTimeRangeLiteKnowledges(spaceID string, st, et time.Time) ([]*types.KnowledgeLite, error) {
+	if et.Sub(st).Hours() > 48 {
+		return nil, errors.New("KnowledgeLogic.GetTimeRangeLiteKnowledges.InvalidTimeRange", i18n.ERROR_INVALIDARGUMENT, nil).Code(http.StatusBadRequest)
+	}
+	data, err := l.core.Store().KnowledgeStore().ListLiteKnowledges(l.ctx, types.GetKnowledgeOptions{
+		SpaceID: spaceID,
+		UserID:  l.GetUserInfo().User,
+		TimeRange: &struct {
+			St int64
+			Et int64
+		}{
+			St: st.Unix(),
+			Et: et.Unix(),
+		},
+	}, types.NO_PAGING, types.NO_PAGING)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.New("KnowledgeLogic.GetTimeRangeLiteKnowledges.KnowledgeStore.ListLiteKnowledges", i18n.ERROR_INTERNAL, err)
+	}
+
+	return data, nil
+}
+
 func (l *KnowledgeLogic) ListKnowledges(spaceID string, keywords string, resource *types.ResourceQuery, page, pagesize uint64) ([]*types.Knowledge, uint64, error) {
 	opts := types.GetKnowledgeOptions{
 		SpaceID:  spaceID,
@@ -276,15 +298,34 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	if err != nil && err != sql.ErrNoRows {
 		return nil, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
-	if len(knowledges) == 0 {
-		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
-	}
 
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
+	if len(knowledges) == 0 {
+		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
+		return &result, &ai.Usage{
+			Model: resp.Model,
+			Usage: resp.Usage,
+		}, nil
+	}
 
-	spaceResources, err := l.core.Store().ResourceStore().ListResources(l.ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
+	result.Docs = AppendKnowledgeContentToDocs(l.core, result.Docs, knowledges)
+	return &result, &ai.Usage{
+		Model: resp.Model,
+		Usage: resp.Usage,
+	}, nil
+}
+
+func AppendKnowledgeContentToDocs(core *core.Core, docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo {
+	if len(knowledges) == 0 {
+		return docs
+	}
+	spaceID := knowledges[0].SpaceID
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	spaceResources, err := core.Store().ResourceStore().ListResources(ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
 	if err != nil {
-		return nil, nil, errors.New("KnowledgeLogic.Query.ResourceStore.ListResources", i18n.ERROR_INTERNAL, err)
+		slog.Error("Failed to get space resources", slog.String("space_id", spaceID), slog.String("error", err.Error()))
+		return docs
 	}
 
 	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
@@ -301,18 +342,15 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		}
 
 		sw := mark.NewSensitiveWork()
-		result.Docs = append(result.Docs, &types.PassageInfo{
+		docs = append(docs, &types.PassageInfo{
 			ID:       v.ID,
 			Content:  sw.Do(content),
-			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
 			DateTime: v.MaybeDate,
+			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
 			SW:       sw,
 		})
 	}
-	return &result, &ai.Usage{
-		Model: resp.Model,
-		Usage: resp.Usage,
-	}, nil
+	return docs
 }
 
 type KnowledgeQueryResult struct {
