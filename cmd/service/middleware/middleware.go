@@ -114,8 +114,13 @@ func Authorization(core *core.Core) gin.HandlerFunc {
 			return
 		}
 
-		if matched, err = checkAuthToken(ctx, core); err != nil || !matched {
-			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusForbidden))
+		if matched, err = checkAuthToken(ctx, core); err != nil {
+			response.APIError(ctx, errors.Trace(tracePrefix, err))
+			return
+		}
+
+		if !matched {
+			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusUnauthorized))
 		}
 	}
 }
@@ -144,12 +149,12 @@ func checkAccessToken(ctx *gin.Context, core *core.Core) (bool, error) {
 	}
 
 	if token == nil || token.ExpiresAt < time.Now().Unix() {
-		return false, errors.New("checkAccessToken.token.check", i18n.ERROR_PERMISSION_DENIED, fmt.Errorf("nil token")).Code(http.StatusForbidden)
+		return false, errors.New("checkAccessToken.token.check", i18n.ERROR_UNAUTHORIZED, fmt.Errorf("nil token")).Code(http.StatusUnauthorized)
 	}
 
 	claims, err := token.TokenClaims()
 	if err != nil {
-		return false, errors.New("checkAccessToken.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err)
+		return false, errors.New("checkAccessToken.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err).Code(http.StatusUnauthorized)
 	}
 
 	ctx.Set(v1.TOKEN_CONTEXT_KEY, *claims)
@@ -169,12 +174,16 @@ func checkAuthToken(c *gin.Context, core *core.Core) (bool, error) {
 
 	tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
 	if err != nil {
-		return false, errors.New("AuthorizationFromQuery.GetFromCache", i18n.ERROR_INTERNAL, err)
+		return false, errors.New("checkAuthToken.GetFromCache", i18n.ERROR_INTERNAL, err)
+	}
+
+	if tokenMetaStr == "" {
+		return false, errors.New("checkAuthToken.tokenMetaStr.check", i18n.ERROR_UNAUTHORIZED, fmt.Errorf("nil token")).Code(http.StatusUnauthorized)
 	}
 
 	var tokenMeta types.UserTokenMeta
 	if err := json.Unmarshal([]byte(tokenMetaStr), &tokenMeta); err != nil {
-		return false, errors.New("AuthorizationFromQuery.GetFromCache.json.Unmarshal", i18n.ERROR_INTERNAL, err)
+		return false, errors.New("checkAuthToken.GetFromCache.json.Unmarshal", i18n.ERROR_INTERNAL, err).Code(http.StatusUnauthorized)
 	}
 
 	c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(tokenMeta.Appid, "brew", tokenMeta.UserID, "", tokenMeta.ExpireAt))

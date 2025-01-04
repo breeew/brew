@@ -33,7 +33,7 @@ type ShareTokenStoreImpl struct {
 func (s *ShareTokenStoreImpl) Create(ctx context.Context, link *types.ShareToken) error {
 	query := sq.Insert(s.GetTable()).
 		Columns("appid", "space_id", "object_id", "share_user_id", "embedding_url", "type", "token", "expire_at", "created_at").
-		Values(link.SpaceID, link.ObjectID, link.ShareUserID, link.EmbeddingURL, link.Type, link.Token, link.ExpireAt, link.CreatedAt)
+		Values(link.Appid, link.SpaceID, link.ObjectID, link.ShareUserID, link.EmbeddingURL, link.Type, link.Token, link.ExpireAt, link.CreatedAt)
 
 	sql, args, err := query.ToSql()
 	if err != nil {

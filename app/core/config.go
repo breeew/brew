@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	
+
 	"github.com/breeew/brew-api/app/core/srv"
 )
 
@@ -54,9 +54,10 @@ func LoadBaseConfigFromENV() CoreConfig {
 }
 
 type CoreConfig struct {
-	Addr     string   `toml:"addr"`
-	Log      Log      `toml:"log"`
-	Postgres PGConfig `toml:"postgres"`
+	Addr     string      `toml:"addr"`
+	Log      Log         `toml:"log"`
+	Postgres PGConfig    `toml:"postgres"`
+	Share    ShareConfig `toml:"share"`
 
 	AI srv.AIConfig `toml:"ai"`
 
@@ -65,6 +66,10 @@ type CoreConfig struct {
 	Prompt Prompt `toml:"prompt"`
 
 	bytes []byte `toml:"-"`
+}
+
+type ShareConfig struct {
+	Domain string `toml:"domain"`
 }
 
 func (c *CoreConfig) SetConfigBytes(raw []byte) {

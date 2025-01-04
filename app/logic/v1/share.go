@@ -35,19 +35,26 @@ func NewManageShareLogic(ctx context.Context, core *core.Core) *ManageShareLogic
 	return l
 }
 
-func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID, embeddingURL string) (string, error) {
+type CreateKnowledgeShareTokenResult struct {
+	Token string `json:"token"`
+	URL   string `json:"url"`
+}
+
+func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID, embeddingURL string) (CreateKnowledgeShareTokenResult, error) {
+	res := CreateKnowledgeShareTokenResult{}
+
 	userSpaceRole, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, l.GetUserInfo().User, spaceID)
 	if err != nil && err != sql.ErrNoRows {
-		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
+		return res, errors.New("ManageShareLogic.CreateKnowledgeShareToken.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
 	}
 
 	if userSpaceRole == nil || userSpaceRole.Role != srv.RoleAdmin {
-		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.Role.Check", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+		return res, errors.New("ManageShareLogic.CreateKnowledgeShareToken.Role.Check", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
 	}
 
 	link, err := l.core.Store().ShareTokenStore().Get(l.ctx, types.SHARE_TYPE_KNOWLEDGE, spaceID, knowledgeID)
 	if err != nil && err != sql.ErrNoRows {
-		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.ShareTokenStore.Get", i18n.ERROR_INTERNAL, err)
+		return res, errors.New("ManageShareLogic.CreateKnowledgeShareToken.ShareTokenStore.Get", i18n.ERROR_INTERNAL, err)
 	}
 
 	if link != nil {
@@ -58,28 +65,31 @@ func (l *ManageShareLogic) CreateKnowledgeShareToken(spaceID, knowledgeID, embed
 					slog.String("knowledge_id", knowledgeID))
 			}
 		}
-		return link.Token, nil
+
+		res.Token = link.Token
+		res.URL = link.EmbeddingURL
+		return res, nil
 	}
 
-	shareToken := utils.MD5(fmt.Sprintf("%s_%s_%d", spaceID, knowledgeID, utils.GenUniqID()))
-	embeddingURL = strings.ReplaceAll(embeddingURL, "{token}", shareToken)
+	res.Token = utils.MD5(fmt.Sprintf("%s_%s_%d", spaceID, knowledgeID, utils.GenUniqID()))
+	res.URL = strings.ReplaceAll(embeddingURL, "{token}", res.Token)
 
 	err = l.core.Store().ShareTokenStore().Create(l.ctx, &types.ShareToken{
 		Appid:        l.GetUserInfo().Appid,
 		Type:         types.SHARE_TYPE_KNOWLEDGE,
 		SpaceID:      spaceID,
 		ObjectID:     knowledgeID,
-		Token:        shareToken,
+		Token:        res.Token,
 		ShareUserID:  l.GetUserInfo().User,
-		EmbeddingURL: embeddingURL,
+		EmbeddingURL: res.URL,
 		ExpireAt:     time.Now().AddDate(0, 0, 7).Unix(),
 		CreatedAt:    time.Now().Unix(),
 	})
 	if err != nil {
-		return "", errors.New("ManageShareLogic.CreateKnowledgeShareToken.ShareTokenStore.Create", i18n.ERROR_INTERNAL, err)
+		return res, errors.New("ManageShareLogic.CreateKnowledgeShareToken.ShareTokenStore.Create", i18n.ERROR_INTERNAL, err)
 	}
 
-	return shareToken, nil
+	return res, nil
 }
 
 type ShareLogic struct {
@@ -99,6 +109,7 @@ func NewShareLogic(ctx context.Context, core *core.Core) *ShareLogic {
 type KnowledgeShareInfo struct {
 	UserID      string                     `json:"user_id"`
 	UserName    string                     `json:"user_name"`
+	UserAvatar  string                     `json:"user_avatar"`
 	KnowledgeID string                     `json:"knowledge_id"`
 	SpaceID     string                     `json:"space_id"`
 	Kind        types.KnowledgeKind        `json:"kind" db:"kind"`
@@ -143,6 +154,7 @@ func (l *ShareLogic) GetKnowledgeByShareToken(token string) (*KnowledgeShareInfo
 	return &KnowledgeShareInfo{
 		UserID:      user.ID,
 		UserName:    user.Name,
+		UserAvatar:  user.Avatar,
 		KnowledgeID: knowledge.ID,
 		SpaceID:     knowledge.SpaceID,
 		Kind:        knowledge.Kind,

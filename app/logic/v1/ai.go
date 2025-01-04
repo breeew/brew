@@ -247,6 +247,7 @@ func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
 func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+	// TODO: Get space prompt
 	prompt := ai.BuildRAGPrompt(s.core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), s.core.Srv().AI())
 	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
 	if err != nil {
