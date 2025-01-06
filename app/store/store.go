@@ -112,6 +112,7 @@ type UserStore interface {
 	Delete(ctx context.Context, appid, id string) error
 	ListUsers(ctx context.Context, opts types.ListUserOptions, page, pageSize uint64) ([]types.User, error)
 	Total(ctx context.Context, opts types.ListUserOptions) (int64, error)
+	UpdateUserPlan(ctx context.Context, appid, id, planID string) error
 }
 
 type ChatSessionStore interface {

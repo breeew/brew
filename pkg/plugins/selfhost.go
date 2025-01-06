@@ -215,3 +215,7 @@ func (s *SelfHostPlugin) FileUploader() core.FileStorage {
 
 	return s.FileStorage
 }
+
+func (s *SelfHostPlugin) CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error) {
+	return "proy", nil
+}

@@ -31,10 +31,15 @@ func NewUserLogic(ctx context.Context, core *core.Core) *UserLogic {
 
 func (l *UserLogic) Register(appid, name, email, password string) (string, error) {
 	salt := utils.RandomStr(10)
-	userID := utils.GenRandomID()
+	userID := utils.GenUniqIDStr()
 
 	l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
-		err := l.core.Store().UserStore().Create(ctx, types.User{
+		defaultPlan, err := l.core.Plugins.CreateUserDefaultPlan(ctx, appid, userID)
+		if err != nil {
+			return errors.New("UserLogic.Register.Plugins.CreateUserDefaultPlan", i18n.ERROR_INTERNAL, err)
+		}
+
+		err = l.core.Store().UserStore().Create(ctx, types.User{
 			ID:        userID,
 			Appid:     appid,
 			Name:      name,
@@ -42,6 +47,7 @@ func (l *UserLogic) Register(appid, name, email, password string) (string, error
 			Avatar:    "",
 			Salt:      salt,
 			Source:    "platform",
+			PlanID:    defaultPlan,
 			Password:  utils.GenUserPassword(salt, password),
 			UpdatedAt: time.Now().Unix(),
 			CreatedAt: time.Now().Unix(),

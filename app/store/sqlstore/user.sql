@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS bw_user (
     password VARCHAR(255) NOT NULL,          -- 用户密码
     salt VARCHAR(10) NOT NULL,              -- 用户密码盐值
     source VARCHAR(50) NOT NULL,            -- 用户注册来源
+    plan_id VARCHAR(20) NOT NULL,              -- 会员方案id
     updated_at BIGINT NOT NULL,              -- 更新时间，Unix时间戳
     created_at BIGINT NOT NULL               -- 创建时间，Unix时间戳
 );
@@ -21,6 +22,7 @@ COMMENT ON COLUMN bw_user.email IS '用户邮箱，唯一约束';
 COMMENT ON COLUMN bw_user.password IS '用户密码';
 COMMENT ON COLUMN bw_user.salt IS '用户密码盐值';
 COMMENT ON COLUMN bw_user.source IS '用户注册来源';
+COMMENT ON COLUMN bw_user.plan_id IS '会员方案id';
 COMMENT ON COLUMN bw_user.updated_at IS '更新时间，Unix时间戳';
 COMMENT ON COLUMN bw_user.created_at IS '创建时间，Unix时间戳';
 

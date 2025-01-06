@@ -26,15 +26,15 @@ func NewUserStore(provider SqlProviderAchieve) *UserStore {
 	repo := &UserStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_USER) // 设置表名
-	repo.SetAllColumns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "updated_at", "created_at")
+	repo.SetAllColumns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "plan_id", "updated_at", "created_at")
 	return repo
 }
 
 // Create 创建新的用户
 func (s *UserStore) Create(ctx context.Context, data types.User) error {
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "updated_at", "created_at").
-		Values(data.ID, data.Appid, data.Name, data.Avatar, data.Email, data.Password, data.Salt, data.Source, data.UpdatedAt, data.CreatedAt)
+		Columns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "plan_id", "updated_at", "created_at").
+		Values(data.ID, data.Appid, data.Name, data.Avatar, data.Email, data.Password, data.Salt, data.Source, data.PlanID, data.UpdatedAt, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -102,6 +102,22 @@ func (s *UserStore) UpdateUserPassword(ctx context.Context, appid, id, salt, pas
 	query := sq.Update(s.GetTable()).
 		Set("salt", salt).
 		Set("password", password).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+// Update 更新用户计划
+func (s *UserStore) UpdateUserPlan(ctx context.Context, appid, id, planID string) error {
+	query := sq.Update(s.GetTable()).
+		Set("plan_id", planID).
 		Set("updated_at", time.Now().Unix()).
 		Where(sq.Eq{"appid": appid, "id": id})
 
