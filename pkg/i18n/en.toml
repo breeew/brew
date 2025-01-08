@@ -1,3 +1,7 @@
+[error.payment_required]
+one = "Payment required, Please upgrade your account"
+other = "Payment required, Please upgrade your account"
+
 [error.already_invited]
 one = "Already invited"
 other = "Already invited"

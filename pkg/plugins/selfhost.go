@@ -195,7 +195,7 @@ func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
 var limiter = make(map[string]*rate.Limiter)
 
 // ratelimit 代表每分钟允许的数量
-func (s *SelfHostPlugin) UseLimiter(key string, method string, defaultRatelimit int) core.Limiter {
+func (s *SelfHostPlugin) UseLimiter(c *gin.Context, key string, method string, defaultRatelimit int) core.Limiter {
 	l, exist := limiter[key]
 	if !exist {
 		limit := rate.Every(time.Minute / time.Duration(defaultRatelimit))

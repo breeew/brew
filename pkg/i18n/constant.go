@@ -13,6 +13,7 @@ const (
 	ERROR_INVALIDARGUMENT            = "error.invalidargument"
 	ERROR_PERMISSION_DENIED          = "error.permission.denied"
 	ERROR_UNAUTHORIZED               = "error.unauthorized"
+	ERROR_PAYMENT_REQUIRED           = "error.payment_required"
 	ERROR_EXIST                      = "error.exist"
 	ERROR_TITLE_EXIST                = "error.title.exist"
 	ERROR_FORBIDDEN                  = "error.forbidden"

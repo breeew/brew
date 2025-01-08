@@ -130,6 +130,21 @@ func (s *UserStore) UpdateUserPlan(ctx context.Context, appid, id, planID string
 	return err
 }
 
+func (s *UserStore) BatchUpdateUserPlan(ctx context.Context, appid string, ids []string, planID string) error {
+	query := sq.Update(s.GetTable()).
+		Set("plan_id", planID).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": ids})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 // Delete 删除用户
 func (s *UserStore) Delete(ctx context.Context, appid, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "id": id})

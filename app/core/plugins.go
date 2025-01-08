@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/breeew/brew-api/pkg/types"
+	"github.com/gin-gonic/gin"
 )
 
 type Plugins interface {
@@ -12,7 +13,7 @@ type Plugins interface {
 	Install(*Core) error
 	DefaultAppid() string
 	TryLock(ctx context.Context, key string) (bool, error)
-	UseLimiter(key string, method string, defaultRatelimit int) Limiter
+	UseLimiter(c *gin.Context, key string, method string, defaultRatelimit int) Limiter
 	FileUploader() FileStorage
 	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
 	AIChatLogic(agentType string) AIChatLogic

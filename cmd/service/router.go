@@ -85,7 +85,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
-			space.POST("/:spaceid/knowledge/share", s.CreateKnowledgeShareToken)
+			space.POST("/:spaceid/knowledge/share", middleware.PaymentRequired, s.CreateKnowledgeShareToken)
 
 			object := space.Group("/:spaceid/object")
 			{
@@ -136,11 +136,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		chat := authed.Group("/:spaceid/chat")
 		{
 			chat.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionView))
-			chat.POST("", s.CreateChatSession)
+			chat.POST("", middleware.PaymentRequired, s.CreateChatSession)
 			chat.DELETE("/:session", s.DeleteChatSession)
 			chat.GET("/list", s.ListChatSession)
-			chat.POST("/:session/message/id", s.GenMessageID)
-			chat.PUT("/:session/named", spaceLimit("named_session"), s.RenameChatSession)
+			chat.POST("/:session/message/id", middleware.PaymentRequired, s.GenMessageID)
+			chat.PUT("/:session/named", spaceLimit("named_session"), middleware.PaymentRequired, s.RenameChatSession)
 			chat.GET("/:session/message/:messageid/ext", s.GetChatMessageExt)
 
 			history := chat.Group("/:session/history")
@@ -150,7 +150,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 
 			message := chat.Group("/:session/message")
 			{
-				message.Use(spaceLimit("create_message"))
+				message.Use(spaceLimit("create_message"), middleware.PaymentRequired)
 				message.POST("", s.CreateChatMessage)
 			}
 		}

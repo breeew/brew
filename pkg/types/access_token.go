@@ -26,6 +26,6 @@ func (s *AccessToken) TokenClaims() (*security.TokenClaims, error) {
 		return nil, errors.New("unkown access token version")
 	}
 	// TODO: get appname to replace 'brew'
-	claim := security.NewTokenClaims(s.Appid, "brew", s.UserID, "cs", s.ExpiresAt)
+	claim := security.NewTokenClaims(s.Appid, "brew", s.UserID, s.UserID, "cs", s.ExpiresAt)
 	return &claim, nil
 }

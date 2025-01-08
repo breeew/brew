@@ -1,10 +1,13 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const publicKey = `
@@ -72,4 +75,21 @@ func TestErrorIs(t *testing.T) {
 	err := fmt.Errorf("error, %w", ErrInvalidJWT)
 
 	t.Log(errors.Is(err, ErrInvalidJWT))
+}
+
+func TestClaimsCopy(t *testing.T) {
+	ctx := context.Background()
+	a := TokenClaims{
+		Fields: map[string]string{
+			"test": "a",
+		},
+	}
+
+	ctx = context.WithValue(ctx, "c", a)
+
+	b := ctx.Value("c").(TokenClaims)
+
+	b.Fields["test"] = "b"
+
+	assert.Equal(t, a.Fields["test"], b.Fields["test"])
 }
