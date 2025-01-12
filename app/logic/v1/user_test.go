@@ -25,7 +25,7 @@ func Test_UserRegister(t *testing.T) {
 	userName := ""
 	userEmail := ""
 
-	userID, err := logic.Register(core.DefaultAppid(), userName, userEmail, "testpwd")
+	userID, err := logic.Register(core.DefaultAppid(), userName, userEmail, "testpwd", "Main")
 	if err != nil {
 		t.Fatal(err)
 	}

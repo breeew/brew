@@ -28,9 +28,8 @@ func GenSign(appid, secret string, signTime int64) string {
 type TokenClaims struct {
 	Appid      string            `json:"aid"` // 后续可能有用吧
 	AppName    string            `json:"an"`
-	User       string            `json:"u"` // 对应平台的用户唯一标识
-	Fields     map[string]string `json:"f"` // unsafe
-	PlanID     string            `json:"plan_id"`
+	User       string            `json:"u"`   // 对应平台的用户唯一标识
+	Fields     map[string]string `json:"f"`   // unsafe
 	ExpireTime int64             `json:"exp"` // 过期时间 时间戳
 	NotBefore  int64             `json:"nbf"` // 生效时间 时间戳
 }
@@ -47,6 +46,10 @@ func NewTokenClaims(appid, appName, userID, planID, roleType string, expireTime 
 		ExpireTime: expireTime,
 		NotBefore:  time.Now().Unix() - 1,
 	}
+}
+
+func (t TokenClaims) PlanID() string {
+	return t.Fields[PLAN_KEY]
 }
 
 const (

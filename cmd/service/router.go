@@ -50,6 +50,10 @@ func GetSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
 func setupHttpRouter(s *handler.HttpSrv) {
 	userLimit := GetUserLimitBuilder(s.Core)
 	spaceLimit := GetSpaceLimitBuilder(s.Core)
+
+	s.Engine.LoadHTMLGlob("./tpls/*")
+	s.Engine.GET("/s/k/:token", s.BuildKnowledgeSharePage)
+	s.Engine.GET("/s/s/:token", s.BuildSessionSharePage)
 	// auth
 	s.Engine.Use(middleware.I18n(), response.NewResponse())
 	s.Engine.Use(middleware.Cors)
@@ -63,6 +67,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		share := apiV1.Group("/share")
 		{
 			share.GET("/knowledge/:token", s.GetKnowledgeByShareToken)
+			share.GET("/session/:token", s.GetSessionByShareToken)
 		}
 
 		authed := apiV1.Group("")
@@ -85,7 +90,9 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
+			// share
 			space.POST("/:spaceid/knowledge/share", middleware.PaymentRequired, s.CreateKnowledgeShareToken)
+			space.POST("/:spaceid/session/share", middleware.PaymentRequired, s.CreateSessionShareToken)
 
 			object := space.Group("/:spaceid/object")
 			{

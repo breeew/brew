@@ -20,7 +20,7 @@ func NewShareTokenStore(provider SqlProviderAchieve) *ShareTokenStoreImpl {
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_SHARE_TOKEN)
 	repo.SetAllColumns(
-		"id", "appid", "space_id", "object_id", "type", "token", "expire_at", "created_at",
+		"id", "appid", "space_id", "object_id", "share_user_id", "type", "token", "embedding_url", "expire_at", "created_at",
 	)
 	return repo
 }

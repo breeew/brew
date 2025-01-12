@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v9"
 	"github.com/samber/lo"
 
 	"github.com/breeew/brew-api/app/core"
@@ -170,18 +171,18 @@ func checkAuthToken(c *gin.Context, core *core.Core) (bool, error) {
 func PaymentRequired(c *gin.Context) {
 	tokenClaim, exist := c.Get(v1.TOKEN_CONTEXT_KEY)
 	if !exist {
-		response.APIError(c, errors.New("middleware.NeedProTodo.GetToken", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
+		response.APIError(c, errors.New("middleware.PaymentRequired.GetToken", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
 		return
 	}
 
 	tc, ok := tokenClaim.(security.TokenClaims)
 	if !ok {
-		response.APIError(c, errors.New("middleware.NeedProTodo.TokenClaims", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
+		response.APIError(c, errors.New("middleware.PaymentRequired.TokenClaims", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
 		return
 	}
 
-	if tc.PlanID == "" {
-		response.APIError(c, errors.New("middleware.NeedProTodo.PaymentRequired", i18n.ERROR_PAYMENT_REQUIRED, nil).Code(http.StatusPaymentRequired))
+	if tc.PlanID() == "" {
+		response.APIError(c, errors.New("middleware.PaymentRequired.Check.Plan", i18n.ERROR_PAYMENT_REQUIRED, nil).Code(http.StatusPaymentRequired))
 		return
 	}
 }
@@ -195,7 +196,7 @@ func ParseAuthToken(c *gin.Context, tokenValue string, core *core.Core) (bool, e
 	defer cancel()
 
 	tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return false, errors.New("ParseAuthToken.GetFromCache", i18n.ERROR_INTERNAL, err)
 	}
 

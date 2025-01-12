@@ -54,10 +54,10 @@ func LoadBaseConfigFromENV() CoreConfig {
 }
 
 type CoreConfig struct {
-	Addr     string      `toml:"addr"`
-	Log      Log         `toml:"log"`
-	Postgres PGConfig    `toml:"postgres"`
-	Share    ShareConfig `toml:"share"`
+	Addr     string   `toml:"addr"`
+	Log      Log      `toml:"log"`
+	Postgres PGConfig `toml:"postgres"`
+	Site     Site     `toml:"site"`
 
 	AI srv.AIConfig `toml:"ai"`
 
@@ -68,8 +68,15 @@ type CoreConfig struct {
 	bytes []byte `toml:"-"`
 }
 
+type Site struct {
+	DefaultAvatar string      `toml:"default_avatar"`
+	Share         ShareConfig `toml:"share"`
+}
+
 type ShareConfig struct {
-	Domain string `toml:"domain"`
+	Domain          string `toml:"domain"`
+	SiteTitle       string `toml:"site_title"`
+	SiteDescription string `toml:"site_description"`
 }
 
 func (c *CoreConfig) SetConfigBytes(raw []byte) {

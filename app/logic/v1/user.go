@@ -29,7 +29,7 @@ func NewUserLogic(ctx context.Context, core *core.Core) *UserLogic {
 	return l
 }
 
-func (l *UserLogic) Register(appid, name, email, password string) (string, error) {
+func (l *UserLogic) Register(appid, name, email, password, workspaceName string) (string, error) {
 	salt := utils.RandomStr(10)
 	userID := utils.GenUniqIDStr()
 
@@ -44,7 +44,7 @@ func (l *UserLogic) Register(appid, name, email, password string) (string, error
 			Appid:     appid,
 			Name:      name,
 			Email:     email,
-			Avatar:    "",
+			Avatar:    l.core.Cfg().Site.DefaultAvatar,
 			Salt:      salt,
 			Source:    "platform",
 			PlanID:    defaultPlan,
@@ -59,7 +59,7 @@ func (l *UserLogic) Register(appid, name, email, password string) (string, error
 		spaceID := utils.GenRandomID()
 		err = l.core.Store().SpaceStore().Create(ctx, types.Space{
 			SpaceID:     spaceID,
-			Title:       "Main",
+			Title:       workspaceName,
 			Description: "default space",
 			CreatedAt:   time.Now().Unix(),
 		})
@@ -89,7 +89,7 @@ func (l *UserLogic) Login(appid, email, password string) (string, error) {
 	}
 
 	if user == nil || user.Password != utils.GenUserPassword(user.Salt, password) {
-		return "", errors.New("UserLogic.Login.UserStore.GetByEmail", i18n.ERROR_INVALID_ACCOUNT, err).Code(http.StatusBadRequest)
+		return "", errors.New("UserLogic.Login.Password.check", i18n.ERROR_INVALID_ACCOUNT, err).Code(http.StatusBadRequest)
 	}
 
 	accessToken := utils.MD5(user.ID + utils.GenRandomID())
