@@ -183,7 +183,7 @@ func KnowledgeToKnowledgeResponse(item *types.Knowledge) *types.KnowledgeRespons
 	if result.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
 		result.Blocks = json.RawMessage(item.Content)
 		var err error
-		result.Content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(item.Content))
+		result.Content, err = utils.ConvertEditorJSBlocksToMarkdown(result.Blocks)
 		if err != nil {
 			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", item.ID), slog.String("error", err.Error()))
 		}

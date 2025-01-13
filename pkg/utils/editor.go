@@ -105,7 +105,7 @@ func renderListv2Markdown(style string, index int, list []listv2Item) (string, e
 	results := []string{}
 	for i, s := range list {
 		if style == "ordered" {
-			listItemPrefix = fmt.Sprintf("%d.", i+1)
+			listItemPrefix = fmt.Sprintf("%d. ", i+1)
 		}
 
 		results = append(results, fmt.Sprintf("%s%s  ", listItemPrefix, s.Content))
@@ -204,9 +204,9 @@ func (*LineHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*line, error)
 	return line, json.Unmarshal(editorJSBlock.Data, line)
 }
 
-// Type "listv2"
+// Type "delimiter"
 func (*LineHandler) Type() string {
-	return "listv2"
+	return "delimiter"
 }
 
 func renderLineHtml(line *line) (string, error) {

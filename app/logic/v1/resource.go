@@ -30,7 +30,7 @@ func NewResourceLogic(ctx context.Context, core *core.Core) *ResourceLogic {
 	return l
 }
 
-func (l *ResourceLogic) CreateResource(spaceID, id, title, desc, prompt string, cycle int) error {
+func (l *ResourceLogic) CreateResource(spaceID, id, title, desc, tag string, cycle int) error {
 	if !utils.IsAlphabetic(id) {
 		return errors.New("ResourceLogic.CreateResource.ID.IsAlphabetic", i18n.ERROR_INVALIDARGUMENT, fmt.Errorf("resource id is not alphabetic")).Code(http.StatusBadRequest)
 	}
@@ -57,7 +57,7 @@ func (l *ResourceLogic) CreateResource(spaceID, id, title, desc, prompt string, 
 		SpaceID:     spaceID,
 		Title:       title,
 		Description: desc,
-		Prompt:      prompt,
+		Tag:         tag,
 		Cycle:       cycle,
 		CreatedAt:   time.Now().Unix(),
 	})
@@ -76,7 +76,7 @@ func (l *ResourceLogic) Delete(spaceID, id string) error {
 	return nil
 }
 
-func (l *ResourceLogic) Update(spaceID, id, title, desc, prompt string, cycle int) error {
+func (l *ResourceLogic) Update(spaceID, id, title, desc, tag string, cycle int) error {
 	resources, err := l.core.Store().ResourceStore().ListResources(l.ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
 	if err != nil {
 		return errors.New("ResourceLogic.Update.ResourceStore.ListResources", i18n.ERROR_INTERNAL, err)
@@ -88,7 +88,7 @@ func (l *ResourceLogic) Update(spaceID, id, title, desc, prompt string, cycle in
 		}
 	}
 
-	err = l.core.Store().ResourceStore().Update(l.ctx, spaceID, id, title, desc, prompt, cycle)
+	err = l.core.Store().ResourceStore().Update(l.ctx, spaceID, id, title, desc, tag, cycle)
 	if err != nil {
 		return errors.New("ResourceLogic.Update.ResourceStore.Update", i18n.ERROR_INTERNAL, err)
 	}
@@ -103,8 +103,9 @@ func (l *ResourceLogic) ListSpaceResources(spaceID string) ([]types.Resource, er
 
 	defaultKnowledgeResource := types.Resource{
 		ID:      "knowledge",
-		Title:   "knowledge",
+		Title:   "resourceKnowledge",
 		SpaceID: spaceID,
+		Tag:     "resources",
 	}
 
 	if len(list) == 0 {

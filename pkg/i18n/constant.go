@@ -22,6 +22,7 @@ const (
 	ERROR_VERIFY_CODE_ALREADY_SENDED = "error.verifycodesended"
 	ERROR_RESET_EMAIL_ALREADY_SENDED = "error.reset_email_sended"
 	ERROR_VERIFY_CODE_INCORRECT      = "error.incorrect.verifycode"
+	ERROR_VERIFY_CODE_EXPIRED      = "error.incorrect.verifycode.expired"
 	ERROR_LOGIN_ACCOUNT_INCORRECT    = "error.login.account.incorrect"
 	ERROR_EMAIL_ALREADY_REGISTED     = "error.email_has_already_registed"
 	ERROR_EMAIL_NOT_MATCH            = "error.email_not_match"

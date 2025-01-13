@@ -33,7 +33,7 @@ func (l *UserLogic) Register(appid, name, email, password, workspaceName string)
 	salt := utils.RandomStr(10)
 	userID := utils.GenUniqIDStr()
 
-	l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+	err := l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		defaultPlan, err := l.core.Plugins.CreateUserDefaultPlan(ctx, appid, userID)
 		if err != nil {
 			return errors.New("UserLogic.Register.Plugins.CreateUserDefaultPlan", i18n.ERROR_INTERNAL, err)
@@ -78,6 +78,10 @@ func (l *UserLogic) Register(appid, name, email, password, workspaceName string)
 		}
 		return nil
 	})
+
+	if err != nil {
+		return "", err
+	}
 
 	return userID, nil
 }

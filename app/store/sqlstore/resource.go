@@ -26,7 +26,7 @@ func NewResourceStore(provider SqlProviderAchieve) *ResourceStore {
 	repo := &ResourceStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_RESOURCE) // 表名
-	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "created_at")
+	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "tag", "cycle", "created_at")
 	return repo
 }
 
@@ -36,8 +36,8 @@ func (s *ResourceStore) Create(ctx context.Context, data types.Resource) error {
 		data.CreatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "title", "user_id", "space_id", "description", "prompt", "cycle", "created_at").
-		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Prompt, data.Cycle, data.CreatedAt)
+		Columns("id", "title", "user_id", "space_id", "description", "tag", "cycle", "created_at").
+		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Tag, data.Cycle, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -68,11 +68,11 @@ func (s *ResourceStore) GetResource(ctx context.Context, spaceID, id string) (*t
 }
 
 // Update 更新资源记录
-func (s *ResourceStore) Update(ctx context.Context, spaceID, id, title, desc, prompt string, cycle int) error {
+func (s *ResourceStore) Update(ctx context.Context, spaceID, id, title, desc, tag string, cycle int) error {
 	query := sq.Update(s.GetTable()).
 		Set("title", title).
 		Set("description", desc).
-		Set("prompt", prompt).
+		Set("tag", tag).
 		Set("cycle", cycle).
 		Where(sq.Eq{"space_id": spaceID, "id": id})
 

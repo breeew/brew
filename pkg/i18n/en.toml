@@ -1,3 +1,7 @@
+[error.incorrect.verifycode.expired]
+one = "The verification code has expired. Please resend it"
+other = "The verification code has expired. Please resend it"
+
 [error.payment_required]
 one = "Payment required, Please upgrade your account"
 other = "Payment required, Please upgrade your account"
