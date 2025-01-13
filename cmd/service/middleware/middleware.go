@@ -192,7 +192,7 @@ func ParseAuthToken(c *gin.Context, tokenValue string, core *core.Core) (bool, e
 		return false, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
