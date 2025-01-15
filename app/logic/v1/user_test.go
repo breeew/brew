@@ -12,14 +12,14 @@ import (
 	"github.com/breeew/brew-api/pkg/plugins"
 )
 
-func newCore() *core.Core {
+func NewCore() *core.Core {
 	core := core.MustSetupCore(core.MustLoadBaseConfig(os.Getenv("TEST_CONFIG_PATH")))
 	plugins.Setup(core.InstallPlugins, "saas")
 	return core
 }
 
 func Test_UserRegister(t *testing.T) {
-	core := newCore()
+	core := NewCore()
 	logic := v1.NewUserLogic(context.Background(), core)
 
 	userName := ""

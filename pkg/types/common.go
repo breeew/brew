@@ -2,6 +2,9 @@ package types
 
 const (
 	NO_PAGING = 0
+
+	NOT_DELETE = 0
+	DELETED    = 1
 )
 
 type WsEventType int32

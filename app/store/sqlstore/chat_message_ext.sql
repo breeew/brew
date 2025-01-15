@@ -5,7 +5,7 @@ CREATE TABLE bw_chat_message_ext (
     space_id VARCHAR(32) NOT NULL, -- 空间ID，表示消息所属的空间
     evaluate SMALLINT NOT NULL,                 -- 评价状态，使用 EvaluateType 枚举
     generation_status SMALLINT NOT NULL,        -- 生成状态，使用 GenerationStatusType 枚举
-    rel_docs TEXT[] NOT NULL,              -- 相关文档数组，存储多个文档标识符
+    rel_docs TEXT[],              -- 相关文档数组，存储多个文档标识符
     created_at BIGINT NOT NULL,            -- 创建时间，Unix 时间戳
     updated_at BIGINT NOT NULL             -- 更新时间，Unix 时间戳
 );

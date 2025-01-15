@@ -27,7 +27,7 @@ type Cache interface {
 
 type AIChatLogic interface {
 	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
-	RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
+	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
 	GetChatSessionSeqID(ctx context.Context, spaceID, sessionID string) (int64, error)
 	GenMessageID() string
 }

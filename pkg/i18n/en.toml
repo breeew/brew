@@ -1,91 +1,99 @@
-[error.incorrect.verifycode.expired]
+['error.redeem.must_new_user']
+one = "Available for new users only"
+other = "Available for new users only"
+
+['error.ineffective']
+one = "Ineffective"
+other = "Ineffective"
+
+['error.incorrect.verifycode.expired']
 one = "The verification code has expired. Please resend it"
 other = "The verification code has expired. Please resend it"
 
-[error.payment_required]
+['error.payment_required']
 one = "Payment required, Please upgrade your account"
 other = "Payment required, Please upgrade your account"
 
-[error.already_invited]
+['error.already_invited']
 one = "Already invited"
 other = "Already invited"
 
-[error.email_not_registered]
+['error.email_not_registered']
 one = "This email is not registered"
 other = "This email is not registered"
 
-[error.email_not_match]
+['error.email_not_match']
 one = "No valid email matched"
 other = "No valid email matched"
 
-[error.login.account.incorrect]
+['error.login.account.incorrect']
 one = "Incorrect account or password"
 other = "Incorrect account or password"
 
-[error.reset_email_sended]
+['error.reset_email_sended']
 one = "The password reset email has been sent. Please do not repeat the operation" 
 other = "The password reset email has been sent. Please do not repeat the operation"
 
-[error.email_has_already_registed]
+['error.email_has_already_registed']
 one = "Email has already registed"
 other = "Email has already registed"
 
-[error.incorrect.verifycode]
+['error.incorrect.verifycode']
 one = "Incorrect verification code"
 other = "Incorrect verification code"
 
-[error.verifycodesended]
+['error.verifycodesended']
 one = "The verification code email has been sent. Please do not resend it"
 other = "The verification code email has been sent. Please do not resend it"
 
-[error.unsupported.feature]
+['error.unsupported.feature']
 one = "Unsupported Feature"
 other = "Unsupported Feature"
 
-[error.notfound]
+['error.notfound']
 one = "Resource does not exist"
 other = "Resource does not exist"
 
-[error.internal]
+['error.internal']
 one = "Internal system error"
 other = "Internal system error"
 
-[error.invalidargument]
+['error.invalidargument']
 one = "Invalid arguments"
 other = "Invalid arguments"
 
-[error.invalid.token]
+['error.invalid.token']
 one = "Invalid token"
 other = "Invalid token"
 
-[error.permission.denied]
+['error.permission.denied']
 one = "Permission denied"
 other = "Permission denied"
 
-[error.unauthorized]
+['error.unauthorized']
 one = "Unauthorized"
 other = "Unauthorized"
 
-[error.timeout]
+['error.timeout']
 one = "Request timed out"
 other = "Request timed out"
 
-[error.exist]
+['error.exist']
 one = "Resource already exist"
 other = "Resource already exist"
 
-[error.title.exist]
+['error.title.exist']
 one = "Title Duplicate"
 other = "Title Duplicate"
 
-[error.forbidden]
+['error.forbidden']
 one = "Request forbidden, refresh or try again later"
 other = "Request forbidden, refresh or try again later"
 
-[error.tooManyRequests]
+['error.tooManyRequests']
 one = "Request forbidden, Too many requests"
 other = "Request forbidden, Too many requests"
 
-[error.logic.vector.db.notmatch.content.db]
+['error.logic.vector.db.notmatch.content.db']
 one = "The vector database differs from the knowledge base, so it is recommended to reinitialize"
 other = "The vector database differs from the knowledge base, so it is recommended to reinitialize"

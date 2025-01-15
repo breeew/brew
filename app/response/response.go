@@ -58,6 +58,9 @@ type BodyCursors struct {
 
 func GetLangFromRequestOrDefault(c *gin.Context) string {
 	lang := c.Request.Header.Get("Accept-Language")
+	if lang == "zh" {
+		lang = "zh-CN"
+	}
 	if i18n.ALLOW_LANG[lang] {
 		return lang
 	}

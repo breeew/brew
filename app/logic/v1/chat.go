@@ -176,8 +176,8 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	return msg.Sequence, err
 }
 
-func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs *types.RAGDocs) {
-	if chatSession == nil || docs == nil {
+func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs types.RAGDocs) {
+	if chatSession == nil || len(docs.Refs) == 0 {
 		return
 	}
 
@@ -222,12 +222,15 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 }
 
 // genMode new request or re-request
-func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *types.RAGDocs, genMode types.RequestAssistantMode) error {
+func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
 	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL)
 
-	relDocs := lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
-		return item.KnowledgeID
-	})
+	var relDocs []string
+	if len(docs.Refs) > 0 {
+		relDocs = lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
+			return item.KnowledgeID
+		})
+	}
 
 	// var marks = make(map[string]string)
 	// for _, v := range docs.Docs {
