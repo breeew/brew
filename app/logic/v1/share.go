@@ -223,6 +223,10 @@ func (l *ShareLogic) GetKnowledgeByShareToken(token string) (*KnowledgeShareInfo
 		}
 	}
 
+	if knowledge.Content, err = l.core.DecryptData(knowledge.Content); err != nil {
+		return nil, errors.New("ShareLogic.GetKnowledgeByShareToken.DecryptData", i18n.ERROR_INTERNAL, err)
+	}
+
 	return &KnowledgeShareInfo{
 		UserID:       user.ID,
 		UserName:     user.Name,
@@ -272,6 +276,18 @@ func (l *ShareLogic) GetSessionByShareToken(token string) (*SessionShareInfo, er
 
 	if len(messageList) == 0 {
 		return nil, errors.New("ShareLogic.GetSessionByShareToken.ChatMessageStore.ListSessionMessage.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
+	}
+
+	for _, v := range messageList {
+		if v.IsEncrypt != types.MESSAGE_IS_ENCRYPT {
+			continue
+		}
+		deData, err := l.core.DecryptData([]byte(v.Message))
+		if err != nil {
+			return nil, errors.New("ShareLogic.GetSessionByShareToken.ChatMessageStore.DecryptData", i18n.ERROR_INTERNAL, err)
+		}
+
+		v.Message = string(deData)
 	}
 
 	user, err := l.core.Store().UserStore().GetUser(l.ctx, link.Appid, link.ShareUserID)

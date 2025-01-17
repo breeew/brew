@@ -47,9 +47,29 @@ func (l *ChatSessionLogic) CheckUserChatSession(spaceID, sessionID string) (*typ
 }
 
 func (l *ChatSessionLogic) DeleteChatSession(spaceID, sessionID string) error {
-	if err := l.core.Store().ChatSessionStore().Delete(l.ctx, spaceID, sessionID); err != nil {
-		return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionStore.Delete", i18n.ERROR_INTERNAL, err)
-	}
+	l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		if err := l.core.Store().ChatSessionStore().Delete(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionStore.Delete", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatSessionPinStore().Delete(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionPinStore.Delete", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatMessageStore().DeleteSessionMessage(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatMessageStore.DeleteSessionMessage", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatMessageExtStore().DeleteSessionMessageExt(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatMessageExtStore.DeleteSessionMessageExt", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatSummaryStore().DeleteSessionSummary(ctx, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSummaryStore.DeleteSessionSummary", i18n.ERROR_INTERNAL, err)
+		}
+		return nil
+	})
+
 	return nil
 }
 

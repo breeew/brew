@@ -1,9 +1,13 @@
 package utils
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/md5"
+	crand "crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"regexp"
@@ -144,4 +148,57 @@ func ParseAcceptLanguage(header string) []Language {
 	})
 
 	return languages
+}
+
+// CFB 加密函数
+func EncryptCFB(plaintext, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// 生成随机 IV
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
+		return nil, err
+	}
+
+	// 使用 CFB 模式加密
+	ciphertext := make([]byte, len(plaintext))
+	encrypter := cipher.NewCFBEncrypter(block, iv)
+	encrypter.XORKeyStream(ciphertext, plaintext)
+
+	// 返回 IV 和密文
+	result := append(iv, ciphertext...)
+
+	dst := make([]byte, hex.EncodedLen(len(result)))
+	hex.Encode(dst, result)
+	return dst, nil
+}
+
+// CFB 解密函数
+func DecryptCFB(ciphertext, key []byte) ([]byte, error) {
+	dst := make([]byte, hex.DecodedLen(len(ciphertext)))
+	n, err := hex.Decode(dst, ciphertext)
+	ciphertext = dst[:n]
+
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("wrong ciphertext")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// 提取 IV 和密文
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	// 使用 CFB 模式解密
+	plaintext := make([]byte, len(ciphertext))
+	decrypter := cipher.NewCFBDecrypter(block, iv)
+	decrypter.XORKeyStream(plaintext, ciphertext)
+
+	return plaintext, nil
 }

@@ -24,7 +24,7 @@ func NewChatSummaryStore(provider SqlProviderAchieve) *ChatSummaryStore {
 	repo := &ChatSummaryStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_CHAT_SUMMARY)
-	repo.SetAllColumns("id", "message_id", "session_id", "content", "created_at")
+	repo.SetAllColumns("id", "space_id", "message_id", "session_id", "content", "created_at")
 	return repo
 }
 
@@ -43,13 +43,43 @@ func (s *ChatSummaryStore) GetChatSessionLatestSummary(ctx context.Context, sess
 	return &res, nil
 }
 
+func (s *ChatSummaryStore) DeleteAll(ctx context.Context, spaceID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *ChatSummaryStore) DeleteSessionSummary(ctx context.Context, sessionID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"session_id": sessionID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ChatSummaryStore) Create(ctx context.Context, data types.ChatSummary) error {
 	if data.CreatedAt == 0 {
 		data.CreatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "message_id", "session_id", "content", "created_at").
-		Values(data.ID, data.MessageID, data.SessionID, data.Content, data.CreatedAt)
+		Columns("id", "space_id", "message_id", "session_id", "content", "created_at").
+		Values(data.ID, data.SpaceID, data.MessageID, data.SessionID, data.Content, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

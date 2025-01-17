@@ -68,6 +68,21 @@ func (s *JournalStore) Get(ctx context.Context, spaceID, userID, date string) (*
 	return &res, nil
 }
 
+func (s *JournalStore) Exist(ctx context.Context, spaceID, userID, date string) (bool, error) {
+	query := sq.Select("1").From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "user_id": userID, "date": date})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return false, ErrorSqlBuild(err)
+	}
+
+	var exist bool
+	if err = s.GetReplica(ctx).Get(&exist, queryString, args...); err != nil {
+		return false, err
+	}
+	return exist, nil
+}
+
 func (s *JournalStore) Update(ctx context.Context, id int64, content types.KnowledgeContent) error {
 	query := sq.Update(s.GetTable()).SetMap(map[string]interface{}{
 		"content":    content.String(),

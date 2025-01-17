@@ -25,7 +25,7 @@ func NewChatMessageStore(provider SqlProviderAchieve) *ChatMessageStore {
 	repo := &ChatMessageStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_CHAT_MESSAGE)
-	repo.SetAllColumns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block")
+	repo.SetAllColumns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "is_encrypt")
 	return repo
 }
 
@@ -34,8 +34,8 @@ func (s *ChatMessageStore) Create(ctx context.Context, data *types.ChatMessage) 
 		data.SendTime = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block").
-		Values(data.ID, data.SpaceID, data.UserID, data.Role, data.Message, data.MsgType, data.SendTime, data.SessionID, data.Complete, data.Sequence, data.MsgBlock)
+		Columns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "is_encrypt").
+		Values(data.ID, data.SpaceID, data.UserID, data.Role, data.Message, data.MsgType, data.SendTime, data.SessionID, data.Complete, data.Sequence, data.MsgBlock, data.IsEncrypt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -76,6 +76,19 @@ func (s *ChatMessageStore) RewriteMessage(ctx context.Context, spaceID, sessionI
 	return nil
 }
 
+func (s *ChatMessageStore) SaveEncrypt(ctx context.Context, id string, message json.RawMessage) error {
+	query := sq.Update(s.GetTable()).Set("message", message).Set("is_encrypt", types.MESSAGE_IS_ENCRYPT).Where(sq.Eq{"id": id})
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ChatMessageStore) AppendMessage(ctx context.Context, spaceID, sessionID, id string, message json.RawMessage, complete int32) error {
 	query := sq.Update(s.GetTable()).Set("message", sq.Expr("message || ?", message)).Set("complete", complete).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID, "id": id})
 	queryString, args, err := query.ToSql()
@@ -92,6 +105,19 @@ func (s *ChatMessageStore) AppendMessage(ctx context.Context, spaceID, sessionID
 
 func (s *ChatMessageStore) UpdateMessageCompleteStatus(ctx context.Context, sessionID, id string, complete int32) error {
 	query := sq.Update(s.GetTable()).Set("complete", complete).Where(sq.Eq{"session_id": sessionID, "id": id})
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *ChatMessageStore) DeleteSessionMessage(ctx context.Context, spaceID, sessionID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID})
 	queryString, args, err := query.ToSql()
 	if err != nil {
 		return ErrorSqlBuild(err)
@@ -152,6 +178,25 @@ func (s *ChatMessageStore) ListSessionMessage(ctx context.Context, spaceID, sess
 	if msgID != "" {
 		query = query.Where(sq.Gt{"id": msgID})
 	}
+	if page != types.NO_PAGING || pageSize != types.NO_PAGING {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var list []*types.ChatMessage
+	if err = s.GetReplica(ctx).Select(&list, queryString, args...); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (s *ChatMessageStore) ListUnEncryptMessage(ctx context.Context, page, pageSize uint64) ([]*types.ChatMessage, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
+		Where(sq.And{sq.NotEq{"is_encrypt": types.MESSAGE_IS_ENCRYPT}, sq.Eq{"complete": types.MESSAGE_PROGRESS_COMPLETE}})
+
 	if page != types.NO_PAGING || pageSize != types.NO_PAGING {
 		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
 	}

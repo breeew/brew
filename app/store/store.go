@@ -39,10 +39,11 @@ type KnowledgeStore interface {
 type KnowledgeChunkStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.KnowledgeChunk) error
-	BatchCreate(ctx context.Context, data []types.KnowledgeChunk) error
+	BatchCreate(ctx context.Context, data []*types.KnowledgeChunk) error
 	Get(ctx context.Context, spaceID, knowledgeID, id string) (*types.KnowledgeChunk, error)
 	Update(ctx context.Context, spaceID, knowledgeID, id, chunk string) error
 	Delete(ctx context.Context, spaceID, knowledgeID, id string) error
+	DeleteAll(ctx context.Context, spaceID string) error
 	BatchDelete(ctx context.Context, spaceID, knowledgeID string) error
 	List(ctx context.Context, spaceID, knowledgeID string) ([]types.KnowledgeChunk, error)
 }
@@ -127,6 +128,7 @@ type ChatSessionStore interface {
 	Delete(ctx context.Context, spaceID, sessionID string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error)
+	ListBeforeTime(ctx context.Context, t time.Time, page, pageSize uint64) ([]types.ChatSession, error)
 	Total(ctx context.Context, spaceID, userID string) (int64, error)
 }
 
@@ -139,6 +141,7 @@ type ChatMessageStore interface {
 	UpdateMessageCompleteStatus(ctx context.Context, sessionID, id string, complete int32) error
 	DeleteMessage(ctx context.Context, id string) error
 	DeleteAll(ctx context.Context, spaceID string) error
+	DeleteSessionMessage(ctx context.Context, spaceID, sessionID string) error
 	ListSessionMessageUpToGivenID(ctx context.Context, spaceID, sessionID, msgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
 	ListSessionMessage(ctx context.Context, spaceID, sessionID, afterMsgID string, page, pageSize uint64) ([]*types.ChatMessage, error)
 	TotalSessionMessage(ctx context.Context, spaceID, sessionID, afterMsgID string) (int64, error)
@@ -147,12 +150,16 @@ type ChatMessageStore interface {
 	GetSessionLatestMessage(ctx context.Context, spaceID, sessionID string) (*types.ChatMessage, error)
 	GetSessionLatestUserMessage(ctx context.Context, spaceID, sessionID string) (*types.ChatMessage, error)
 	GetSessionLatestUserMsgIDBeforeGivenID(ctx context.Context, spaceID, sessionID, msgID string) (string, error)
+	ListUnEncryptMessage(ctx context.Context, page, pageSize uint64) ([]*types.ChatMessage, error)
+	SaveEncrypt(ctx context.Context, id string, message json.RawMessage) error
 }
 
 type ChatSummaryStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.ChatSummary) error
 	GetChatSessionLatestSummary(ctx context.Context, sessionID string) (*types.ChatSummary, error)
+	DeleteSessionSummary(ctx context.Context, sessionID string) error
+	DeleteAll(ctx context.Context, spaceID string) error
 }
 
 type ChatMessageExtStore interface {
@@ -163,6 +170,7 @@ type ChatMessageExtStore interface {
 	Update(ctx context.Context, id string, data types.ChatMessageExt) error
 	Delete(ctx context.Context, id string) error
 	DeleteAll(ctx context.Context, spaceID string) error
+	DeleteSessionMessageExt(ctx context.Context, spaceID, sessionID string) error
 }
 
 // 定义接口
@@ -177,6 +185,7 @@ type AITokenUsageStore interface {
 	Create(ctx context.Context, data types.AITokenUsage) error
 	Get(ctx context.Context, _type, subType, objectID, userID string) (*types.AITokenUsage, error)
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.AITokenUsage, error)
+	ListUserEachModelUsage(ctx context.Context, userID string, st, et time.Time) ([]types.AITokenSummary, error)
 	SumUserUsageByType(ctx context.Context, userID string, st, et time.Time) ([]types.UserTokenUsageWithType, error)
 	Delete(ctx context.Context, spaceID, userID string, st, et time.Time) error
 }
@@ -194,6 +203,7 @@ type JournalStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.Journal) error
 	Get(ctx context.Context, spaceID, userID, date string) (*types.Journal, error)
+	Exist(ctx context.Context, spaceID, userID, date string) (bool, error)
 	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.Journal, error)
 	ListWithDate(ctx context.Context, spaceID, userID, startDate, endDate string) ([]types.Journal, error)
@@ -207,5 +217,6 @@ type ChatSessionPinStore interface {
 	GetBySessionID(ctx context.Context, sessionID string) (*types.ChatSessionPin, error)
 	Update(ctx context.Context, spaceID, sessionID string, content types.RawMessage, version string) error
 	Delete(ctx context.Context, spaceID, sessionID string) error
+	DeleteAll(ctx context.Context, spaceID string) error
 	List(ctx context.Context, page, pageSize uint64) ([]types.ChatSessionPin, error)
 }

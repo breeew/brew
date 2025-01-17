@@ -92,7 +92,7 @@ type Prompt struct {
 }
 
 type Security struct {
-	PublicKey string `json:"public_key"`
+	EncryptKey string `json:"encrypt_key"`
 }
 
 func (c *CoreConfig) FromENV() {

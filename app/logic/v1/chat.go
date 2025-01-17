@@ -176,6 +176,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	return msg.Sequence, err
 }
 
+// 补充 session pin docs to docs
 func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs types.RAGDocs) {
 	if chatSession == nil || len(docs.Refs) == 0 {
 		return
@@ -216,6 +217,13 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 	if err != nil {
 		slog.Error("Failed to get knowledge content", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()), slog.Any("knowledge_ids", differenceItems))
 		return
+	}
+
+	for _, v := range knowledges {
+		if v.Content, err = core.DecryptData(v.Content); err != nil {
+			slog.Error("Failed to decrypt knowledge data", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+			return
+		}
 	}
 
 	docs.Docs = AppendKnowledgeContentToDocs(core, docs.Docs, knowledges)

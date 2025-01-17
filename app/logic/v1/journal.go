@@ -33,6 +33,9 @@ func (l *JournalLogic) CreateJournal(spaceID, date string, content types.Knowled
 		return errors.New("JournalLogic.CreateJournal.JournalStore.Get", i18n.ERROR_INTERNAL, err)
 	}
 
+	if content, err = l.core.EncryptData(content); err != nil {
+		return errors.New("JournalLogic.CreateJournal.EncryptData", i18n.ERROR_INTERNAL, err)
+	}
 	err = l.core.Store().JournalStore().Create(l.ctx, types.Journal{
 		ID:        utils.GenUniqID(),
 		SpaceID:   spaceID,
@@ -55,13 +58,18 @@ func (l *JournalLogic) UpsertJournal(spaceID, date string, content types.Knowled
 	}
 
 	if journal == nil {
-		return l.CreateJournal(spaceID, date, content)
+		if err = l.CreateJournal(spaceID, date, content); err != nil {
+			return errors.Trace("JournalLogic.CreateJournal", err)
+		}
 	}
 
 	if journal.UserID != l.GetUserInfo().User {
 		return errors.New("JournalLogic.UpsertJournal.auth.check", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
 	}
 
+	if content, err = l.core.EncryptData(content); err != nil {
+		return errors.New("JournalLogic.UpsertJournal.EncryptData", i18n.ERROR_INTERNAL, err)
+	}
 	err = l.core.Store().JournalStore().Update(l.ctx, journal.ID, content)
 	if err != nil {
 		return errors.New("JournalLogic.UpsertJournal.JournalStore.Update", i18n.ERROR_INTERNAL, err)
@@ -74,6 +82,11 @@ func (l *JournalLogic) GetJournal(spaceID, date string) (*types.Journal, error) 
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.New("JournalLogic.GetJournal.JournalStore.Get", i18n.ERROR_INTERNAL, err)
 	}
+
+	if journal.Content, err = l.core.DecryptData(journal.Content); err != nil {
+		return nil, errors.New("JournalLogic.GetJournal.DecryptData", i18n.ERROR_INTERNAL, err)
+	}
+
 	return journal, nil
 }
 

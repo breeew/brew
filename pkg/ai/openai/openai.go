@@ -24,6 +24,15 @@ type Driver struct {
 	model  ai.ModelName
 }
 
+func NewClient(token, proxy string) *openai.Client {
+	cfg := openai.DefaultConfig(token)
+	if proxy != "" {
+		cfg.BaseURL = proxy
+	}
+
+	return openai.NewClientWithConfig(cfg)
+}
+
 func New(token, proxy string, model ai.ModelName) *Driver {
 	cfg := openai.DefaultConfig(token)
 	if proxy != "" {

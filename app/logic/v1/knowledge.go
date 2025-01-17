@@ -76,6 +76,10 @@ func (l *KnowledgeLogic) GetKnowledge(spaceID, id string) (*types.Knowledge, err
 		return nil, errors.New("KnowledgeLogic.GetKnowledge.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, err).Code(http.StatusNotFound)
 	}
 
+	if data.Content, err = l.core.DecryptData(data.Content); err != nil {
+		return nil, errors.New("JournalLogic.GetJournal.DecryptData", i18n.ERROR_INTERNAL, err)
+	}
+
 	return data, nil
 }
 
@@ -110,6 +114,12 @@ func (l *KnowledgeLogic) ListKnowledges(spaceID string, keywords string, resourc
 	list, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, opts, page, pagesize)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, 0, errors.New("KnowledgeLogic.ListKnowledge.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+
+	for _, v := range list {
+		if v.Content, err = l.core.DecryptData(v.Content); err != nil {
+			return nil, 0, errors.New("KnowledgeLogic.ListKnowledges.DecryptData", i18n.ERROR_INTERNAL, err)
+		}
 	}
 
 	total, err := l.core.Store().KnowledgeStore().Total(l.ctx, opts)
@@ -188,6 +198,10 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 		}
 	}
 
+	if oldKnowledge.Content, err = l.core.DecryptData(oldKnowledge.Content); err != nil {
+		return errors.New("KnowledgeLogic.Update.DecryptData.oldKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+
 	var summary []string
 	if !tagsChanged {
 		summary = append(summary, "tags")
@@ -197,6 +211,10 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	}
 	if args.Title == "" {
 		summary = append(summary, "title")
+	}
+
+	if args.Content, err = l.core.EncryptData(args.Content); err != nil {
+		return errors.New("KnowledgeLogic.Update.EncryptData", i18n.ERROR_INTERNAL, err)
 	}
 
 	err = l.core.Store().KnowledgeStore().Update(l.ctx, spaceID, id, types.UpdateKnowledgeArgs{
@@ -224,6 +242,15 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 				slog.String("error", err.Error()))
 			return
 		}
+
+		if knowledge.Content, err = l.core.DecryptData(knowledge.Content); err != nil {
+			slog.Error("Failed to decrypt knowledge content",
+				slog.String("space_id", spaceID),
+				slog.String("knowledge_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+
 		if err = l.processKnowledgeAsync(*knowledge); err != nil {
 			slog.Error("Process knowledge async failed",
 				slog.String("space_id", knowledge.SpaceID),
@@ -273,7 +300,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		knowledgeIDs []string
 	)
 	for i, v := range refs {
-		if i > 0 && v.Cos > 0.5 && v.OriginalLength > 200 {
+		if i > 0 && ((v.Cos > 0.5 && v.OriginalLength > 150) || (i > 2 && v.Cos > 0.7)) {
 			// TODO：more and more verify best ratio
 			continue
 		}
@@ -299,6 +326,12 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
 
+	for _, v := range knowledges {
+		if v.Content, err = l.core.DecryptData(v.Content); err != nil {
+			return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.Query.DecryptData", i18n.ERROR_INTERNAL, err)
+		}
+	}
+
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 	if len(knowledges) == 0 {
 		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
@@ -319,6 +352,7 @@ func AppendKnowledgeContentToDocs(core *core.Core, docs []*types.PassageInfo, kn
 	if len(knowledges) == 0 {
 		return docs
 	}
+
 	spaceID := knowledges[0].SpaceID
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -418,6 +452,11 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		docs []*types.PassageInfo
 	)
 	for _, v := range knowledges {
+		if v.Content, err = l.core.DecryptData(v.Content); err != nil {
+			slog.Error("Failed to decrypt knowledge data", slog.String("error", err.Error()))
+			continue
+		}
+
 		content := string(v.Content)
 		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
 			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
@@ -547,6 +586,14 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		resource = types.DEFAULT_RESOURCE
 	}
 
+	var (
+		err         error
+		encryptData []byte
+	)
+	if encryptData, err = l.core.EncryptData(content); err != nil {
+		return "", errors.New("KnowledgeLogic.InsertContent.EncryptDatae", i18n.ERROR_INTERNAL, err)
+	}
+
 	knowledgeID := utils.GenRandomID()
 	user := l.GetUserInfo()
 	knowledge := types.Knowledge{
@@ -554,7 +601,7 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		SpaceID:     spaceID,
 		UserID:      user.User,
 		Resource:    resource,
-		Content:     content,
+		Content:     encryptData,
 		ContentType: contentType,
 		Kind:        kind,
 		Stage:       types.KNOWLEDGE_STAGE_SUMMARIZE,
@@ -562,11 +609,12 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		CreatedAt:   time.Now().Unix(),
 		UpdatedAt:   time.Now().Unix(),
 	}
-	err := l.core.Store().KnowledgeStore().Create(l.ctx, knowledge)
+	err = l.core.Store().KnowledgeStore().Create(l.ctx, knowledge)
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.InsertContent.Store.KnowledgeStore.Create", i18n.ERROR_INTERNAL, err)
 	}
 
+	knowledge.Content = content
 	if isSync {
 		if err = l.processKnowledgeAsync(knowledge); err != nil {
 			return knowledgeID, errors.Trace("KnowledgeLogic.InsertContent", err)

@@ -105,6 +105,21 @@ func (s *ChatSessionPinStore) Delete(ctx context.Context, spaceID, sessionID str
 	return err
 }
 
+func (s *ChatSessionPinStore) DeleteAll(ctx context.Context, spaceID string) error {
+	query := sq.Delete(s.GetTable()).
+		Where(sq.Eq{
+			"space_id": spaceID,
+		})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 // List 分页获取会话内容记录列表
 func (s *ChatSessionPinStore) List(ctx context.Context, page, pageSize uint64) ([]types.ChatSessionPin, error) {
 	query := sq.Select(s.GetAllColumns()...).

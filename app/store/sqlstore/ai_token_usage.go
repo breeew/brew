@@ -102,6 +102,23 @@ func (s *AITokenUsageStore) List(ctx context.Context, spaceID, userID string, pa
 	return res, nil
 }
 
+// ListUserEachModelUsage
+func (s *AITokenUsageStore) ListUserEachModelUsage(ctx context.Context, userID string, st, et time.Time) ([]types.AITokenSummary, error) {
+	query := sq.Select("sum(usage_prompt) as usage_prompt,sum(usage_output) as usage_output,model").From(s.GetTable()).
+		Where(sq.And{sq.Eq{"user_id": userID}, sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}}).GroupBy("model")
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []types.AITokenSummary
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (s *AITokenUsageStore) SumUserUsageByType(ctx context.Context, userID string, st, et time.Time) ([]types.UserTokenUsageWithType, error) {
 	query := sq.Select("SUM(usage_prompt) as usage_prompt", "SUM(usage_output) as usage_output", "type", "sub_type", "user_id").From(s.GetTable()).
 		Where(sq.Eq{"user_id": userID}).Where(sq.And{sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}}).GroupBy("type", "sub_type")

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 
 	"github.com/breeew/brew-api/app/core"
@@ -14,7 +15,6 @@ import (
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
-	"github.com/gin-gonic/gin"
 )
 
 func NewSingleLock() *SingleLock {
@@ -25,6 +25,7 @@ func NewSingleLock() *SingleLock {
 
 type SelfHostCustomConfig struct {
 	ObjectStorage ObjectStorageDriver `toml:"object_storage"`
+	EncryptKey    string              `toml:"encrypt_key"`
 }
 
 type SingleLock struct {
@@ -218,4 +219,20 @@ func (s *SelfHostPlugin) FileUploader() core.FileStorage {
 
 func (s *SelfHostPlugin) CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error) {
 	return "pro", nil
+}
+
+func (s *SelfHostPlugin) EncryptData(data []byte) ([]byte, error) {
+	if s.customConfig.EncryptKey == "" {
+		return data, nil
+	}
+
+	return utils.EncryptCFB(data, []byte(s.customConfig.EncryptKey))
+}
+
+func (s *SelfHostPlugin) DecryptData(data []byte) ([]byte, error) {
+	if s.customConfig.EncryptKey == "" {
+		return data, nil
+	}
+
+	return utils.DecryptCFB(data, []byte(s.customConfig.EncryptKey))
 }

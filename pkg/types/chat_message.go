@@ -12,11 +12,16 @@ type ChatMessage struct {
 	Role      MessageUserRole `db:"role" json:"role"`
 	Message   string          `db:"message" json:"message"`
 	MsgType   MessageType     `db:"msg_type" json:"msg_type"`
+	IsEncrypt int             `db:"is_encrypt" json:"is_encrypt"`
 	SendTime  int64           `db:"send_time" json:"send_time"`
 	Complete  MessageProgress `db:"complete" json:"complete"`
 	Sequence  int64           `db:"sequence" json:"sequence"`
 	MsgBlock  int64           `db:"msg_block" json:"msg_block"`
 }
+
+const (
+	MESSAGE_IS_ENCRYPT int = 1
+)
 
 type RAGDocs struct {
 	Refs []QueryResult

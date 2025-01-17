@@ -472,6 +472,15 @@ ReGen:
 	)
 
 	for _, v := range msgList {
+		if v.IsEncrypt == types.MESSAGE_IS_ENCRYPT {
+			deData, err := core.DecryptData([]byte(v.Message))
+			if err != nil {
+				return nil, errors.New("ShareLogenDialogContextAndSummaryIfExceedsTokenLimitgic.ChatMessageStore.DecryptData", i18n.ERROR_INTERNAL, err)
+			}
+
+			v.Message = string(deData)
+		}
+
 		if isErrorMessage(v.Message) {
 			continue
 		}

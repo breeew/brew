@@ -153,8 +153,32 @@ func (s *ChatSessionStore) DeleteAll(ctx context.Context, spaceID string) error 
 
 func (s *ChatSessionStore) List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.ChatSession, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
-		Where(sq.Eq{"space_id": spaceID, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).
+		Where(sq.Eq{"space_id": spaceID, "user_id": userID}).
 		OrderBy("latest_access_time DESC")
+
+	if page != types.NO_PAGING || pageSize != types.NO_PAGING {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var list []types.ChatSession
+	if err = s.GetReplica(ctx).Select(&list, queryString, args...); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (s *ChatSessionStore) ListBeforeTime(ctx context.Context, t time.Time, page, pageSize uint64) ([]types.ChatSession, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
+		Where(sq.Lt{"created_at": t.Unix()})
+
+	if page != types.NO_PAGING || pageSize != types.NO_PAGING {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

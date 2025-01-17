@@ -17,6 +17,8 @@ type Plugins interface {
 	FileUploader() FileStorage
 	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
 	AIChatLogic(agentType string) AIChatLogic
+	EncryptData(data []byte) ([]byte, error)
+	DecryptData(data []byte) ([]byte, error)
 	Cache() Cache
 }
 

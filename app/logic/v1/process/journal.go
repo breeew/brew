@@ -2,19 +2,19 @@ package process
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
-	"github.com/breeew/brew-api/app/store"
+	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/register"
 )
 
 type JournalProcess struct {
-	store store.JournalStore
+	core *core.Core
 }
 
-func NewJournalProcess(store store.JournalStore) *JournalProcess {
-	return &JournalProcess{store: store}
+func NewJournalProcess(core *core.Core) *JournalProcess {
+	return &JournalProcess{core: core}
 }
 
 func (p *JournalProcess) ClearOldJournals(ctx context.Context) error {
@@ -22,7 +22,7 @@ func (p *JournalProcess) ClearOldJournals(ctx context.Context) error {
 	date := time.Now().AddDate(0, 0, -31).Format("2006-01-02")
 
 	// 清理31天前的journals
-	err := p.store.DeleteByDate(ctx, date)
+	err := p.core.Store().JournalStore().DeleteByDate(ctx, date)
 	if err != nil {
 		return err
 	}
@@ -33,11 +33,11 @@ func (p *JournalProcess) ClearOldJournals(ctx context.Context) error {
 func init() {
 	register.RegisterFunc(ProcessKey{}, func(provider *Process) {
 		provider.Cron().AddFunc("0 4 * * *", func() {
-			err := NewJournalProcess(provider.Core().Store().JournalStore()).ClearOldJournals(context.Background())
+			err := NewJournalProcess(provider.Core()).ClearOldJournals(context.Background())
 			if err != nil {
-				log.Printf("Failed to clear old journals: %v", err)
+				slog.Error("Failed to clear old journals", slog.String("error", err.Error()))
 			} else {
-				log.Println("Successfully cleared old journals")
+				slog.Info("Successfully cleared old journals")
 			}
 		})
 	})

@@ -105,6 +105,18 @@ func (s *ChatMessageExtStore) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *ChatMessageExtStore) DeleteSessionMessageExt(ctx context.Context, spaceID, sessionID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 func (s *ChatMessageExtStore) DeleteAll(ctx context.Context, spaceID string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
 

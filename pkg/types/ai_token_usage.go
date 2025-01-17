@@ -12,6 +12,12 @@ type AITokenUsage struct {
 	CreatedAt   int64  `json:"created_at" db:"created_at"`     // 记录创建时间
 }
 
+type AITokenSummary struct {
+	Model       string `json:"model" db:"model"`               // 模型名称
+	UsagePrompt int    `json:"usage_prompt" db:"usage_prompt"` // 使用的提示词令牌数
+	UsageOutput int    `json:"usage_output" db:"usage_output"` // 使用的输出令牌数
+}
+
 type UserTokenUsageWithType struct {
 	UserID      string `json:"user_id" db:"user_id"`           // 用户 ID
 	Type        string `json:"type" db:"type"`                 // 主类别

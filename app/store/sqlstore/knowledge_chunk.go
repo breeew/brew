@@ -54,7 +54,7 @@ func (s *KnowledgeChunkStore) Create(ctx context.Context, data types.KnowledgeCh
 }
 
 // BatchCreate 批量创建知识片段记录
-func (s *KnowledgeChunkStore) BatchCreate(ctx context.Context, data []types.KnowledgeChunk) error {
+func (s *KnowledgeChunkStore) BatchCreate(ctx context.Context, data []*types.KnowledgeChunk) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -132,6 +132,18 @@ func (s *KnowledgeChunkStore) BatchDelete(ctx context.Context, spaceID, knowledg
 // Delete 根据ID删除知识片段记录
 func (s *KnowledgeChunkStore) Delete(ctx context.Context, spaceID, knowledgeID, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *KnowledgeChunkStore) DeleteAll(ctx context.Context, spaceID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
