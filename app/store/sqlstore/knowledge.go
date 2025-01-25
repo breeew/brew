@@ -57,6 +57,27 @@ func (s *KnowledgeStore) Create(ctx context.Context, data types.Knowledge) error
 	return nil
 }
 
+func (s *KnowledgeStore) BatchCreate(ctx context.Context, datas []*types.Knowledge) error {
+	query := sq.Insert(s.GetTable()).
+		Columns("id", "title", "user_id", "space_id", "tags", "content", "content_type", "resource", "kind", "summary", "maybe_date", "stage", "retry_times", "created_at", "updated_at")
+	for _, data := range datas {
+		if data.CreatedAt == 0 {
+			data.CreatedAt = time.Now().Unix()
+		}
+		query = query.Values(data.ID, data.Title, data.UserID, data.SpaceID, pq.Array(data.Tags), data.Content.String(), data.ContentType, data.Resource, data.Kind, data.Summary, data.MaybeDate, data.Stage, data.RetryTimes, data.CreatedAt, data.UpdatedAt)
+	}
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	if _, err = s.GetMaster(ctx).Exec(queryString, args...); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetKnowledge 根据ID获取知识记录
 func (s *KnowledgeStore) GetKnowledge(ctx context.Context, spaceID string, id string) (*types.Knowledge, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "id": id})

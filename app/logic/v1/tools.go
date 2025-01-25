@@ -49,7 +49,7 @@ func (l *ReaderLogic) Reader(endpoint string) (*ai.ReaderResult, error) {
 }
 
 func (l *ReaderLogic) DescribeImage(imageURL string) (string, error) {
-	url, err := l.core.FileUploader().GenGetObjectPreSignURL(imageURL)
+	url, err := l.core.FileStorage().GenGetObjectPreSignURL(imageURL)
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
 	}

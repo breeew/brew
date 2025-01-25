@@ -226,7 +226,7 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 		}
 	}
 
-	docs.Docs = AppendKnowledgeContentToDocs(core, docs.Docs, knowledges)
+	docs.Docs = core.AppendKnowledgeContentToDocs(docs.Docs, knowledges)
 }
 
 // genMode new request or re-request

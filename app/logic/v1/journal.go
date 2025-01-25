@@ -83,6 +83,10 @@ func (l *JournalLogic) GetJournal(spaceID, date string) (*types.Journal, error) 
 		return nil, errors.New("JournalLogic.GetJournal.JournalStore.Get", i18n.ERROR_INTERNAL, err)
 	}
 
+	if journal == nil {
+		return nil, nil
+	}
+
 	if journal.Content, err = l.core.DecryptData(journal.Content); err != nil {
 		return nil, errors.New("JournalLogic.GetJournal.DecryptData", i18n.ERROR_INTERNAL, err)
 	}

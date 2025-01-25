@@ -3,15 +3,19 @@ package plugins
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"golang.org/x/time/rate"
 
 	"github.com/breeew/brew-api/app/core"
 	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/pkg/mark"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -73,8 +77,8 @@ type SelfHostPlugin struct {
 	core       *core.Core
 	Appid      string
 	singleLock *SingleLock
-	core.FileStorage
-	cache *Cache
+	storage    core.FileStorage
+	cache      *Cache
 
 	customConfig SelfHostCustomConfig
 }
@@ -207,14 +211,14 @@ func (s *SelfHostPlugin) UseLimiter(c *gin.Context, key string, method string, d
 	return l
 }
 
-func (s *SelfHostPlugin) FileUploader() core.FileStorage {
-	if s.FileStorage != nil {
-		return s.FileStorage
+func (s *SelfHostPlugin) FileStorage() core.FileStorage {
+	if s.storage != nil {
+		return s.storage
 	}
 
-	s.FileStorage = SetupObjectStorage(s.customConfig.ObjectStorage)
+	s.storage = SetupObjectStorage(s.customConfig.ObjectStorage)
 
-	return s.FileStorage
+	return s.storage
 }
 
 func (s *SelfHostPlugin) CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error) {
@@ -235,4 +239,47 @@ func (s *SelfHostPlugin) DecryptData(data []byte) ([]byte, error) {
 	}
 
 	return utils.DecryptCFB(data, []byte(s.customConfig.EncryptKey))
+}
+
+func (s *SelfHostPlugin) DeleteSpace(ctx context.Context, spaceID string) error {
+	return nil
+}
+
+func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo {
+	if len(knowledges) == 0 {
+		return docs
+	}
+
+	spaceID := knowledges[0].SpaceID
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	spaceResources, err := s.core.Store().ResourceStore().ListResources(ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		slog.Error("Failed to get space resources", slog.String("space_id", spaceID), slog.String("error", err.Error()))
+		return docs
+	}
+
+	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
+		return item.ID, item.Title
+	})
+
+	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
+
+		sw := mark.NewSensitiveWork()
+		docs = append(docs, &types.PassageInfo{
+			ID:       v.ID,
+			Content:  sw.Do(content),
+			DateTime: v.MaybeDate,
+			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
+			SW:       sw,
+		})
+	}
+	return docs
 }

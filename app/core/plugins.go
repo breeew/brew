@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/breeew/brew-api/pkg/object-storage/s3"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/gin-gonic/gin"
 )
@@ -14,11 +15,13 @@ type Plugins interface {
 	DefaultAppid() string
 	TryLock(ctx context.Context, key string) (bool, error)
 	UseLimiter(c *gin.Context, key string, method string, defaultRatelimit int) Limiter
-	FileUploader() FileStorage
+	FileStorage() FileStorage
 	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
 	AIChatLogic(agentType string) AIChatLogic
 	EncryptData(data []byte) ([]byte, error)
 	DecryptData(data []byte) ([]byte, error)
+	DeleteSpace(ctx context.Context, spaceID string) error
+	AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo
 	Cache() Cache
 }
 
@@ -48,6 +51,7 @@ type FileStorage interface {
 	SaveFile(filePath, fileName string, content []byte) error
 	DeleteFile(fullFilePath string) error
 	GenGetObjectPreSignURL(url string) (string, error)
+	DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error)
 }
 
 type Limiter interface {

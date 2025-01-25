@@ -40,6 +40,7 @@ const (
 	KNOWLEDGE_KIND_IMAGE                 = "image"
 	KNOWLEDGE_KIND_VIDEO                 = "video"
 	KNOWLEDGE_KIND_URL                   = "url"
+	KNOWLEDGE_KIND_CHUNK                 = "chunk"
 	KNOWLEDGE_KIND_UNKNOWN               = "unknown"
 )
 

@@ -17,6 +17,7 @@ type KnowledgeStore interface {
 	sqlstore.SqlCommons
 	// Create 创建新的知识记录
 	Create(ctx context.Context, data types.Knowledge) error
+	BatchCreate(ctx context.Context, datas []*types.Knowledge) error
 	// GetKnowledge 根据ID获取知识记录
 	GetKnowledge(ctx context.Context, spaceID, id string) (*types.Knowledge, error)
 	// Update 更新知识记录

@@ -562,6 +562,9 @@ type CommonProcessResponse struct {
 }
 
 func NewRecordUsageRequest(model, _type, subType, spaceID, userID string, usage *openai.Usage) chan CommonProcessResponse {
+	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
+		return nil
+	}
 	resp := make(chan CommonProcessResponse, 1)
 	knowledgeProcess.RecordUsageChan <- &RecordUsageRequest{
 		ctx:      context.Background(),

@@ -2,7 +2,10 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,6 +91,10 @@ func (lfs *NoneFileStorage) DeleteFile(fullFilePath string) error {
 	return fmt.Errorf("Unsupported")
 }
 
+func (fs *NoneFileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	return nil, fmt.Errorf("Unsupported")
+}
+
 type LocalFileStorage struct {
 	StaticDomain string
 }
@@ -128,6 +135,35 @@ func (lfs *LocalFileStorage) SaveFile(filePath, fileName string, content []byte)
 	return nil
 }
 
+func (lfs *LocalFileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to create directory: %v", err)
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("Error opening file: %v", err)
+	}
+	defer file.Close() // 确保文件在使用后关闭
+
+	bytes, _ := io.ReadAll(file)
+	// 读取文件的前 512 个字节
+	file.Seek(0, 0)
+	buffer := make([]byte, 512)
+	_, err = file.Read(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading file: %v", err)
+	}
+
+	// 检测文件类型
+	mimeType := http.DetectContentType(buffer)
+	return &s3.GetObjectResult{
+		File:     bytes,
+		FileType: mimeType,
+	}, nil
+}
+
 // DeleteFile deletes a file from the local file system using the full file path.
 func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
 	err := os.Remove(fullFilePath)
@@ -164,6 +200,10 @@ func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string, contentLen
 // SaveFile stores a file
 func (fs *S3FileStorage) SaveFile(filePath, fileName string, content []byte) error {
 	return fs.Upload(filePath, fileName, bytes.NewReader(content))
+}
+
+func (fs *S3FileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	return fs.GetObject(ctx, filePath)
 }
 
 // DeleteFile deletes a file

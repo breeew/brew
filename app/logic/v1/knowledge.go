@@ -286,7 +286,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, pgvector.NewVector(vector.Data[0]), 40)
+	}, pgvector.NewVector(vector.Data[0]), 50)
 	if err != nil {
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -321,7 +321,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, 1, 20)
+	}, 1, 50)
 	if err != nil && err != sql.ErrNoRows {
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
@@ -341,50 +341,11 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		}, nil
 	}
 
-	result.Docs = AppendKnowledgeContentToDocs(l.core, result.Docs, knowledges)
+	result.Docs = l.core.AppendKnowledgeContentToDocs(result.Docs, knowledges)
 	return result, &ai.Usage{
 		Model: resp.Model,
 		Usage: resp.Usage,
 	}, nil
-}
-
-func AppendKnowledgeContentToDocs(core *core.Core, docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo {
-	if len(knowledges) == 0 {
-		return docs
-	}
-
-	spaceID := knowledges[0].SpaceID
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	spaceResources, err := core.Store().ResourceStore().ListResources(ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
-	if err != nil {
-		slog.Error("Failed to get space resources", slog.String("space_id", spaceID), slog.String("error", err.Error()))
-		return docs
-	}
-
-	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
-		return item.ID, item.Title
-	})
-
-	for _, v := range knowledges {
-		content := string(v.Content)
-		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
-				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
-				continue
-			}
-		}
-
-		sw := mark.NewSensitiveWork()
-		docs = append(docs, &types.PassageInfo{
-			ID:       v.ID,
-			Content:  sw.Do(content),
-			DateTime: v.MaybeDate,
-			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
-			SW:       sw,
-		})
-	}
-	return docs
 }
 
 type KnowledgeQueryResult struct {
@@ -562,7 +523,7 @@ func parseEditorJsonToFilesPath(core *core.Core, content types.KnowledgeContent)
 		return nil, nil
 	}
 
-	domain := core.FileUploader().GetStaticDomain()
+	domain := core.FileStorage().GetStaticDomain()
 	paths := lo.Map(files, func(item string, _ int) string {
 		return strings.TrimPrefix(item, domain)
 	})

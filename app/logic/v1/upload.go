@@ -78,7 +78,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size
 	if exist != nil {
 		return UploadKey{
 			Status:       UPLOAD_STATUS_EXIST,
-			StaticDomain: l.core.Plugins.FileUploader().GetStaticDomain(),
+			StaticDomain: l.core.Plugins.FileStorage().GetStaticDomain(),
 			FullPath:     fullPath,
 		}, nil
 	}
@@ -99,7 +99,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size
 			return errors.New("UploadLogic.GenClientUploadKey.FileManagementStore.Create", i18n.ERROR_INTERNAL, err)
 		}
 
-		meta, err = l.core.Plugins.FileUploader().GenUploadFileMeta(filePath, fileName, size)
+		meta, err = l.core.Plugins.FileStorage().GenUploadFileMeta(filePath, fileName, size)
 		if err != nil {
 			return errors.New("UploadLogic.GenClientUploadKey.FileUploader.GenUploadFileMeta", i18n.ERROR_INTERNAL, err)
 		}
@@ -112,7 +112,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size
 	return UploadKey{
 		Key:          meta.UploadEndpoint,
 		FullPath:     meta.FullPath,
-		StaticDomain: l.core.FileUploader().GetStaticDomain(),
+		StaticDomain: l.core.FileStorage().GetStaticDomain(),
 	}, nil
 }
 
