@@ -158,13 +158,12 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 
 	go safe.Run(func() {
 		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+		if usage != nil {
+			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+		}
 		if err != nil {
 			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
 			return
-		}
-
-		if usage != nil {
-			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
 		}
 
 		// Supplement associated document content.
@@ -226,7 +225,10 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 		}
 	}
 
-	docs.Docs = core.AppendKnowledgeContentToDocs(docs.Docs, knowledges)
+	if docs.Docs, err = core.AppendKnowledgeContentToDocs(docs.Docs, knowledges); err != nil {
+		slog.Error("Failed to append knowledge content to docs", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
 }
 
 // genMode new request or re-request

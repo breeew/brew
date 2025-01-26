@@ -14,15 +14,27 @@ type Plugins interface {
 	Install(*Core) error
 	DefaultAppid() string
 	TryLock(ctx context.Context, key string) (bool, error)
-	UseLimiter(c *gin.Context, key string, method string, defaultRatelimit int) Limiter
+	UseLimiter(c *gin.Context, key string, method string, opts ...LimitOption) Limiter
 	FileStorage() FileStorage
 	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
 	AIChatLogic(agentType string) AIChatLogic
 	EncryptData(data []byte) ([]byte, error)
 	DecryptData(data []byte) ([]byte, error)
 	DeleteSpace(ctx context.Context, spaceID string) error
-	AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo
+	AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) ([]*types.PassageInfo, error)
 	Cache() Cache
+}
+
+type LimitConfig struct {
+	Limit int
+}
+
+type LimitOption func(l *LimitConfig)
+
+func WithLimit(limit int) LimitOption {
+	return func(l *LimitConfig) {
+		l.Limit = limit
+	}
 }
 
 type Cache interface {

@@ -21,29 +21,29 @@ func serve(core *core.Core) {
 	core.HttpEngine().Run(core.Cfg().Addr)
 }
 
-func GetIPLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
-	return func(key string) gin.HandlerFunc {
-		return middleware.UseLimit(core, key, func(c *gin.Context) string {
+func GetIPLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
 			return key + ":" + c.ClientIP()
-		})
+		}, opts...)
 	}
 }
 
-func GetUserLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
-	return func(key string) gin.HandlerFunc {
-		return middleware.UseLimit(core, key, func(c *gin.Context) string {
+func GetUserLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
 			token, _ := v1.InjectTokenClaim(c)
 			return key + ":" + token.User
-		})
+		}, opts...)
 	}
 }
 
-func GetSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
-	return func(key string) gin.HandlerFunc {
-		return middleware.UseLimit(core, key, func(c *gin.Context) string {
+func GetSpaceLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
 			spaceid, _ := c.Params.Get("spaceid")
 			return key + ":" + spaceid
-		})
+		}, opts...)
 	}
 }
 

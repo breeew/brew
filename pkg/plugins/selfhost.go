@@ -200,11 +200,17 @@ func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
 var limiter = make(map[string]*rate.Limiter)
 
 // ratelimit 代表每分钟允许的数量
-func (s *SelfHostPlugin) UseLimiter(c *gin.Context, key string, method string, defaultRatelimit int) core.Limiter {
+func (s *SelfHostPlugin) UseLimiter(c *gin.Context, key string, method string, opts ...core.LimitOption) core.Limiter {
+	cfg := &core.LimitConfig{
+		Limit: 60,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	l, exist := limiter[key]
 	if !exist {
-		limit := rate.Every(time.Minute / time.Duration(defaultRatelimit))
-		limiter[key] = rate.NewLimiter(limit, defaultRatelimit*2)
+		limit := rate.Every(time.Minute / time.Duration(cfg.Limit))
+		limiter[key] = rate.NewLimiter(limit, cfg.Limit*2)
 		l = limiter[key]
 	}
 
@@ -245,9 +251,9 @@ func (s *SelfHostPlugin) DeleteSpace(ctx context.Context, spaceID string) error 
 	return nil
 }
 
-func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) []*types.PassageInfo {
+func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) ([]*types.PassageInfo, error) {
 	if len(knowledges) == 0 {
-		return docs
+		return docs, nil
 	}
 
 	spaceID := knowledges[0].SpaceID
@@ -256,7 +262,7 @@ func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo,
 	spaceResources, err := s.core.Store().ResourceStore().ListResources(ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
 	if err != nil {
 		slog.Error("Failed to get space resources", slog.String("space_id", spaceID), slog.String("error", err.Error()))
-		return docs
+		return docs, err
 	}
 
 	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
@@ -281,5 +287,5 @@ func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo,
 			SW:       sw,
 		})
 	}
-	return docs
+	return docs, nil
 }

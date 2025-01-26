@@ -20,7 +20,6 @@ import (
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
-	"github.com/breeew/brew-api/pkg/mark"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -146,7 +145,7 @@ func (l *KnowledgeLogic) Delete(spaceID, id string) error {
 
 	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		if knowledge.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			if err = updateFilesToDelete(ctx, l.core, spaceID, knowledge.Content); err != nil {
+			if err = UpdateFilesToDelete(ctx, l.core, spaceID, knowledge.Content); err != nil {
 				slog.Error("Failed to remark knowledge files to delete status", slog.String("knowledge_id", id), slog.String("space_id", spaceID), slog.Any("error", err))
 			}
 		}
@@ -286,7 +285,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, pgvector.NewVector(vector.Data[0]), 50)
+	}, pgvector.NewVector(vector.Data[0]), 100)
 	if err != nil {
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -321,7 +320,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		SpaceID:  spaceID,
 		UserID:   userID,
 		Resource: resource,
-	}, 1, 50)
+	}, 1, 100)
 	if err != nil && err != sql.ErrNoRows {
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
@@ -341,7 +340,12 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		}, nil
 	}
 
-	result.Docs = l.core.AppendKnowledgeContentToDocs(result.Docs, knowledges)
+	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, knowledges); err != nil {
+		return result, &ai.Usage{
+			Model: resp.Model,
+			Usage: resp.Usage,
+		}, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	}
 	return result, &ai.Usage{
 		Model: resp.Model,
 		Usage: resp.Usage,
@@ -365,7 +369,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		SpaceID:  spaceID,
 		UserID:   user.User,
 		Resource: resource,
-	}, pgvector.NewVector(vector.Data[0]), 20)
+	}, pgvector.NewVector(vector.Data[0]), 100)
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.Query.VectorStore.Query", i18n.ERROR_INTERNAL, err)
 	}
@@ -399,7 +403,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		IDs:     knowledgeIDs,
 		SpaceID: spaceID,
 		UserID:  user.User,
-	}, 1, 20)
+	}, 1, 100)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
@@ -417,22 +421,9 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 			slog.Error("Failed to decrypt knowledge data", slog.String("error", err.Error()))
 			continue
 		}
-
-		content := string(v.Content)
-		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
-			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
-				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
-				continue
-			}
-		}
-		sw := mark.NewSensitiveWork()
-		docs = append(docs, &types.PassageInfo{
-			ID:       v.ID,
-			Content:  sw.Do(content),
-			DateTime: v.MaybeDate,
-			SW:       sw,
-		})
 	}
+
+	docs, err = l.core.AppendKnowledgeContentToDocs(docs, knowledges)
 
 	message := &types.MessageContext{
 		Role:    types.USER_ROLE_USER,
@@ -501,14 +492,14 @@ func filterKnowledgeFiles(content types.KnowledgeContent) ([]string, error) {
 	return files, nil
 }
 
-func updateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+func UpdateFilesUploaded(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
 	paths, err := parseEditorJsonToFilesPath(core, content)
 	if err != nil {
-		return errors.Trace("updateFilesUploaded", err)
+		return errors.Trace("UpdateFilesUploaded", err)
 	}
 
 	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, paths, types.FILE_UPLOAD_STATUS_UPLOADED); err != nil {
-		return errors.New("updateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+		return errors.New("UpdateFilesUploaded.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
 }
@@ -531,13 +522,13 @@ func parseEditorJsonToFilesPath(core *core.Core, content types.KnowledgeContent)
 	return paths, nil
 }
 
-func updateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
+func UpdateFilesToDelete(ctx context.Context, core *core.Core, spaceID string, content types.KnowledgeContent) error {
 	paths, err := parseEditorJsonToFilesPath(core, content)
 	if err != nil {
-		return errors.Trace("updateFilesToDelete", err)
+		return errors.Trace("UpdateFilesToDelete", err)
 	}
 	if err := core.Store().FileManagementStore().UpdateStatus(ctx, spaceID, paths, types.FILE_UPLOAD_STATUS_NEED_TO_DELETE); err != nil {
-		return errors.New("updateFilesToDelete.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
+		return errors.New("UpdateFilesToDelete.FileManagementStore.UpdateStatus", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
 }
@@ -595,7 +586,7 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		go safe.Run(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
-			if err := updateFilesUploaded(ctx, l.core, spaceID, content); err != nil {
+			if err := UpdateFilesUploaded(ctx, l.core, spaceID, content); err != nil {
 				slog.Error("Failed to update files uploaded status", slog.String("space_id", spaceID), slog.Any("error", err))
 			}
 		})

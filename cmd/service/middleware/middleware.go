@@ -262,9 +262,11 @@ func Cors(c *gin.Context) {
 	c.Next()
 }
 
-func UseLimit(core *core.Core, operation string, genKeyFunc func(c *gin.Context) string) gin.HandlerFunc {
+type LimiterFunc func(key string, opts ...core.LimitOption) gin.HandlerFunc
+
+func UseLimit(appCore *core.Core, operation string, genKeyFunc func(c *gin.Context) string, opts ...core.LimitOption) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !core.UseLimiter(c, genKeyFunc(c), operation, 4).Allow() {
+		if !appCore.UseLimiter(c, genKeyFunc(c), operation, opts...).Allow() {
 			response.APIError(c, errors.New("middleware.limiter", i18n.ERROR_TOO_MANY_REQUESTS, nil).Code(http.StatusTooManyRequests))
 		}
 	}
