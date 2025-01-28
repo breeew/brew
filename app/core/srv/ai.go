@@ -47,6 +47,7 @@ type AIConfig struct {
 	QWen   QWen        `toml:"qwen"`
 	Jina   Jina        `toml:"jina"`
 	Azure  AzureOpenai `toml:"azure_openai"`
+	Agent  AgentDriver `toml:"agent"`
 	// Usage list
 	// embedding.query
 	// embedding.document
@@ -55,6 +56,12 @@ type AIConfig struct {
 	// enhance_query
 	// reader
 	Usage map[string]string `toml:"usage"`
+}
+
+type AgentDriver struct {
+	Token    string `toml:"token"`
+	Endpoint string `toml:"endpoint"`
+	Model    string `toml:"model"`
 }
 
 type Jina struct {

@@ -156,22 +156,36 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			slog.String("space_id", chatSession.SpaceID), slog.String("session_id", chatSession.ID))
 	}
 
-	go safe.Run(func() {
-		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
-		if usage != nil {
-			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
-		}
-		if err != nil {
-			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
-			return
-		}
+	// check agents call
+	switch types.FilterAgent(msgArgs.Message) {
+	case types.AGENT_TYPE_BULTER:
+		go safe.Run(func() {
+			if err := BulterHandle(l.core, msg); err != nil {
+				slog.Error("Failed to handle butler message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	case types.AGENT_TYPE_JOURNAL:
+		// TODO
+	default:
+		// else rag handler
+		go safe.Run(func() {
+			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+			if usage != nil {
+				process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+			}
+			if err != nil {
+				err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
+				return
+			}
 
-		// Supplement associated document content.
-		SupplementSessionChatDocs(l.core, chatSession, docs)
+			// Supplement associated document content.
+			SupplementSessionChatDocs(l.core, chatSession, docs)
 
-		RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL)
-	})
-
+			if err := RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL); err != nil {
+				slog.Error("Failed to handle rag message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	}
 	return msg.Sequence, err
 }
 
@@ -229,6 +243,29 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 		slog.Error("Failed to append knowledge content to docs", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
 		return
 	}
+}
+
+func BulterHandle(core *core.Core, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_BULTER)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+		SpaceID:   userMessage.SpaceID,
+		SessionID: userMessage.SessionID,
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		return err
+	}
+
+	notifyAssistantMessageInitialized(core, aiMessage)
+
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage,
+		aiMessage)
 }
 
 // genMode new request or re-request

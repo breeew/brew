@@ -170,7 +170,7 @@ func (s *SelfHostPlugin) TryLock(ctx context.Context, key string) (bool, error) 
 
 type AIChatLogic struct {
 	core *core.Core
-	*v1.NormalAssistant
+	Assistant
 }
 
 func (a *AIChatLogic) GetChatSessionSeqID(ctx context.Context, spaceID, sessionID string) (int64, error) {
@@ -191,9 +191,17 @@ func (s *AIChatLogic) GenMessageID() string {
 }
 
 func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
-	return &AIChatLogic{
-		core:            s.core,
-		NormalAssistant: v1.NewNormalAssistant(s.core, agentType),
+	switch agentType {
+	case types.AGENT_TYPE_BULTER:
+		return &AIChatLogic{
+			core:      s.core,
+			Assistant: v1.NewBulterAssistant(s.core, agentType),
+		}
+	default:
+		return &AIChatLogic{
+			core:      s.core,
+			Assistant: v1.NewNormalAssistant(s.core, agentType),
+		}
 	}
 }
 

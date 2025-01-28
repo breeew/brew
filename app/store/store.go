@@ -25,8 +25,10 @@ type KnowledgeStore interface {
 	// Delete 删除知识记录
 	Delete(ctx context.Context, spaceID, id string) error
 	DeleteAll(ctx context.Context, spaceID string) error
+	BatchDelete(ctx context.Context, ids []string) error
 	// ListKnowledges 分页获取知识记录列表
 	ListKnowledges(ctx context.Context, opts types.GetKnowledgeOptions, page, pageSize uint64) ([]*types.Knowledge, error)
+	ListKnowledgeIDs(ctx context.Context, opts types.GetKnowledgeOptions, page, pageSize uint64) ([]string, error)
 	Total(ctx context.Context, opts types.GetKnowledgeOptions) (uint64, error)
 	ListLiteKnowledges(ctx context.Context, opts types.GetKnowledgeOptions, page, pageSize uint64) ([]*types.KnowledgeLite, error)
 	FinishedStageSummarize(ctx context.Context, spaceID, id string, summary ai.ChunkResult) error
@@ -46,6 +48,7 @@ type KnowledgeChunkStore interface {
 	Delete(ctx context.Context, spaceID, knowledgeID, id string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	BatchDelete(ctx context.Context, spaceID, knowledgeID string) error
+	BatchDeleteByIDs(ctx context.Context, knowledgeIDs []string) error
 	List(ctx context.Context, spaceID, knowledgeID string) ([]types.KnowledgeChunk, error)
 }
 
@@ -220,4 +223,13 @@ type ChatSessionPinStore interface {
 	Delete(ctx context.Context, spaceID, sessionID string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	List(ctx context.Context, page, pageSize uint64) ([]types.ChatSessionPin, error)
+}
+
+type BulterTableStore interface {
+	sqlstore.SqlCommons
+	Create(ctx context.Context, data types.ButlerTable) error
+	GetTableData(ctx context.Context, id string) (*types.ButlerTable, error)
+	Update(ctx context.Context, id string, data string) error
+	Delete(ctx context.Context, id int64) error
+	ListButlerTables(ctx context.Context, userID string) ([]types.ButlerTable, error)
 }

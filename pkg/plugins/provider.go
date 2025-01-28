@@ -12,6 +12,7 @@ import (
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/object-storage/s3"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func Setup(install func(p core.Plugins), mode string) {
@@ -213,4 +214,9 @@ func (fs *S3FileStorage) DeleteFile(fullFilePath string) error {
 
 func (fs *S3FileStorage) GenGetObjectPreSignURL(url string) (string, error) {
 	return fs.S3.GenGetObjectPreSignURL(strings.TrimPrefix(url, fs.GetStaticDomain()))
+}
+
+type Assistant interface {
+	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
+	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
 }

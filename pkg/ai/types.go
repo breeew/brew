@@ -294,6 +294,13 @@ func (s *QueryOptions) Query() (GenerateResponse, error) {
 				Content: s.prompt,
 			},
 		}, s.query...)
+	} else if len(s.query) == 0 {
+		s.query = []*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
+		}
 	}
 
 	return s._driver.Query(s.ctx, s.query)
@@ -322,6 +329,13 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 					Content: s.prompt,
 				},
 			}, s.query...)
+		}
+	} else {
+		s.query = []*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
 		}
 	}
 

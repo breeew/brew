@@ -74,6 +74,19 @@ func GetMessageUserRoleStr(r MessageUserRole) string {
 	}
 }
 
+func GetMessageUserRole(r string) MessageUserRole {
+	switch r {
+	case "assistant":
+		return USER_ROLE_ASSISTANT
+	case "user":
+		return USER_ROLE_USER
+	case "system":
+		return USER_ROLE_SYSTEM
+	default:
+		return USER_ROLE_UNKNOWN
+	}
+}
+
 type MessageProgress int8
 
 const (

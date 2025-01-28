@@ -129,6 +129,18 @@ func (s *KnowledgeChunkStore) BatchDelete(ctx context.Context, spaceID, knowledg
 	return err
 }
 
+func (s *KnowledgeChunkStore) BatchDeleteByIDs(ctx context.Context, knowledgeIDs []string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"knowledge_id": knowledgeIDs})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 // Delete 根据ID删除知识片段记录
 func (s *KnowledgeChunkStore) Delete(ctx context.Context, spaceID, knowledgeID, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID, "id": id})

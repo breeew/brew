@@ -28,4 +28,5 @@ const (
 	TABLE_AI_TOKEN_USAGE   = TableName("ai_token_usage")
 	TABLE_SHARE_TOKEN      = TableName("share_token")
 	TABLE_JOURNAL          = TableName("journal")
+	TABLE_BULTER           = TableName("bulter")
 )

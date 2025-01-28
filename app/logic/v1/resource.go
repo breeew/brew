@@ -69,11 +69,32 @@ func (l *ResourceLogic) CreateResource(spaceID, id, title, desc, tag string, cyc
 }
 
 func (l *ResourceLogic) Delete(spaceID, id string) error {
-	err := l.core.Store().ResourceStore().Delete(l.ctx, spaceID, id)
-	if err != nil {
-		return errors.New("ResourceLogic.Delete.ResourceStore.Delete", i18n.ERROR_INTERNAL, err)
-	}
-	return nil
+	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		knowledgeIDs, err := l.core.Store().KnowledgeStore().ListKnowledgeIDs(ctx, types.GetKnowledgeOptions{
+			Resource: &types.ResourceQuery{
+				Include: []string{id},
+			},
+			SpaceID: spaceID,
+		}, types.NO_PAGING, types.NO_PAGING)
+
+		if err != nil {
+			return errors.New("ResourceLogic.Delete.KnowledgeStore.ListKnowledges", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err = l.core.Store().KnowledgeStore().BatchDelete(ctx, knowledgeIDs); err != nil {
+			return errors.New("ResourceLogic.Delete.KnowledgeStore.BatchDelete", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err = l.core.Store().KnowledgeChunkStore().BatchDeleteByIDs(ctx, knowledgeIDs); err != nil {
+			return errors.New("ResourceLogic.Delete.KnowledgeChunkStore.BatchDeleteByIDs", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err = l.core.Store().ResourceStore().Delete(ctx, spaceID, id); err != nil {
+			return errors.New("ResourceLogic.Delete.ResourceStore.Delete", i18n.ERROR_INTERNAL, err)
+		}
+		return nil
+	})
+
 }
 
 func (l *ResourceLogic) Update(spaceID, id, title, desc, tag string, cycle int) error {

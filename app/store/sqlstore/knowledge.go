@@ -225,6 +225,18 @@ func (s *KnowledgeStore) DeleteAll(ctx context.Context, spaceID string) error {
 	return err
 }
 
+func (s *KnowledgeStore) BatchDelete(ctx context.Context, ids []string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"id": ids})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
 func (s *KnowledgeStore) ListFailedKnowledges(ctx context.Context, stage types.KnowledgeStage, retryTimes int, page, pageSize uint64) ([]types.Knowledge, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"stage": stage}, sq.Eq{"retry_times": retryTimes})
 	if page != 0 || pageSize != 0 {
@@ -294,6 +306,25 @@ func (s *KnowledgeStore) ListKnowledges(ctx context.Context, opts types.GetKnowl
 	}
 
 	var res []*types.Knowledge
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *KnowledgeStore) ListKnowledgeIDs(ctx context.Context, opts types.GetKnowledgeOptions, page, pageSize uint64) ([]string, error) {
+	query := sq.Select("id").From(s.GetTable())
+	if page != 0 || pageSize != 0 {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+	opts.Apply(&query)
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []string
 	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
 		return nil, err
 	}
