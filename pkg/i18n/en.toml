@@ -1,3 +1,7 @@
+['error.user_space_not_found']
+one = "User space not found"
+other = "User space not found"
+
 ['error.redeem.must_new_user']
 one = "Available for new users only"
 other = "Available for new users only"

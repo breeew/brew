@@ -310,3 +310,66 @@ func (l *ShareLogic) GetSessionByShareToken(token string) (*SessionShareInfo, er
 		EmbeddingURL: link.EmbeddingURL,
 	}, nil
 }
+
+func (l *ShareLogic) CopyKnowledgeByShareToken(token, toSpaceID, toResource string) error {
+	reqUser, exist := InjectTokenClaim(l.ctx)
+	if !exist {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.Unauthorization", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+	}
+
+	userSpace, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, reqUser.User, toSpaceID)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
+	}
+
+	if userSpace == nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.UserSpaceStore.GetUserSpaceRole.nil", i18n.ERROR_USER_SPACE_NOT_FOUND, nil).Code(http.StatusBadRequest)
+	}
+
+	link, err := l.core.Store().ShareTokenStore().GetByToken(l.ctx, token)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.ShareTokenStore.GetByToken", i18n.ERROR_INTERNAL, err)
+	}
+
+	if link == nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.ShareTokenStore.GetByToken.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
+	}
+
+	originKnowledge, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, link.SpaceID, link.ObjectID)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+
+	if originKnowledge == nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
+	}
+
+	originKnowledgeVector, err := l.core.Store().VectorStore().GetVector(l.ctx, originKnowledge.SpaceID, originKnowledge.ID)
+	if err != nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.GetVector", i18n.ERROR_INTERNAL, err)
+	}
+
+	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		newKnowledge := *originKnowledge
+		newKnowledge.ID = utils.GenUniqIDStr()
+		newKnowledge.UserID = reqUser.User
+		newKnowledge.CreatedAt = time.Now().Unix()
+		newKnowledge.UpdatedAt = time.Now().Unix()
+		newKnowledge.SpaceID = toSpaceID
+		newKnowledge.Resource = toResource
+		if err = l.core.Store().KnowledgeStore().Create(ctx, newKnowledge); err != nil {
+			return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.Create", i18n.ERROR_INTERNAL, err)
+		}
+
+		newVector := *originKnowledgeVector
+		newVector.ID = utils.GenUniqIDStr()
+		newVector.KnowledgeID = newKnowledge.ID
+		newVector.SpaceID = toSpaceID
+		newVector.Resource = toResource
+		if err = l.core.Store().VectorStore().Create(ctx, newVector); err != nil {
+			return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.Create", i18n.ERROR_INTERNAL, err)
+		}
+
+		return nil
+	})
+}

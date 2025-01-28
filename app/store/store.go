@@ -59,11 +59,12 @@ type VectorStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.Vector) error
 	BatchCreate(ctx context.Context, datas []types.Vector) error
-	GetVector(ctx context.Context, spaceID, knowledgeID, id string) (*types.Vector, error)
+	GetVector(ctx context.Context, spaceID, knowledgeID string) (*types.Vector, error)
 	Update(ctx context.Context, spaceID, knowledgeID, id string, vector pgvector.Vector) error
 	Delete(ctx context.Context, spaceID, knowledgeID, id string) error
 	BatchDelete(ctx context.Context, spaceID, knowledgeID string) error
 	DeleteAll(ctx context.Context, spaceID string) error
+	DeleteByResource(ctx context.Context, spaceID, resource string) error
 	ListVectors(ctx context.Context, opts types.GetVectorsOptions, page, pageSize uint64) ([]types.Vector, error)
 	Query(ctx context.Context, opts types.GetVectorsOptions, vectors pgvector.Vector, limit uint64) ([]types.QueryResult, error)
 }
@@ -105,6 +106,7 @@ type ResourceStore interface {
 	Update(ctx context.Context, spaceID, id, title, desc, prompt string, cycle int) error
 	Delete(ctx context.Context, spaceID, id string) error
 	ListResources(ctx context.Context, spaceID string, page, pageSize uint64) ([]types.Resource, error)
+	ListUserResources(ctx context.Context, userID string, page, pageSize uint64) ([]types.Resource, error)
 }
 
 type UserStore interface {

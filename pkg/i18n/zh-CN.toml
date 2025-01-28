@@ -1,3 +1,7 @@
+['error.user_space_not_found']
+one = "用户空间不存在"
+other = "用户空间不存在"
+
 ['error.redeem.must_new_user']
 one = "仅限新用户领取"
 other = "仅限新用户领取"

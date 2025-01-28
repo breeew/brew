@@ -84,8 +84,8 @@ func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) err
 }
 
 // GetBwVector 根据ID获取文本向量记录
-func (s *VectorStore) GetVector(ctx context.Context, spaceID, knowledgeID, id string) (*types.Vector, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID, "id": id})
+func (s *VectorStore) GetVector(ctx context.Context, spaceID, knowledgeID string) (*types.Vector, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -118,6 +118,18 @@ func (s *VectorStore) Update(ctx context.Context, spaceID, knowledgeID, id strin
 // Delete 删除文本向量记录
 func (s *VectorStore) Delete(ctx context.Context, spaceID, knowledgeID, id string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *VectorStore) DeleteByResource(ctx context.Context, spaceID, resource string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "resource": resource})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

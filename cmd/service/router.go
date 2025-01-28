@@ -68,6 +68,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		{
 			share.GET("/knowledge/:token", s.GetKnowledgeByShareToken)
 			share.GET("/session/:token", s.GetSessionByShareToken)
+			share.POST("/copy/knowledge", middleware.PaymentRequired, s.CopyKnowledge)
 		}
 
 		authed := apiV1.Group("")
@@ -128,6 +129,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			}
 		}
 
+		authed.GET("/resource/list", s.GetUserResources)
 		resource := authed.Group("/:spaceid/resource")
 		{
 			resource.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionView))

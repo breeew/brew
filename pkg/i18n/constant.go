@@ -11,6 +11,7 @@ const (
 	ERROR_INTERNAL                   = "error.internal"
 	ERROR_NOT_FOUND                  = "error.notfound"
 	ERROR_INVALIDARGUMENT            = "error.invalidargument"
+	ERROR_USER_SPACE_NOT_FOUND       = "error.user_space_not_found"
 	ERROR_PERMISSION_DENIED          = "error.permission.denied"
 	ERROR_UNAUTHORIZED               = "error.unauthorized"
 	ERROR_PAYMENT_REQUIRED           = "error.payment_required"
@@ -29,7 +30,7 @@ const (
 	ERROR_EMAIL_NOT_REGISTERED       = "error.email_not_registered"
 	ERROR_ALREADY_INVITED            = "error.already_invited"
 	ERROR_INEFFECTIVE                = "error.ineffective"
-	ERROR_REDEEM_MUST_NEW_USER = "error.redeem.must_new_user"
+	ERROR_REDEEM_MUST_NEW_USER       = "error.redeem.must_new_user"
 
 	ERROR_INVALID_TOKEN   = "error.invalid.token"
 	ERROR_INVALID_ACCOUNT = "error.invalid.account"

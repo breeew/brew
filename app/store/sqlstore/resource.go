@@ -116,3 +116,22 @@ func (s *ResourceStore) ListResources(ctx context.Context, spaceID string, page,
 	}
 	return res, nil
 }
+
+// ListResources 分页获取资源记录列表
+func (s *ResourceStore) ListUserResources(ctx context.Context, userID string, page, pageSize uint64) ([]types.Resource, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"user_id": userID}).OrderBy("created_at")
+	if page != 0 || pageSize != 0 {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []types.Resource
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}

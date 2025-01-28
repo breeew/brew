@@ -174,3 +174,26 @@ func (s *HttpSrv) BuildSessionSharePage(c *gin.Context) {
 		"frontendURL":     fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host),
 	})
 }
+
+type CopyKnowledgeRequest struct {
+	Token        string `json:"token" binding:"required"`
+	UserSpace    string `json:"user_space" binding:"required"`
+	UserResource string `json:"user_resource" binding:"required"`
+}
+
+func (s *HttpSrv) CopyKnowledge(c *gin.Context) {
+	var (
+		err error
+		req CopyKnowledgeRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	if err = v1.NewShareLogic(c, s.Core).CopyKnowledgeByShareToken(req.Token, req.UserSpace, req.UserSpace); err != nil {
+		response.APIError(c, err)
+		return
+	}
+	response.APISuccess(c, nil)
+}

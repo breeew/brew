@@ -89,6 +89,10 @@ func (l *ResourceLogic) Delete(spaceID, id string) error {
 			return errors.New("ResourceLogic.Delete.KnowledgeChunkStore.BatchDeleteByIDs", i18n.ERROR_INTERNAL, err)
 		}
 
+		if err = l.core.Store().VectorStore().DeleteByResource(ctx, spaceID, id); err != nil {
+			return errors.New("ResourceLogic.Delete.VectorStore.DeleteByResource", i18n.ERROR_INTERNAL, err)
+		}
+
 		if err = l.core.Store().ResourceStore().Delete(ctx, spaceID, id); err != nil {
 			return errors.New("ResourceLogic.Delete.ResourceStore.Delete", i18n.ERROR_INTERNAL, err)
 		}
@@ -144,4 +148,13 @@ func (l *ResourceLogic) GetResource(spaceID, id string) (*types.Resource, error)
 		return nil, errors.New("ResourceLogic.GetResource.ResourceStore.GetResource", i18n.ERROR_INTERNAL, err)
 	}
 	return data, nil
+}
+
+func (l *ResourceLogic) ListUserResources(page, pagesize uint64) ([]types.Resource, error) {
+	list, err := l.core.Store().ResourceStore().ListUserResources(l.ctx, l.GetUserInfo().User, page, pagesize)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.New("ResourceLogic.ListUserResources.ResourceStore.ListUserResources", i18n.ERROR_INTERNAL, err)
+	}
+
+	return list, nil
 }

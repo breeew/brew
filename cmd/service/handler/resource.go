@@ -123,3 +123,33 @@ func (s *HttpSrv) GetResource(c *gin.Context) {
 	}
 	response.APISuccess(c, data)
 }
+
+type GetUserResourcesRequest struct {
+	Page     uint64 `json:"page"`
+	Pagesize uint64 `json:"pagesize"`
+}
+
+type GetUserResourcesResponse struct {
+	List []types.Resource `json:"list"`
+}
+
+func (s *HttpSrv) GetUserResources(c *gin.Context) {
+	var (
+		err error
+		req GetUserResourcesRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	list, err := v1.NewResourceLogic(c, s.Core).ListUserResources(req.Page, req.Pagesize)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, GetUserResourcesResponse{
+		List: list,
+	})
+}
