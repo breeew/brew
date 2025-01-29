@@ -264,7 +264,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (types.RAGDocs, *ai.Usage, error) {
 	var result types.RAGDocs
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
-	aiOpts.WithPrompt(l.core.Cfg().Prompt.EnhanceQuery)
+	aiOpts.WithPrompt(l.core.Prompt().EnhanceQuery)
 	resp, err := aiOpts.EnhanceQuery(query)
 	if err != nil {
 		slog.Error("failed to enhance user query", slog.String("query", query), slog.String("error", err.Error()))
@@ -424,6 +424,9 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	}
 
 	docs, err = l.core.AppendKnowledgeContentToDocs(docs, knowledges)
+	if err != nil {
+		return nil, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	}
 
 	message := &types.MessageContext{
 		Role:    types.USER_ROLE_USER,

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/azure_openai"
+	"github.com/breeew/brew-api/pkg/ai/deepseek"
 	"github.com/breeew/brew-api/pkg/ai/jina"
 	"github.com/breeew/brew-api/pkg/ai/openai"
 	"github.com/breeew/brew-api/pkg/ai/qwen"
@@ -34,20 +36,26 @@ type ReaderAI interface {
 	Reader(ctx context.Context, endpoint string) (*ai.ReaderResult, error)
 }
 
+type VisionAI interface {
+	NewVisionQuery(ctx context.Context, msgs []*types.MessageContext) *ai.QueryOptions
+}
+
 type AIDriver interface {
 	EmbeddingAI
 	EnhanceAI
 	ChatAI
 	ReaderAI
+	VisionAI
 }
 
 type AIConfig struct {
-	Gemini Gemini      `toml:"gemini"`
-	Openai Openai      `toml:"openai"`
-	QWen   QWen        `toml:"qwen"`
-	Jina   Jina        `toml:"jina"`
-	Azure  AzureOpenai `toml:"azure_openai"`
-	Agent  AgentDriver `toml:"agent"`
+	Gemini   Gemini      `toml:"gemini"`
+	Openai   Openai      `toml:"openai"`
+	QWen     QWen        `toml:"qwen"`
+	DeepSeek DeepSeek    `toml:"deepseek"`
+	Jina     Jina        `toml:"jina"`
+	Azure    AzureOpenai `toml:"azure_openai"`
+	Agent    AgentDriver `toml:"agent"`
 	// Usage list
 	// embedding.query
 	// embedding.document
@@ -95,6 +103,12 @@ func (c *AIConfig) FromENV() {
 	c.Azure.FromENV()
 	c.QWen.FromENV()
 	c.Jina.FromENV()
+	c.DeepSeek.FromENV()
+}
+
+func (c *DeepSeek) FromENV() {
+	c.Token = os.Getenv("BREW_API_AI_DEEPSEEK_TOKEN")
+	c.Endpoint = os.Getenv("BREW_API_AI_DEEPSEEK_ENDPOINT")
 }
 
 func (c *Gemini) FromENV() {
@@ -120,6 +134,23 @@ type Gemini struct {
 	Token string `toml:"token"`
 }
 
+type DeepSeek struct {
+	Token          string `toml:"token"`
+	Endpoint       string `toml:"endpoint"`
+	EmbeddingModel string `toml:"embedding_model"`
+	ChatModel      string `toml:"chat_model"`
+}
+
+func (cfg *DeepSeek) Install(root *AI) {
+	var oai any
+	oai = deepseek.New(cfg.Token, cfg.Endpoint, ai.ModelName{
+		ChatModel:      cfg.ChatModel,
+		EmbeddingModel: cfg.EmbeddingModel,
+	})
+
+	installAI(root, strings.ToLower(deepseek.NAME), oai)
+}
+
 type Openai struct {
 	Token          string `toml:"token"`
 	Endpoint       string `toml:"endpoint"`
@@ -134,7 +165,7 @@ func (cfg *Openai) Install(root *AI) {
 		EmbeddingModel: cfg.EmbeddingModel,
 	})
 
-	installAI(root, openai.NAME, oai)
+	installAI(root, strings.ToLower(openai.NAME), oai)
 }
 
 type AzureOpenai struct {
@@ -151,7 +182,7 @@ func (cfg *AzureOpenai) Install(root *AI) {
 		EmbeddingModel: cfg.EmbeddingModel,
 	})
 
-	installAI(root, azure_openai.NAME, oai)
+	installAI(root, strings.ToLower(azure_openai.NAME), oai)
 }
 
 type QWen struct {
@@ -168,29 +199,39 @@ func (cfg *QWen) Install(root *AI) {
 		EmbeddingModel: cfg.EmbeddingModel,
 	})
 
-	installAI(root, qwen.NAME, oai)
+	installAI(root, strings.ToLower(qwen.NAME), oai)
 }
 
 type AI struct {
 	chatDrivers    map[string]ChatAI
 	embedDrivers   map[string]EmbeddingAI
 	enhanceDrivers map[string]EnhanceAI
+	visionDrivers  map[string]VisionAI
 	readerDrivers  map[string]ReaderAI
 
 	chatUsage    map[string]ChatAI
 	enhanceUsage map[string]EnhanceAI
 	embedUsage   map[string]EmbeddingAI
 	readerUsage  map[string]ReaderAI
+	visionUsage  map[string]VisionAI
 
 	chatDefault    ChatAI
 	enhanceDefault EnhanceAI
 	embedDefault   EmbeddingAI
 	readerDefault  ReaderAI
+	visionDefault  VisionAI
 }
 
 func (s *AI) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
 	if d := s.chatUsage["query"]; d != nil {
 		return d.NewQuery(ctx, query)
+	}
+	return s.chatDefault.NewQuery(ctx, query)
+}
+
+func (s *AI) NewVisionQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
+	if d := s.visionUsage["vision"]; d != nil {
+		return d.NewVisionQuery(ctx, query)
 	}
 	return s.chatDefault.NewQuery(ctx, query)
 }
@@ -274,6 +315,10 @@ func installAI(a *AI, name string, driver any) {
 	if d, ok := driver.(ReaderAI); ok {
 		a.readerDrivers[name] = d
 	}
+
+	if d, ok := driver.(VisionAI); ok {
+		a.visionDrivers[name] = d
+	}
 }
 
 func SetupAI(cfg AIConfig) (*AI, error) {
@@ -286,15 +331,19 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 		embedUsage:     make(map[string]EmbeddingAI),
 		readerDrivers:  make(map[string]ReaderAI),
 		readerUsage:    make(map[string]ReaderAI),
+		visionDrivers:  make(map[string]VisionAI),
+		visionUsage:    make(map[string]VisionAI),
 	}
 
 	cfg.Openai.Install(a)
 	cfg.Azure.Install(a)
 	cfg.QWen.Install(a)
 	cfg.Jina.Install(a)
+	cfg.DeepSeek.Install(a)
 	// TODO: Gemini install
 
 	for k, v := range cfg.Usage {
+		v = strings.ToLower(v)
 		switch k {
 		case "reader":
 			a.readerUsage[k] = a.readerDrivers[v]
@@ -302,6 +351,8 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 			a.embedUsage[k] = a.embedDrivers[v]
 		case "enhance_query":
 			a.enhanceUsage[k] = a.enhanceDrivers[v]
+		case "vision":
+			a.visionUsage[k] = a.visionDrivers[v]
 		default:
 			a.chatUsage[k] = a.chatDrivers[v]
 		}
@@ -324,6 +375,11 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 
 	for _, v := range a.readerDrivers {
 		a.readerDefault = v
+		break
+	}
+
+	for _, v := range a.visionDrivers {
+		a.visionDefault = v
 		break
 	}
 

@@ -69,6 +69,10 @@ func (c *Cache) SetEx(ctx context.Context, key, value string, expiresAt time.Dur
 	return nil
 }
 
+func (c *Cache) Expire(ctx context.Context, key string, expiresAt time.Duration) error {
+	return nil
+}
+
 func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 	return "", nil
 }

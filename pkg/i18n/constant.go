@@ -29,6 +29,7 @@ const (
 	ERROR_EMAIL_NOT_MATCH            = "error.email_not_match"
 	ERROR_EMAIL_NOT_REGISTERED       = "error.email_not_registered"
 	ERROR_ALREADY_INVITED            = "error.already_invited"
+	ERROR_ALREADY_SAVED              = "error.already_saved"
 	ERROR_INEFFECTIVE                = "error.ineffective"
 	ERROR_REDEEM_MUST_NEW_USER       = "error.redeem.must_new_user"
 

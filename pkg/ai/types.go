@@ -484,11 +484,6 @@ const (
 )
 
 func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
-	d := docs.ConvertPassageToPromptText(driver.Lang())
-	if d == "" {
-		return GENERATE_PROMPT_TPL_NONE_CONTENT_EN
-	}
-
 	if tpl == "" {
 		switch driver.Lang() {
 		case MODEL_BASE_LANGUAGE_CN:
@@ -497,8 +492,10 @@ func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
 			tpl = GENERATE_PROMPT_TPL_EN
 		}
 	}
+
 	tpl = ReplaceVarWithLang(tpl, driver.Lang())
 
+	d := docs.ConvertPassageToPromptText(driver.Lang())
 	tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
 	return tpl
 }
@@ -553,18 +550,26 @@ var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
+		if v.Content == "" {
+			continue
+		}
 		if i != 0 {
 			s.WriteString("------\n")
 		}
 		s.WriteString("这件事发生在：")
 		s.WriteString(v.DateTime)
 		s.WriteString("\n")
-		s.WriteString("ID：")
-		s.WriteString(v.ID)
-		s.WriteString("\n")
-		s.WriteString("内容类型：")
-		s.WriteString(v.Resource)
-		s.WriteString("\n内容：")
+		if v.ID != "" {
+			s.WriteString("ID：")
+			s.WriteString(v.ID)
+			s.WriteString("\n")
+		}
+		if v.Resource != "" {
+			s.WriteString("内容类型：")
+			s.WriteString(v.Resource)
+			s.WriteString("\n")
+		}
+		s.WriteString("内容：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
 	}

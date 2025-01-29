@@ -124,19 +124,19 @@ func (s *HttpSrv) GetResource(c *gin.Context) {
 	response.APISuccess(c, data)
 }
 
-type GetUserResourcesRequest struct {
+type ListUserResourcesRequest struct {
 	Page     uint64 `json:"page"`
 	Pagesize uint64 `json:"pagesize"`
 }
 
-type GetUserResourcesResponse struct {
+type ListUserResourcesResponse struct {
 	List []types.Resource `json:"list"`
 }
 
-func (s *HttpSrv) GetUserResources(c *gin.Context) {
+func (s *HttpSrv) ListUserResources(c *gin.Context) {
 	var (
 		err error
-		req GetUserResourcesRequest
+		req ListUserResourcesRequest
 	)
 	if err = utils.BindArgsWithGin(c, &req); err != nil {
 		response.APIError(c, err)
@@ -149,7 +149,7 @@ func (s *HttpSrv) GetUserResources(c *gin.Context) {
 		return
 	}
 
-	response.APISuccess(c, GetUserResourcesResponse{
+	response.APISuccess(c, ListUserResourcesResponse{
 		List: list,
 	})
 }

@@ -1,3 +1,7 @@
+['error.already_saved']
+one = "已保存过该内容"
+other = "已保存过该内容"
+
 ['error.user_space_not_found']
 one = "用户空间不存在"
 other = "用户空间不存在"

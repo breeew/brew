@@ -19,7 +19,7 @@ func init() {
 }
 
 func new() *openai.Driver {
-	return openai.New(os.Getenv("BREW_API_AI_LANG"), os.Getenv("BREW_API_AI_DEEPSEEK_TOKEN"), os.Getenv("BREW_API_AI_DEEPSEEK_ENDPOINT"), ai.ModelName{
+	return openai.New(os.Getenv("BREW_API_AI_DEEPSEEK_TOKEN"), os.Getenv("BREW_API_AI_DEEPSEEK_ENDPOINT"), ai.ModelName{
 		ChatModel: "deepseek-chat",
 	})
 }

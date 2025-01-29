@@ -38,8 +38,9 @@ func WithLimit(limit int) LimitOption {
 }
 
 type Cache interface {
-	SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error
 	Get(ctx context.Context, key string) (string, error)
+	SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error
+	Expire(ctx context.Context, key string, expiration time.Duration) error
 }
 
 type AIChatLogic interface {

@@ -166,11 +166,11 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		})
 	case types.AGENT_TYPE_JOURNAL:
 		// TODO
-	default:
+	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
 			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
-			if usage != nil {
+			if usage != nil && usage.Usage != nil {
 				process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
 			}
 			if err != nil {
@@ -183,6 +183,13 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 
 			if err := RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL); err != nil {
 				slog.Error("Failed to handle rag message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	default:
+		// else rag handler
+		go safe.Run(func() {
+			if err := RAGHandle(l.core, msg, types.RAGDocs{}, types.GEN_MODE_NORMAL); err != nil {
+				slog.Error("Failed to handle message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	}

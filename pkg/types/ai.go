@@ -8,15 +8,17 @@ import (
 )
 
 const (
+	AGENT_TYPE_NONE    = ""
 	AGENT_TYPE_NORMAL  = "rag"
 	AGENT_TYPE_JOURNAL = "journal"
 	AGENT_TYPE_BULTER  = "bulter"
 )
 
 var registeredAgents = map[string][]string{
-	AGENT_TYPE_NORMAL:  {},
+	AGENT_TYPE_NORMAL:  {"jihe", "极核"},
 	AGENT_TYPE_JOURNAL: {"journal", "助理"},
 	AGENT_TYPE_BULTER:  {"bulter", "管家"},
+	AGENT_TYPE_NONE:    {},
 }
 
 func FilterAgent(userQuery string) string {
@@ -27,7 +29,7 @@ func FilterAgent(userQuery string) string {
 			}
 		}
 	}
-	return AGENT_TYPE_NORMAL
+	return AGENT_TYPE_NONE
 }
 
 const AssistantFailedMessage = "Sorry, I'm wrong"

@@ -20,12 +20,11 @@ const (
 )
 
 type Driver struct {
-	lang   string
 	client *openai.Client
 	model  ai.ModelName
 }
 
-func New(lang, token, proxy string, model ai.ModelName) *Driver {
+func New(token, proxy string, model ai.ModelName) *Driver {
 	cfg := openai.DefaultConfig(token)
 	if proxy != "" {
 		cfg.BaseURL = proxy
@@ -40,7 +39,6 @@ func New(lang, token, proxy string, model ai.ModelName) *Driver {
 	}
 
 	return &Driver{
-		lang:   lang,
 		client: openai.NewClientWithConfig(cfg),
 		model:  model,
 	}
@@ -220,6 +218,79 @@ func (s *Driver) Summarize(ctx context.Context, doc *string) (ai.SummarizeResult
 		}
 	}
 
+	result.Usage = &resp.Usage
+	return result, nil
+}
+
+func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
+	slog.Debug("Chunk", slog.String("driver", NAME))
+	// describe the function & its inputs
+	params := jsonschema.Definition{
+		Type: jsonschema.Object,
+		Properties: map[string]jsonschema.Definition{
+			"tags": {
+				Type:        jsonschema.Array,
+				Description: "你从用户描述内容中分析出对应关键内容或关键技术的标签，以便用户后续归类相关的内容，需要以数组的形式组织该字段的值",
+				Items: &jsonschema.Definition{
+					Type: jsonschema.String,
+				},
+			},
+			"title": {
+				Type:        jsonschema.String,
+				Description: "为用户提供的内容自动生成标题填入该字段",
+			},
+			"chunks": {
+				Type:        jsonschema.Array,
+				Description: "分类好的内容块填入该字段",
+				Items: &jsonschema.Definition{
+					Type: jsonschema.String,
+				},
+			},
+			"date_time": {
+				Type:        jsonschema.String,
+				Description: "分析用户内容中提到的时间，时间格式为 year-month-day hour:minute，如果你认为用户提供的内容中没有关于时间的描述，请留空",
+			},
+		},
+		Required: []string{"tags", "title", "chunks"},
+	}
+
+	f := openai.FunctionDefinition{
+		Name:        "chunk",
+		Description: "对文本内容的分块处理结果",
+		Parameters:  params,
+	}
+	t := openai.Tool{
+		Type:     openai.ToolTypeFunction,
+		Function: &f,
+	}
+	// simulate user asking a question that requires the function
+	dialogue := []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: ai.ReplaceVarCN(ai.PROMPT_CHUNK_CONTENT_CN)},
+		{Role: openai.ChatMessageRoleUser, Content: strings.ReplaceAll(*doc, "\n", "")},
+	}
+	var result ai.ChunkResult
+	resp, err := s.client.CreateChatCompletion(ctx,
+		openai.ChatCompletionRequest{
+			Model:    s.model.ChatModel,
+			Messages: dialogue,
+			Tools:    []openai.Tool{t},
+		},
+	)
+	if err != nil || len(resp.Choices) != 1 {
+		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,
+			len(resp.Choices))
+	}
+
+	for _, v := range resp.Choices[0].Message.ToolCalls {
+		if v.Function.Name != "chunk" {
+			continue
+		}
+		if err = json.Unmarshal([]byte(v.Function.Arguments), &result); err != nil {
+			return result, fmt.Errorf("failed to unmarshal func call arguments of ChunkResult, %w", err)
+		}
+	}
+
+	result.Model = resp.Model
 	result.Usage = &resp.Usage
 	return result, nil
 }

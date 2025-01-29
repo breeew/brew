@@ -104,6 +104,11 @@ func (s *Driver) NewQuery(ctx context.Context, query []*types.MessageContext) *a
 	return opts
 }
 
+func (s *Driver) NewVisionQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
+	opts := ai.NewQueryOptions(ctx, s, query)
+	return opts
+}
+
 func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 	return ai.NewEnhance(ctx, s)
 }
@@ -143,6 +148,7 @@ func (s *Driver) QueryStream(ctx context.Context, query []*types.MessageContext)
 		StreamOptions: &openai.StreamOptions{
 			IncludeUsage: true,
 		},
+		TopP: 0.2,
 	}
 
 	resp, err := s.client.CreateChatCompletionStream(ctx, req)
@@ -326,6 +332,8 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 		funcCallResult EnhanceQueryResult
 		result         ai.EnhanceQueryResult
 	)
+
+	fmt.Println("enhance prompt", req)
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil || len(resp.Choices) != 1 {
 		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,

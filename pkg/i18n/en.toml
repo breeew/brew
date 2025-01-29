@@ -1,3 +1,7 @@
+['error.already_saved']
+one = "Already saved"
+other = "Already saved"
+
 ['error.user_space_not_found']
 one = "User space not found"
 other = "User space not found"

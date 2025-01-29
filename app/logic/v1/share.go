@@ -349,9 +349,20 @@ func (l *ShareLogic) CopyKnowledgeByShareToken(token, toSpaceID, toResource stri
 		return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.GetVector", i18n.ERROR_INTERNAL, err)
 	}
 
+	knowledgeID := utils.MD5(originKnowledge.UserID + originKnowledge.ID)
+
+	alreadyCopied, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, toSpaceID, knowledgeID)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge", i18n.ERROR_INTERNAL, err)
+	}
+
+	if alreadyCopied != nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge", i18n.ERROR_ALREADY_SAVED, nil).Code(http.StatusForbidden)
+	}
+
 	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		newKnowledge := *originKnowledge
-		newKnowledge.ID = utils.GenUniqIDStr()
+		newKnowledge.ID = knowledgeID
 		newKnowledge.UserID = reqUser.User
 		newKnowledge.CreatedAt = time.Now().Unix()
 		newKnowledge.UpdatedAt = time.Now().Unix()

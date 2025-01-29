@@ -29,7 +29,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/prometheus/client_golang v1.20.3
 	github.com/samber/lo v1.47.0
-	github.com/sashabaranov/go-openai v1.29.2
+	github.com/sashabaranov/go-openai v1.36.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
@@ -47,6 +47,8 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
+	github.com/6tail/lunar-go v1.3.15 // indirect
+	github.com/Lofanmi/chinese-calendar-golang v0.0.0-20241124100822-1cf51e767c9f // indirect
 	github.com/avast/retry-go/v4 v4.6.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.13 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.11 // indirect

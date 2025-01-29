@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"gopkg.in/natefinch/lumberjack.v2"
 	"github.com/gin-gonic/gin"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/breeew/brew-api/app/core/srv"
 	"github.com/breeew/brew-api/app/store"
@@ -21,6 +21,8 @@ type Core struct {
 	cfg       CoreConfig
 	cfgReader io.Reader
 	srv       *srv.Srv
+
+	prompt Prompt
 
 	stores     func() *sqlstore.Provider
 	httpClient *http.Client
@@ -53,6 +55,7 @@ func MustSetupCore(cfg CoreConfig) *Core {
 		httpClient: &http.Client{Timeout: time.Second * 3},
 		metrics:    NewMetrics("brew-api", "core"),
 		httpEngine: gin.New(),
+		prompt:     cfg.Prompt,
 	}
 
 	// setup store
@@ -91,6 +94,14 @@ func buildSeqGenerator(core *Core) srv.SeqGen {
 
 func (s *Core) Cfg() CoreConfig {
 	return s.cfg
+}
+
+func (s *Core) Prompt() Prompt {
+	return s.prompt
+}
+
+func (s *Core) UpdatePrompt(p Prompt) {
+	s.prompt = p
 }
 
 func (s *Core) HttpEngine() *gin.Engine {

@@ -243,7 +243,13 @@ func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
 func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
 	// TODO: Get space prompt
-	prompt := ai.BuildRAGPrompt(s.core.Cfg().Prompt.Query, ai.NewDocs(docs.Docs), s.core.Srv().AI())
+	var prompt string
+	if len(docs.Refs) == 0 {
+		prompt = s.core.Prompt().Base
+	} else {
+		prompt = s.core.Prompt().Query
+	}
+	prompt = ai.BuildRAGPrompt(prompt, ai.NewDocs(docs.Docs), s.core.Srv().AI())
 	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
 	if err != nil {
 		return err
@@ -254,12 +260,12 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
 	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
 		// set chat session pin
-		if len(docs.Refs) == 0 {
-			return
-		}
 		go safe.Run(func() {
 			switch s.agentType {
 			case types.AGENT_TYPE_NORMAL:
+				if len(docs.Refs) == 0 {
+					return
+				}
 				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
 					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
 				}
@@ -272,6 +278,9 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 
 	marks := make(map[string]string)
 	for _, v := range docs.Docs {
+		if v.SW == nil {
+			continue
+		}
 		for fake, real := range v.SW.Map() {
 			marks[fake] = real
 		}

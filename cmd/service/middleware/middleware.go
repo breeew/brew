@@ -215,6 +215,8 @@ func ParseAuthToken(c *gin.Context, tokenValue string, core *core.Core) (bool, e
 	}
 
 	c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(tokenMeta.Appid, "brew", tokenMeta.UserID, user.PlanID, "", tokenMeta.ExpireAt))
+	core.Plugins.Cache().Expire(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)), time.Hour*24*7)
+
 	return true, nil
 }
 
