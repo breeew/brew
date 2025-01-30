@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,8 +213,12 @@ func (fs *S3FileStorage) DeleteFile(fullFilePath string) error {
 	return fs.Delete(fullFilePath)
 }
 
-func (fs *S3FileStorage) GenGetObjectPreSignURL(url string) (string, error) {
-	return fs.S3.GenGetObjectPreSignURL(strings.TrimPrefix(url, fs.GetStaticDomain()))
+func (fs *S3FileStorage) GenGetObjectPreSignURL(_url string) (string, error) {
+	res, err := url.Parse(_url)
+	if err != nil {
+		return "", err
+	}
+	return fs.S3.GenGetObjectPreSignURL(res.RequestURI())
 }
 
 type Assistant interface {
