@@ -3,18 +3,22 @@ package plugins
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"golang.org/x/time/rate"
 
 	"github.com/breeew/brew-api/app/core"
 	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/pkg/mark"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
-	"github.com/gin-gonic/gin"
 )
 
 func NewSingleLock() *SingleLock {
@@ -25,6 +29,7 @@ func NewSingleLock() *SingleLock {
 
 type SelfHostCustomConfig struct {
 	ObjectStorage ObjectStorageDriver `toml:"object_storage"`
+	EncryptKey    string              `toml:"encrypt_key"`
 }
 
 type SingleLock struct {
@@ -58,18 +63,36 @@ func newSelfHostMode() *SelfHostPlugin {
 	}
 }
 
+type Cache struct{}
+
+func (c *Cache) SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error {
+	return nil
+}
+
+func (c *Cache) Expire(ctx context.Context, key string, expiresAt time.Duration) error {
+	return nil
+}
+
+func (c *Cache) Get(ctx context.Context, key string) (string, error) {
+	return "", nil
+}
+
 type SelfHostPlugin struct {
-	core        *core.Core
-	Appid       string
-	singleLock  *SingleLock
-	aiChatLogic core.AIChatLogic
-	core.FileStorage
+	core       *core.Core
+	Appid      string
+	singleLock *SingleLock
+	storage    core.FileStorage
+	cache      *Cache
 
 	customConfig SelfHostCustomConfig
 }
 
 func (s *SelfHostPlugin) RegisterHTTPEngine(e *gin.Engine) {
 	return
+}
+
+func (s *SelfHostPlugin) Name() string {
+	return "selfhost"
 }
 
 func (s *SelfHostPlugin) DefaultAppid() string {
@@ -86,10 +109,7 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 		return fmt.Errorf("Failed to install custom config, %w", err)
 	}
 	s.customConfig = customConfig.CustomConfig
-	s.aiChatLogic = &AIChatLogic{
-		core:            c,
-		NormalAssistant: v1.NewNormalAssistant(c),
-	}
+	s.cache = &Cache{}
 
 	var tokenCount int
 	if err := s.core.Store().GetMaster().Get(&tokenCount, "SELECT COUNT(*) FROM "+types.TABLE_ACCESS_TOKEN.Name()+" WHERE true"); err != nil {
@@ -144,13 +164,17 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 	return nil
 }
 
+func (s *SelfHostPlugin) Cache() core.Cache {
+	return s.cache
+}
+
 func (s *SelfHostPlugin) TryLock(ctx context.Context, key string) (bool, error) {
 	return s.singleLock.TryLock(ctx, key)
 }
 
 type AIChatLogic struct {
 	core *core.Core
-	*v1.NormalAssistant
+	Assistant
 }
 
 func (a *AIChatLogic) GetChatSessionSeqID(ctx context.Context, spaceID, sessionID string) (int64, error) {
@@ -170,30 +194,110 @@ func (s *AIChatLogic) GenMessageID() string {
 	return utils.GenRandomID()
 }
 
-func (s *SelfHostPlugin) AIChatLogic() core.AIChatLogic {
-	return s.aiChatLogic
+func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
+	switch agentType {
+	case types.AGENT_TYPE_BULTER:
+		return &AIChatLogic{
+			core:      s.core,
+			Assistant: v1.NewBulterAssistant(s.core, agentType),
+		}
+	default:
+		return &AIChatLogic{
+			core:      s.core,
+			Assistant: v1.NewNormalAssistant(s.core, agentType),
+		}
+	}
 }
 
 var limiter = make(map[string]*rate.Limiter)
 
 // ratelimit 代表每分钟允许的数量
-func (s *SelfHostPlugin) UseLimiter(key string, method string, defaultRatelimit int) core.Limiter {
+func (s *SelfHostPlugin) UseLimiter(c *gin.Context, key string, method string, opts ...core.LimitOption) core.Limiter {
+	cfg := &core.LimitConfig{
+		Limit: 60,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	l, exist := limiter[key]
 	if !exist {
-		limit := rate.Every(time.Minute / time.Duration(defaultRatelimit))
-		limiter[key] = rate.NewLimiter(limit, defaultRatelimit*2)
+		limit := rate.Every(time.Minute / time.Duration(cfg.Limit))
+		limiter[key] = rate.NewLimiter(limit, cfg.Limit*2)
 		l = limiter[key]
 	}
 
 	return l
 }
 
-func (s *SelfHostPlugin) FileUploader() core.FileStorage {
-	if s.FileStorage != nil {
-		return s.FileStorage
+func (s *SelfHostPlugin) FileStorage() core.FileStorage {
+	if s.storage != nil {
+		return s.storage
 	}
 
-	s.FileStorage = SetupObjectStorage(s.customConfig.ObjectStorage)
+	s.storage = SetupObjectStorage(s.customConfig.ObjectStorage)
 
-	return s.FileStorage
+	return s.storage
+}
+
+func (s *SelfHostPlugin) CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error) {
+	return "pro", nil
+}
+
+func (s *SelfHostPlugin) EncryptData(data []byte) ([]byte, error) {
+	if s.customConfig.EncryptKey == "" {
+		return data, nil
+	}
+
+	return utils.EncryptCFB(data, []byte(s.customConfig.EncryptKey))
+}
+
+func (s *SelfHostPlugin) DecryptData(data []byte) ([]byte, error) {
+	if s.customConfig.EncryptKey == "" {
+		return data, nil
+	}
+
+	return utils.DecryptCFB(data, []byte(s.customConfig.EncryptKey))
+}
+
+func (s *SelfHostPlugin) DeleteSpace(ctx context.Context, spaceID string) error {
+	return nil
+}
+
+func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) ([]*types.PassageInfo, error) {
+	if len(knowledges) == 0 {
+		return docs, nil
+	}
+
+	spaceID := knowledges[0].SpaceID
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	spaceResources, err := s.core.Store().ResourceStore().ListResources(ctx, spaceID, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		slog.Error("Failed to get space resources", slog.String("space_id", spaceID), slog.String("error", err.Error()))
+		return docs, err
+	}
+
+	resourceTitle := lo.SliceToMap(spaceResources, func(item types.Resource) (string, string) {
+		return item.ID, item.Title
+	})
+
+	for _, v := range knowledges {
+		content := string(v.Content)
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			if content, err = utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content)); err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+		}
+
+		sw := mark.NewSensitiveWork()
+		docs = append(docs, &types.PassageInfo{
+			ID:       v.ID,
+			Content:  sw.Do(content),
+			DateTime: v.MaybeDate,
+			Resource: lo.If(resourceTitle[v.Resource] != "", resourceTitle[v.Resource]).Else(v.Resource),
+			SW:       sw,
+		})
+	}
+	return docs, nil
 }

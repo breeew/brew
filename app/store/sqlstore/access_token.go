@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.AccessTokenStore = NewAccessTokenStore(provider)
 	})
 }
@@ -40,7 +40,7 @@ func (s *AccessTokenStore) Create(ctx context.Context, data types.AccessToken) e
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -56,7 +56,7 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.AccessToken
@@ -86,12 +86,12 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 // }
 
 // Delete 删除 access_token 记录
-func (s *AccessTokenStore) Delete(ctx context.Context, appid, token string) error {
-	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "token": token})
+func (s *AccessTokenStore) Delete(ctx context.Context, appid, userID string, id int64) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "userID": userID, "id": id})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -101,11 +101,11 @@ func (s *AccessTokenStore) Delete(ctx context.Context, appid, token string) erro
 // ListBwAccessTokens 分页获取 access_token 记录列表
 func (s *AccessTokenStore) ListAccessTokens(ctx context.Context, appid, userID string, page, pageSize uint64) ([]types.AccessToken, error) {
 	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).
-		Where(sq.Eq{"appid": appid, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize)
+		Where(sq.Eq{"appid": appid, "user_id": userID}).Limit(pageSize).Offset((page - 1) * pageSize).OrderBy("created_at DESC")
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.AccessToken
@@ -120,7 +120,7 @@ func (s *AccessTokenStore) ClearUserTokens(ctx context.Context, appid, userID st
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)

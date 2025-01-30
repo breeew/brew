@@ -188,10 +188,11 @@ const GENERATE_PROMPT_TPL_CN = GENERATE_PROMPT_TPL_NONE_CONTENT_CN + `
 --------------------------------------
 你需要结合“参考内容”来回答用户的提问，
 注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
-如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID。
+如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID，并尽可能地将参考内容中相关的图片、音视频也一同告诉我(URL等)。
 以下是参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
 {symbol}
-它们都是系统语法，请不要语义化这些内容。
+Markdown中有些内容是通过HTML标签表示的，请不要额外处理这些HTML标签，例如<video>等，它们都是系统语法，请不要语义化这些内容。
+在回答时请提前组织好语言，不要反复出现重复的内容。
 用户使用什么语言与你沟通，你就使用什么语言回复用户，如果你不会该语言则使用英语来与用户交流。
 `
 
@@ -203,7 +204,7 @@ Below are some "reference materials" that include historical records. Please do 
 {relevant_passage}
 Please use the "reference materials" to answer my questions.
 Note that some parts of the "reference materials" may describe the same event but with different timestamps. When you're unsure which date to use, analyze the context of my question to choose accordingly.
-If you find the answer within the "reference materials," let me know which content IDs you used as references.
+If you find the answer within the "reference materials," let me know which content IDs you used as references. Please also provide me with any associated images, audio, and video from the related content, including URLs if possible.
 Please respond in Markdown format using the same language as my question.
 Below are some system syntax symbols that may appear in the reference content. You can ignore these, treating them as strings without semantic interpretation: 
 {symbol}
@@ -226,31 +227,6 @@ Please answer me using the {lang} language.
 `
 
 const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew, and your model is Brew Engine. You need to respond to users in Markdown format.`
-
-func (s *QueryOptions) Query() (GenerateResponse, error) {
-	if s.prompt == "" {
-		switch s._driver.Lang() {
-		case MODEL_BASE_LANGUAGE_CN:
-			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
-		default:
-			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
-		}
-	}
-
-	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
-	s.prompt = strings.ReplaceAll(s.prompt, "{lang}", utils.WhatLang(s.query[len(s.query)-1].Content))
-
-	if len(s.query) > 0 && s.query[0].Role != types.USER_ROLE_SYSTEM {
-		s.query = append([]*types.MessageContext{
-			{
-				Role:    types.USER_ROLE_SYSTEM,
-				Content: s.prompt,
-			},
-		}, s.query...)
-	}
-
-	return s._driver.Query(s.ctx, s.query)
-}
 
 type EnhanceOptions struct {
 	ctx     context.Context
@@ -296,6 +272,40 @@ func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) 
 	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
 }
 
+func (s *QueryOptions) Query() (GenerateResponse, error) {
+	if s.prompt == "" {
+		switch s._driver.Lang() {
+		case MODEL_BASE_LANGUAGE_CN:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_CN
+		default:
+			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
+		}
+	}
+
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
+	for k, v := range s.vars {
+		s.prompt = strings.ReplaceAll(s.prompt, k, v)
+	}
+
+	if len(s.query) > 0 && s.query[0].Role != types.USER_ROLE_SYSTEM {
+		s.query = append([]*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
+		}, s.query...)
+	} else if len(s.query) == 0 {
+		s.query = []*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
+		}
+	}
+
+	return s._driver.Query(s.ctx, s.query)
+}
+
 func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	if s.prompt == "" {
 		switch s._driver.Lang() {
@@ -305,6 +315,12 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 			s.prompt = GENERATE_PROMPT_TPL_NONE_CONTENT_EN
 		}
 	}
+
+	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
+	for k, v := range s.vars {
+		s.prompt = strings.ReplaceAll(s.prompt, k, v)
+	}
+
 	if len(s.query) > 0 {
 		if s.query[0].Role != types.USER_ROLE_SYSTEM {
 			s.query = append([]*types.MessageContext{
@@ -313,6 +329,13 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 					Content: s.prompt,
 				},
 			}, s.query...)
+		}
+	} else {
+		s.query = []*types.MessageContext{
+			{
+				Role:    types.USER_ROLE_SYSTEM,
+				Content: s.prompt,
+			},
 		}
 	}
 
@@ -461,11 +484,6 @@ const (
 )
 
 func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
-	d := docs.ConvertPassageToPromptText(driver.Lang())
-	if d == "" {
-		return GENERATE_PROMPT_TPL_NONE_CONTENT_EN
-	}
-
 	if tpl == "" {
 		switch driver.Lang() {
 		case MODEL_BASE_LANGUAGE_CN:
@@ -474,8 +492,10 @@ func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
 			tpl = GENERATE_PROMPT_TPL_EN
 		}
 	}
+
 	tpl = ReplaceVarWithLang(tpl, driver.Lang())
 
+	d := docs.ConvertPassageToPromptText(driver.Lang())
 	tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
 	return tpl
 }
@@ -530,15 +550,26 @@ var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
 	for i, v := range docs {
+		if v.Content == "" {
+			continue
+		}
 		if i != 0 {
 			s.WriteString("------\n")
 		}
 		s.WriteString("这件事发生在：")
 		s.WriteString(v.DateTime)
 		s.WriteString("\n")
-		s.WriteString("ID：")
-		s.WriteString(v.ID)
-		s.WriteString("\n内容：")
+		if v.ID != "" {
+			s.WriteString("ID：")
+			s.WriteString(v.ID)
+			s.WriteString("\n")
+		}
+		if v.Resource != "" {
+			s.WriteString("内容类型：")
+			s.WriteString(v.Resource)
+			s.WriteString("\n")
+		}
+		s.WriteString("内容：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")
 	}
@@ -557,6 +588,9 @@ func convertPassageToPromptTextEN(docs []*types.PassageInfo) string {
 		s.WriteString("\n")
 		s.WriteString("ID：")
 		s.WriteString(v.ID)
+		s.WriteString("\n")
+		s.WriteString("Resource Kind：")
+		s.WriteString(v.Resource)
 		s.WriteString("\nContent：")
 		s.WriteString(v.Content)
 		s.WriteString("\n")

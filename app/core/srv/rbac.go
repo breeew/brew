@@ -17,7 +17,7 @@ const (
 	// 定义权限ID
 	PermissionAdmin = "admin"
 	PermissionEdit  = "edit"
-	PermissionView  = "view"
+PermissionView  = "view"
 
 	BusinessUser = "bu"
 	ClientUser   = "cu"

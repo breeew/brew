@@ -12,7 +12,7 @@ func Test_GenAccessToken(t *testing.T) {
 	userID := ""
 	expiresAt := time.Now().AddDate(999, 0, 0).Unix()
 
-	core := newCore()
+	core := NewCore()
 
 	logic := v1.NewAuthLogic(context.Background(), core)
 	token, err := logic.GenAccessToken(core.DefaultAppid(), "internal generate", userID, expiresAt)

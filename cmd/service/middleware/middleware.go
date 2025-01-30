@@ -1,13 +1,16 @@
 package middleware
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v9"
 	"github.com/samber/lo"
 
 	"github.com/breeew/brew-api/app/core"
@@ -15,6 +18,7 @@ import (
 	"github.com/breeew/brew-api/app/response"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
+	"github.com/breeew/brew-api/pkg/security"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
@@ -50,29 +54,35 @@ func AcceptLanguage() gin.HandlerFunc {
 
 const (
 	ACCESS_TOKEN_HEADER_KEY = "X-Access-Token"
+	AUTH_TOKEN_HEADER_KEY   = "X-Authorization"
+	APPID_HEADER            = "X-Appid"
 )
 
 func AuthorizationFromQuery(core *core.Core) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenValue := c.Query("token")
-		token, err := core.Store().AccessTokenStore().GetAccessToken(c, core.DefaultAppid(), tokenValue)
-		if err != nil && err != sql.ErrNoRows {
-			response.APIError(c, errors.New("checkAccessToken.AccessTokenStore.GetAccessToken", i18n.ERROR_INTERNAL, err))
-			return
+		tokenType := c.Query("token-type")
+
+		var (
+			passed bool
+			err    error
+		)
+
+		if tokenType == "authorization" {
+			passed, err = ParseAuthToken(c, tokenValue, core)
+		} else {
+			passed, err = ParseAccessToken(c, tokenValue, core)
 		}
 
-		if token == nil || token.ExpiresAt < time.Now().Unix() {
-			response.APIError(c, errors.New("checkAccessToken.token.check", i18n.ERROR_PERMISSION_DENIED, fmt.Errorf("nil token")).Code(http.StatusForbidden))
-			return
-		}
-
-		claims, err := token.TokenClaims()
 		if err != nil {
-			response.APIError(c, errors.New("checkAccessToken.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err))
+			response.APIError(c, err)
 			return
 		}
 
-		c.Set(v1.TOKEN_CONTEXT_KEY, *claims)
+		if !passed {
+			response.APIError(c, errors.New("middleware.AuthorizationFromQuery", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
+			return
+		}
 	}
 }
 
@@ -85,38 +95,128 @@ func Authorization(core *core.Core) gin.HandlerFunc {
 			return
 		}
 
-		if !matched {
-			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_PERMISSION_DENIED, err).Code(http.StatusForbidden))
+		if matched {
 			return
+		}
+
+		if matched, err = checkAuthToken(ctx, core); err != nil {
+			response.APIError(ctx, errors.Trace(tracePrefix, err))
+			return
+		}
+
+		if !matched {
+			response.APIError(ctx, errors.New(tracePrefix, i18n.ERROR_UNAUTHORIZED, err).Code(http.StatusUnauthorized))
 		}
 	}
 }
 
-func checkAccessToken(ctx *gin.Context, core *core.Core) (bool, error) {
-	tokenValue := ctx.GetHeader(ACCESS_TOKEN_HEADER_KEY)
+func SetAppid(core *core.Core) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// appid := ctx.Request.Header.Get(APPID_HEADER)
+		// check appid exist
+		ctx.Set(v1.APPID_KEY, core.DefaultAppid())
+	}
+}
+
+func checkAccessToken(c *gin.Context, core *core.Core) (bool, error) {
+	tokenValue := c.GetHeader(ACCESS_TOKEN_HEADER_KEY)
 	if tokenValue == "" {
 		// try get
-		// response.APIError(ctx, errors.New("middleware.AccessTokenVerify.GetHeader", i18n.ERROR_UNAUTHORIZED, nil))
-		return false, errors.New("checkAccessToken.GetHeader.ACCESS_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		// errors.New("checkAccessToken.GetHeader.ACCESS_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		return false, nil
 	}
 
-	appid := core.DefaultAppid()
+	return ParseAccessToken(c, tokenValue, core)
+}
 
-	token, err := core.Store().AccessTokenStore().GetAccessToken(ctx, appid, tokenValue)
+func ParseAccessToken(c *gin.Context, tokenValue string, core *core.Core) (bool, error) {
+	if tokenValue == "" {
+		return false, nil
+	}
+
+	appid, exist := v1.InjectAppid(c)
+	if !exist {
+		appid = core.DefaultAppid()
+	}
+
+	token, err := core.Store().AccessTokenStore().GetAccessToken(c, appid, tokenValue)
 	if err != nil && err != sql.ErrNoRows {
-		return false, errors.New("checkAccessToken.AccessTokenStore.GetAccessToken", i18n.ERROR_INTERNAL, err)
+		return false, errors.New("ParseAccessToken.AccessTokenStore.GetAccessToken", i18n.ERROR_INTERNAL, err)
 	}
 
 	if token == nil || token.ExpiresAt < time.Now().Unix() {
-		return false, errors.New("checkAccessToken.token.check", i18n.ERROR_PERMISSION_DENIED, fmt.Errorf("nil token")).Code(http.StatusForbidden)
+		return false, errors.New("ParseAccessToken.token.check", i18n.ERROR_UNAUTHORIZED, fmt.Errorf("nil token")).Code(http.StatusUnauthorized)
 	}
 
-	claims, err := token.TokenClaims()
+	user, err := core.Store().UserStore().GetUser(c, token.Appid, token.UserID)
 	if err != nil {
-		return false, errors.New("checkAccessToken.token.TokenClaims", i18n.ERROR_INVALID_TOKEN, err)
+		return false, errors.New("ParseAccessToken.UserStore.GetUser", i18n.ERROR_INTERNAL, err)
 	}
 
-	ctx.Set(v1.TOKEN_CONTEXT_KEY, *claims)
+	c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(user.Appid, "brew", user.ID, user.PlanID, "", token.ExpiresAt))
+	return true, nil
+}
+
+func checkAuthToken(c *gin.Context, core *core.Core) (bool, error) {
+	tokenValue := c.GetHeader(AUTH_TOKEN_HEADER_KEY)
+	if tokenValue == "" {
+		// try get
+		// errors.New("checkAuthToken.GetHeader.AUTH_TOKEN_HEADER_KEY.nil", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized)
+		return false, nil
+	}
+
+	return ParseAuthToken(c, tokenValue, core)
+}
+
+func PaymentRequired(c *gin.Context) {
+	tokenClaim, exist := c.Get(v1.TOKEN_CONTEXT_KEY)
+	if !exist {
+		response.APIError(c, errors.New("middleware.PaymentRequired.GetToken", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
+		return
+	}
+
+	tc, ok := tokenClaim.(security.TokenClaims)
+	if !ok {
+		response.APIError(c, errors.New("middleware.PaymentRequired.TokenClaims", i18n.ERROR_UNAUTHORIZED, nil).Code(http.StatusUnauthorized))
+		return
+	}
+
+	if tc.PlanID() == "" {
+		response.APIError(c, errors.New("middleware.PaymentRequired.Check.Plan", i18n.ERROR_PAYMENT_REQUIRED, nil).Code(http.StatusPaymentRequired))
+		return
+	}
+}
+
+func ParseAuthToken(c *gin.Context, tokenValue string, core *core.Core) (bool, error) {
+	if tokenValue == "" {
+		return false, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	tokenMetaStr, err := core.Plugins.Cache().Get(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)))
+	if err != nil && err != redis.Nil {
+		return false, errors.New("ParseAuthToken.GetFromCache", i18n.ERROR_INTERNAL, err)
+	}
+
+	if tokenMetaStr == "" {
+		return false, errors.New("ParseAuthToken.tokenMetaStr.check", i18n.ERROR_UNAUTHORIZED, fmt.Errorf("nil token")).Code(http.StatusUnauthorized)
+	}
+
+	var tokenMeta types.UserTokenMeta
+	if err := json.Unmarshal([]byte(tokenMetaStr), &tokenMeta); err != nil {
+		return false, errors.New("ParseAuthToken.GetFromCache.json.Unmarshal", i18n.ERROR_INTERNAL, err).Code(http.StatusUnauthorized)
+	}
+
+	user, err := core.Store().UserStore().GetUser(ctx, tokenMeta.Appid, tokenMeta.UserID)
+	if err != nil {
+		return false, errors.New("ParseAuthToken.UserStore.GetUser", i18n.ERROR_INTERNAL, err)
+	}
+
+	c.Set(v1.TOKEN_CONTEXT_KEY, security.NewTokenClaims(tokenMeta.Appid, "brew", tokenMeta.UserID, user.PlanID, "", tokenMeta.ExpireAt))
+	core.Plugins.Cache().Expire(ctx, fmt.Sprintf("user:token:%s", utils.MD5(tokenValue)), time.Hour*24*7)
+
 	return true, nil
 }
 
@@ -154,7 +254,7 @@ func Cors(c *gin.Context) {
 	if origin != "" {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-		c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Access-Token")
+		c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Access-Token, X-Authorization, X-Appid")
 		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
 		c.Header("Access-Control-Allow-Credentials", "true")
 	}
@@ -164,9 +264,11 @@ func Cors(c *gin.Context) {
 	c.Next()
 }
 
-func UseLimit(core *core.Core, operation string, genKeyFunc func(c *gin.Context) string) gin.HandlerFunc {
+type LimiterFunc func(key string, opts ...core.LimitOption) gin.HandlerFunc
+
+func UseLimit(appCore *core.Core, operation string, genKeyFunc func(c *gin.Context) string, opts ...core.LimitOption) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !core.UseLimiter(genKeyFunc(c), operation, 4).Allow() {
+		if !appCore.UseLimiter(c, genKeyFunc(c), operation, opts...).Allow() {
 			response.APIError(c, errors.New("middleware.limiter", i18n.ERROR_TOO_MANY_REQUESTS, nil).Code(http.StatusTooManyRequests))
 		}
 	}

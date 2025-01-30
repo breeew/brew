@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -29,7 +29,7 @@ func NewChatLogic(ctx context.Context, core *core.Core) *ChatLogic {
 	return &ChatLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 
@@ -120,7 +120,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	if msg.Sequence == 0 {
-		seqid, err = l.core.Plugins.AIChatLogic().GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
+		seqid, err = l.core.Plugins.AIChatLogic("").GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
 		if err != nil {
 			err = errors.Trace("ChatLogic.NewUserMessageSend.GetDialogSeqID", err)
 			return
@@ -130,9 +130,9 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	queryMsg := msg.Message
-	if len([]rune(queryMsg)) < 20 && latestMessage != nil {
-		queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
-	}
+	// if len([]rune(queryMsg)) < 20 && latestMessage != nil {
+	// 	queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
+	// }
 
 	err = l.core.Store().Transaction(ctx, func(ctx context.Context) error {
 		if err = l.core.Store().ChatMessageStore().Create(l.ctx, msg); err != nil {
@@ -156,37 +156,142 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			slog.String("space_id", chatSession.SpaceID), slog.String("session_id", chatSession.ID))
 	}
 
-	go safe.Run(func() {
-		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
-		if err != nil {
-			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
-			return
-		}
+	// check agents call
+	switch types.FilterAgent(msgArgs.Message) {
+	case types.AGENT_TYPE_BULTER:
+		go safe.Run(func() {
+			if err := BulterHandle(l.core, msg); err != nil {
+				slog.Error("Failed to handle butler message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	case types.AGENT_TYPE_JOURNAL:
+		// TODO
+	case types.AGENT_TYPE_NORMAL:
+		// else rag handler
+		go safe.Run(func() {
+			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+			if usage != nil && usage.Usage != nil {
+				process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+			}
+			if err != nil {
+				err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
+				return
+			}
 
-		if usage != nil {
-			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
-		}
+			// Supplement associated document content.
+			SupplementSessionChatDocs(l.core, chatSession, docs)
 
-		RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL)
-	})
-
+			if err := RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL); err != nil {
+				slog.Error("Failed to handle rag message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	default:
+		// else rag handler
+		go safe.Run(func() {
+			if err := RAGHandle(l.core, msg, types.RAGDocs{}, types.GEN_MODE_NORMAL); err != nil {
+				slog.Error("Failed to handle message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
+	}
 	return msg.Sequence, err
 }
 
-// genMode new request or re-request
-func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs *types.RAGDocs, genMode types.RequestAssistantMode) error {
-	logic := core.AIChatLogic()
+// 补充 session pin docs to docs
+func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs types.RAGDocs) {
+	if chatSession == nil || len(docs.Refs) == 0 {
+		return
+	}
 
-	relDocs := lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
-		return item.KnowledgeID
-	})
+	pin, err := core.Store().ChatSessionPinStore().GetBySessionID(context.Background(), chatSession.ID)
+	if err != nil && err != sql.ErrNoRows {
+		slog.Error("Failed to get chat session pin", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
 
-	var marks = make(map[string]string)
-	for _, v := range docs.Docs {
-		for fakeData, realData := range v.SW.Map() {
-			marks[fakeData] = realData
+	if pin == nil || len(pin.Content) == 0 || pin.Version != types.CHAT_SESSION_PIN_VERSION_V1 {
+		return
+	}
+
+	var p types.ContentPinV1
+	if err = json.Unmarshal(pin.Content, &p); err != nil {
+		slog.Error("Failed to unmarshal chat session pin content", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
+
+	if len(p.Knowledges) == 0 {
+		return
+	}
+
+	differenceItems, _ := lo.Difference(p.Knowledges, lo.Map(docs.Refs, func(item types.QueryResult, _ int) string { return item.KnowledgeID }))
+	if len(differenceItems) == 0 {
+		return
+	}
+
+	// Get the knowledge content of the difference item
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	knowledges, err := core.Store().KnowledgeStore().ListKnowledges(ctx, types.GetKnowledgeOptions{
+		SpaceID: chatSession.SpaceID,
+		IDs:     differenceItems,
+	}, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		slog.Error("Failed to get knowledge content", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()), slog.Any("knowledge_ids", differenceItems))
+		return
+	}
+
+	for _, v := range knowledges {
+		if v.Content, err = core.DecryptData(v.Content); err != nil {
+			slog.Error("Failed to decrypt knowledge data", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+			return
 		}
 	}
+
+	if docs.Docs, err = core.AppendKnowledgeContentToDocs(docs.Docs, knowledges); err != nil {
+		slog.Error("Failed to append knowledge content to docs", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
+		return
+	}
+}
+
+func BulterHandle(core *core.Core, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_BULTER)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+		SpaceID:   userMessage.SpaceID,
+		SessionID: userMessage.SessionID,
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		return err
+	}
+
+	notifyAssistantMessageInitialized(core, aiMessage)
+
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage,
+		aiMessage)
+}
+
+// genMode new request or re-request
+func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL)
+
+	var relDocs []string
+	if len(docs.Refs) > 0 {
+		relDocs = lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
+			return item.KnowledgeID
+		})
+	}
+
+	// var marks = make(map[string]string)
+	// for _, v := range docs.Docs {
+	// 	for fakeData, realData := range v.SW.Map() {
+	// 		marks[fakeData] = realData
+	// 	}
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

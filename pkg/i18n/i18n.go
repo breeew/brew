@@ -27,7 +27,9 @@ func NewLocalizer(languages ...string) Localizer {
 
 	for _, lang := range languages {
 		path := lang + ".toml"
-		bundle.LoadMessageFileFS(f, path)
+		if _, err := bundle.LoadMessageFileFS(f, path); err != nil {
+			slog.Error("Failed to load i18n message config", slog.String("error", err.Error()), slog.String("lang", lang), slog.String("file", path))
+		}
 	}
 
 	l := Localizer{

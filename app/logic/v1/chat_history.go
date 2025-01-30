@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/errors"
@@ -21,7 +22,7 @@ func NewHistoryLogic(ctx context.Context, core *core.Core) *HistoryLogic {
 	return &HistoryLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 
@@ -117,6 +118,15 @@ func (l *HistoryLogic) GetHistoryMessage(spaceID, sessionID, afterMsgID string, 
 		if ext != nil {
 			for _, v := range ext.RelDocs {
 				relDocsIDs[v] = struct{}{}
+			}
+		}
+
+		if item.IsEncrypt == types.MESSAGE_IS_ENCRYPT {
+			tmp, err := l.core.DecryptData([]byte(item.Message))
+			if err != nil {
+				slog.Error("Failed to decrypt message content", slog.String("message_id", item.ID), slog.String("error", err.Error()))
+			} else {
+				item.Message = string(tmp)
 			}
 		}
 		return chatMsgAndExtToMessageDetail(item, ext)

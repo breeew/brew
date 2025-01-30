@@ -12,51 +12,70 @@ import (
 )
 
 func serve(core *core.Core) {
-	engine := gin.New()
-
-	core.Plugins.RegisterHTTPEngine(engine)
-
 	httpSrv := &handler.HttpSrv{
 		Core:   core,
-		Engine: engine,
+		Engine: core.HttpEngine(),
 	}
 	setupHttpRouter(httpSrv)
 
-	engine.Run(core.Cfg().Addr)
+	core.HttpEngine().Run(core.Cfg().Addr)
 }
 
-func getUserLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
-	return func(key string) gin.HandlerFunc {
-		return middleware.UseLimit(core, key, func(c *gin.Context) string {
-			token, _ := v1.InjectTokenClaim(c)
-			return key + ":" + token.User
-		})
+func GetIPLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
+			return key + ":" + c.ClientIP()
+		}, opts...)
 	}
 }
 
-func getSpaceLimitBuilder(core *core.Core) func(key string) gin.HandlerFunc {
-	return func(key string) gin.HandlerFunc {
-		return middleware.UseLimit(core, key, func(c *gin.Context) string {
+func GetUserLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
+			token, _ := v1.InjectTokenClaim(c)
+			return key + ":" + token.User
+		}, opts...)
+	}
+}
+
+func GetSpaceLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, key, func(c *gin.Context) string {
 			spaceid, _ := c.Params.Get("spaceid")
 			return key + ":" + spaceid
-		})
+		}, opts...)
 	}
 }
 
 func setupHttpRouter(s *handler.HttpSrv) {
-	userLimit := getUserLimitBuilder(s.Core)
-	spaceLimit := getSpaceLimitBuilder(s.Core)
+	userLimit := GetUserLimitBuilder(s.Core)
+	spaceLimit := GetSpaceLimitBuilder(s.Core)
+
+	s.Engine.LoadHTMLGlob("./tpls/*")
+	s.Engine.GET("/s/k/:token", s.BuildKnowledgeSharePage)
+	s.Engine.GET("/s/s/:token", s.BuildSessionSharePage)
 	// auth
 	s.Engine.Use(middleware.I18n(), response.NewResponse())
 	s.Engine.Use(middleware.Cors)
+	s.Engine.Use(middleware.SetAppid(s.Core))
 	apiV1 := s.Engine.Group("/api/v1")
 	{
+		apiV1.GET("/mode", func(c *gin.Context) {
+			response.APISuccess(c, s.Core.Plugins.Name())
+		})
 		apiV1.GET("/connect", middleware.AuthorizationFromQuery(s.Core), handler.Websocket(s.Core))
-		apiV1.POST("/login/token", middleware.Authorization(s.Core), s.AccessLogin)
+		share := apiV1.Group("/share")
+		{
+			share.GET("/knowledge/:token", s.GetKnowledgeByShareToken)
+			share.GET("/session/:token", s.GetSessionByShareToken)
+			share.POST("/copy/knowledge", middleware.Authorization(s.Core), middleware.PaymentRequired, s.CopyKnowledge)
+		}
+
 		authed := apiV1.Group("")
 		authed.Use(middleware.Authorization(s.Core))
 		user := authed.Group("/user")
 		{
+			user.GET("/info", s.GetUser)
 			user.PUT("/profile", userLimit("profile"), s.UpdateUserProfile)
 		}
 
@@ -72,10 +91,21 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
+			// share
+			space.POST("/:spaceid/knowledge/share", middleware.PaymentRequired, s.CreateKnowledgeShareToken)
+			space.POST("/:spaceid/session/share", middleware.PaymentRequired, s.CreateSessionShareToken)
 
 			object := space.Group("/:spaceid/object")
 			{
 				object.POST("/upload/key", userLimit("upload"), s.GenUploadKey)
+			}
+
+			journal := space.Group("/:spaceid/journal")
+			{
+				journal.GET("/list", s.ListJournal)
+				journal.GET("", s.GetJournal)
+				journal.PUT("", s.UpsertJournal)
+				journal.DELETE("", s.DeleteJournal)
 			}
 		}
 
@@ -87,6 +117,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 				viewScope.GET("", s.GetKnowledge)
 				viewScope.GET("/list", spaceLimit("knowledge_list"), s.ListKnowledge)
 				viewScope.POST("/query", spaceLimit("query"), s.Query)
+				viewScope.GET("/time/list", spaceLimit("knowledge_list"), s.GetDateCreatedKnowledge)
 			}
 
 			editScope := knowledge.Group("")
@@ -98,6 +129,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			}
 		}
 
+		authed.GET("/resource/list", s.ListUserResources)
 		resource := authed.Group("/:spaceid/resource")
 		{
 			resource.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionView))
@@ -113,11 +145,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		chat := authed.Group("/:spaceid/chat")
 		{
 			chat.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionView))
-			chat.POST("", s.CreateChatSession)
+			chat.POST("", middleware.PaymentRequired, s.CreateChatSession)
 			chat.DELETE("/:session", s.DeleteChatSession)
 			chat.GET("/list", s.ListChatSession)
-			chat.POST("/:session/message/id", s.GenMessageID)
-			chat.PUT("/:session/named", spaceLimit("named_session"), s.RenameChatSession)
+			chat.POST("/:session/message/id", middleware.PaymentRequired, s.GenMessageID)
+			chat.PUT("/:session/named", spaceLimit("named_session"), middleware.PaymentRequired, s.RenameChatSession)
 			chat.GET("/:session/message/:messageid/ext", s.GetChatMessageExt)
 
 			history := chat.Group("/:session/history")
@@ -127,7 +159,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 
 			message := chat.Group("/:session/message")
 			{
-				message.Use(spaceLimit("create_message"))
+				message.Use(spaceLimit("create_message"), middleware.PaymentRequired)
 				message.POST("", s.CreateChatMessage)
 			}
 		}

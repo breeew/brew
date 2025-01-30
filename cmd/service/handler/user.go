@@ -8,14 +8,16 @@ import (
 	"github.com/breeew/brew-api/pkg/utils"
 )
 
-type AccessLoginResponse struct {
-	UserName string `json:"user_name"`
-	UserID   string `json:"user_id"`
-	Avatar   string `json:"avatar"`
-	Email    string `json:"email"`
+type GetUserResponse struct {
+	UserName    string `json:"user_name"`
+	UserID      string `json:"user_id"`
+	Avatar      string `json:"avatar"`
+	Email       string `json:"email"`
+	ServiceMode string `json:"service_mode"`
+	PlanID      string `json:"plan_id"`
 }
 
-func (s *HttpSrv) AccessLogin(c *gin.Context) {
+func (s *HttpSrv) GetUser(c *gin.Context) {
 	claims, _ := v1.InjectTokenClaim(c)
 
 	user, err := v1.NewUserLogic(c, s.Core).GetUser(claims.Appid, claims.User)
@@ -23,11 +25,14 @@ func (s *HttpSrv) AccessLogin(c *gin.Context) {
 		response.APIError(c, err)
 		return
 	}
-	response.APISuccess(c, AccessLoginResponse{
-		UserID:   user.ID,
-		Avatar:   user.Avatar,
-		UserName: user.Name,
-		Email:    user.Email,
+
+	response.APISuccess(c, GetUserResponse{
+		UserID:      user.ID,
+		Avatar:      user.Avatar,
+		UserName:    user.Name,
+		Email:       user.Email,
+		PlanID:      user.PlanID,
+		ServiceMode: s.Core.Plugins.Name(),
 	})
 }
 

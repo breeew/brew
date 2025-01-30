@@ -12,6 +12,7 @@ type User struct {
 	Password  string `json:"-" db:"password"`            // 用户密码
 	Salt      string `json:"-" db:"salt"`                // 用户密码盐值
 	Source    string `json:"-" db:"source"`              // 用户注册来源
+	PlanID    string `json:"plan_id" db:"plan_id"`       // 会员方案ID
 	UpdatedAt int64  `json:"updated_at" db:"updated_at"` // 更新时间，Unix时间戳
 	CreatedAt int64  `json:"created_at" db:"created_at"` // 创建时间，Unix时间戳
 }
@@ -32,4 +33,10 @@ func (opt ListUserOptions) Apply(query *sq.SelectBuilder) {
 	if opt.Email != "" {
 		*query = query.Where(sq.Eq{"email": opt.Email})
 	}
+}
+
+type UserTokenMeta struct {
+	UserID   string `json:"user_id"`
+	Appid    string `json:"appid"`
+	ExpireAt int64  `json:"expire_at"`
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.ResourceStore = NewResourceStore(provider)
 	})
 }
@@ -26,7 +26,7 @@ func NewResourceStore(provider SqlProviderAchieve) *ResourceStore {
 	repo := &ResourceStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_RESOURCE) // 表名
-	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "created_at")
+	repo.SetAllColumns("id", "title", "user_id", "space_id", "description", "tag", "cycle", "created_at")
 	return repo
 }
 
@@ -36,12 +36,12 @@ func (s *ResourceStore) Create(ctx context.Context, data types.Resource) error {
 		data.CreatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "title", "user_id", "space_id", "description", "prompt", "cycle", "created_at").
-		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Prompt, data.Cycle, data.CreatedAt)
+		Columns("id", "title", "user_id", "space_id", "description", "tag", "cycle", "created_at").
+		Values(data.ID, data.Title, data.UserID, data.SpaceID, data.Description, data.Tag, data.Cycle, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -57,7 +57,7 @@ func (s *ResourceStore) GetResource(ctx context.Context, spaceID, id string) (*t
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Resource
@@ -68,17 +68,17 @@ func (s *ResourceStore) GetResource(ctx context.Context, spaceID, id string) (*t
 }
 
 // Update 更新资源记录
-func (s *ResourceStore) Update(ctx context.Context, spaceID, id, title, desc, prompt string, cycle int) error {
+func (s *ResourceStore) Update(ctx context.Context, spaceID, id, title, desc, tag string, cycle int) error {
 	query := sq.Update(s.GetTable()).
 		Set("title", title).
 		Set("description", desc).
-		Set("prompt", prompt).
+		Set("tag", tag).
 		Set("cycle", cycle).
 		Where(sq.Eq{"space_id": spaceID, "id": id})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -91,7 +91,7 @@ func (s *ResourceStore) Delete(ctx context.Context, spaceID, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -107,7 +107,26 @@ func (s *ResourceStore) ListResources(ctx context.Context, spaceID string, page,
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []types.Resource
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// ListResources 分页获取资源记录列表
+func (s *ResourceStore) ListUserResources(ctx context.Context, userID string, page, pageSize uint64) ([]types.Resource, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"user_id": userID}).OrderBy("created_at")
+	if page != 0 || pageSize != 0 {
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Resource

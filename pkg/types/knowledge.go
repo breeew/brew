@@ -40,6 +40,7 @@ const (
 	KNOWLEDGE_KIND_IMAGE                 = "image"
 	KNOWLEDGE_KIND_VIDEO                 = "video"
 	KNOWLEDGE_KIND_URL                   = "url"
+	KNOWLEDGE_KIND_CHUNK                 = "chunk"
 	KNOWLEDGE_KIND_UNKNOWN               = "unknown"
 )
 
@@ -130,6 +131,8 @@ type Knowledge struct {
 	RetryTimes  int                  `json:"retry_times" db:"retry_times"`
 }
 
+type RawMessage = KnowledgeContent
+
 // StringArray represents a one-dimensional array of the PostgreSQL character types.
 type KnowledgeContent json.RawMessage
 
@@ -207,6 +210,10 @@ type GetKnowledgeOptions struct {
 	Stage      KnowledgeStage
 	RetryTimes int
 	Keywords   string
+	TimeRange  *struct {
+		St int64
+		Et int64
+	}
 }
 
 func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
@@ -240,6 +247,9 @@ func (opts GetKnowledgeOptions) Apply(query *sq.SelectBuilder) {
 			or = append(or, sq.Eq{"id": opts.Keywords})
 		}
 		*query = query.Where(append(or, sq.Like{"title": fmt.Sprintf("%%%s%%", opts.Keywords)}))
+	}
+	if opts.TimeRange != nil {
+		*query = query.Where(sq.And{sq.GtOrEq{"created_at": opts.TimeRange.St}, sq.LtOrEq{"created_at": opts.TimeRange.Et}})
 	}
 }
 

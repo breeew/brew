@@ -26,7 +26,7 @@ func NewChatSessionLogic(ctx context.Context, core *core.Core) *ChatSessionLogic
 	return &ChatSessionLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 }
 
@@ -36,7 +36,7 @@ func (l *ChatSessionLogic) CheckUserChatSession(spaceID, sessionID string) (*typ
 		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSession", i18n.ERROR_INTERNAL, err)
 	}
 	if session == nil {
-		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSessionnil", i18n.ERROR_NOTFOUND, nil).Code(http.StatusNotFound)
+		return nil, errors.New("ChatSessionLogic.CheckUserChatSession.ChatSessionStore.GetChatSessionnil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNotFound)
 	}
 
 	if session.UserID != l.GetUserInfo().User {
@@ -47,9 +47,29 @@ func (l *ChatSessionLogic) CheckUserChatSession(spaceID, sessionID string) (*typ
 }
 
 func (l *ChatSessionLogic) DeleteChatSession(spaceID, sessionID string) error {
-	if err := l.core.Store().ChatSessionStore().Delete(l.ctx, spaceID, sessionID); err != nil {
-		return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionStore.Delete", i18n.ERROR_INTERNAL, err)
-	}
+	l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		if err := l.core.Store().ChatSessionStore().Delete(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionStore.Delete", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatSessionPinStore().Delete(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSessionPinStore.Delete", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatMessageStore().DeleteSessionMessage(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatMessageStore.DeleteSessionMessage", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatMessageExtStore().DeleteSessionMessageExt(ctx, spaceID, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatMessageExtStore.DeleteSessionMessageExt", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatSummaryStore().DeleteSessionSummary(ctx, sessionID); err != nil {
+			return errors.New("ChatSessionLogic.DeleteChatSession.ChatSummaryStore.DeleteSessionSummary", i18n.ERROR_INTERNAL, err)
+		}
+		return nil
+	})
+
 	return nil
 }
 
@@ -100,9 +120,9 @@ type NamedSessionResult struct {
 
 func (l *ChatSessionLogic) NamedSession(sessionID, firstQuery string) (NamedSessionResult, error) {
 	tool := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{{Role: types.USER_ROLE_USER, Content: firstQuery}})
-	prompt := l.core.Cfg().Prompt.SessionName
+	prompt := l.core.Prompt().SessionName
 	if prompt == "" {
-		prompt = ai.PROMPT_NAMED_SESSION_DEFAULT_EN
+		prompt = ai.PROMPT_NAMED_SESSION_DEFAULT_CN
 	}
 	tool.WithPrompt(prompt)
 	resp, err := tool.Query()

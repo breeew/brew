@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.VectorStore = NewVectorStore(provider)
 	})
 }
@@ -44,7 +44,7 @@ func (s *VectorStore) Create(ctx context.Context, data types.Vector) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	// fmt.Println(queryString, args)
@@ -73,7 +73,7 @@ func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) err
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -84,12 +84,12 @@ func (s *VectorStore) BatchCreate(ctx context.Context, datas []types.Vector) err
 }
 
 // GetBwVector 根据ID获取文本向量记录
-func (s *VectorStore) GetVector(ctx context.Context, spaceID, knowledgeID, id string) (*types.Vector, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID, "id": id})
+func (s *VectorStore) GetVector(ctx context.Context, spaceID, knowledgeID string) (*types.Vector, error) {
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "knowledge_id": knowledgeID})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Vector
@@ -108,7 +108,7 @@ func (s *VectorStore) Update(ctx context.Context, spaceID, knowledgeID, id strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -121,7 +121,19 @@ func (s *VectorStore) Delete(ctx context.Context, spaceID, knowledgeID, id strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *VectorStore) DeleteByResource(ctx context.Context, spaceID, resource string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "resource": resource})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -133,7 +145,7 @@ func (s *VectorStore) BatchDelete(ctx context.Context, spaceID, knowledgeID stri
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -145,7 +157,7 @@ func (s *VectorStore) DeleteAll(ctx context.Context, spaceID string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -158,7 +170,7 @@ func (s *VectorStore) ListVectors(ctx context.Context, opts types.GetVectorsOpti
 	opts.Apply(&query)
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Vector
@@ -181,7 +193,7 @@ func (s *VectorStore) Query(ctx context.Context, opts types.GetVectorsOptions, v
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	args = append(vectorArgs, args...)

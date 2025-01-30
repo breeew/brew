@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.UserStore = NewUserStore(provider)
 	})
 }
@@ -26,19 +26,19 @@ func NewUserStore(provider SqlProviderAchieve) *UserStore {
 	repo := &UserStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_USER) // 设置表名
-	repo.SetAllColumns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "updated_at", "created_at")
+	repo.SetAllColumns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "plan_id", "updated_at", "created_at")
 	return repo
 }
 
 // Create 创建新的用户
 func (s *UserStore) Create(ctx context.Context, data types.User) error {
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "updated_at", "created_at").
-		Values(data.ID, data.Appid, data.Name, data.Avatar, data.Email, data.Password, data.Salt, data.Source, data.UpdatedAt, data.CreatedAt)
+		Columns("id", "appid", "name", "avatar", "email", "password", "salt", "source", "plan_id", "updated_at", "created_at").
+		Values(data.ID, data.Appid, data.Name, data.Avatar, data.Email, data.Password, data.Salt, data.Source, data.PlanID, data.UpdatedAt, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -54,7 +54,7 @@ func (s *UserStore) GetUser(ctx context.Context, appid, id string) (*types.User,
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.User
@@ -70,7 +70,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, appid, email string) (*types
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.User
@@ -90,7 +90,55 @@ func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+// Update 更新用户密码
+func (s *UserStore) UpdateUserPassword(ctx context.Context, appid, id, salt, password string) error {
+	query := sq.Update(s.GetTable()).
+		Set("salt", salt).
+		Set("password", password).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+// Update 更新用户计划
+func (s *UserStore) UpdateUserPlan(ctx context.Context, appid, id, planID string) error {
+	query := sq.Update(s.GetTable()).
+		Set("plan_id", planID).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *UserStore) BatchUpdateUserPlan(ctx context.Context, appid string, ids []string, planID string) error {
+	query := sq.Update(s.GetTable()).
+		Set("plan_id", planID).
+		Set("updated_at", time.Now().Unix()).
+		Where(sq.Eq{"appid": appid, "id": ids})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -103,7 +151,7 @@ func (s *UserStore) Delete(ctx context.Context, appid, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -121,7 +169,7 @@ func (s *UserStore) ListUsers(ctx context.Context, opts types.ListUserOptions, p
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.User
@@ -138,7 +186,7 @@ func (s *UserStore) Total(ctx context.Context, opts types.ListUserOptions) (int6
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return 0, errorSqlBuild(err)
+		return 0, ErrorSqlBuild(err)
 	}
 
 	var res int64

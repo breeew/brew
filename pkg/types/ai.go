@@ -2,9 +2,35 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/sashabaranov/go-openai"
 )
+
+const (
+	AGENT_TYPE_NONE    = ""
+	AGENT_TYPE_NORMAL  = "rag"
+	AGENT_TYPE_JOURNAL = "journal"
+	AGENT_TYPE_BULTER  = "bulter"
+)
+
+var registeredAgents = map[string][]string{
+	AGENT_TYPE_NORMAL:  {"jihe", "极核"},
+	AGENT_TYPE_JOURNAL: {"journal", "助理"},
+	AGENT_TYPE_BULTER:  {"bulter", "管家"},
+	AGENT_TYPE_NONE:    {},
+}
+
+func FilterAgent(userQuery string) string {
+	for agentType, keywords := range registeredAgents {
+		for _, keyword := range keywords {
+			if strings.Contains(userQuery, "@"+keyword) {
+				return agentType
+			}
+		}
+	}
+	return AGENT_TYPE_NONE
+}
 
 const AssistantFailedMessage = "Sorry, I'm wrong"
 

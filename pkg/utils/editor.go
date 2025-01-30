@@ -17,11 +17,13 @@ func init() {
 		&goeditorjs.HeaderHandler{},
 		&goeditorjs.ParagraphHandler{},
 		&goeditorjs.ListHandler{},
-		&ListV2Handler{},
 		&goeditorjs.CodeBoxHandler{},
 		&goeditorjs.CodeHandler{},
 		&goeditorjs.ImageHandler{},
 		&goeditorjs.TableHandler{},
+		&VideoHandler{},
+		&ListV2Handler{},
+		&LineHandler{},
 	)
 }
 
@@ -103,7 +105,7 @@ func renderListv2Markdown(style string, index int, list []listv2Item) (string, e
 	results := []string{}
 	for i, s := range list {
 		if style == "ordered" {
-			listItemPrefix = fmt.Sprintf("%d.", i+1)
+			listItemPrefix = fmt.Sprintf("%d. ", i+1)
 		}
 
 		results = append(results, fmt.Sprintf("%s%s  ", listItemPrefix, s.Content))
@@ -136,4 +138,101 @@ func (h *ListV2Handler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock)
 	}
 
 	return renderListv2Markdown(list.Style, 0, list.Items)
+}
+
+// image represents image data from EditorJS
+type video struct {
+	File           videoFile `json:"file"`
+	Caption        string    `json:"caption"`
+	WithBorder     bool      `json:"withBorder"`
+	WithBackground bool      `json:"withBackground"`
+	Stretched      bool      `json:"stretched"`
+}
+
+type videoFile struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
+type VideoHandler struct{}
+
+func (*VideoHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*video, error) {
+	data := &video{}
+	return data, json.Unmarshal(editorJSBlock.Data, data)
+}
+
+// Type "video"
+func (*VideoHandler) Type() string {
+	return "video"
+}
+
+// GenerateHTML generates html for ListBlocks
+func (h *VideoHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	data, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	html := strings.Builder{}
+	html.WriteString("<video controls preload=\"metadata\">")
+	html.WriteString(fmt.Sprintf("<source src=\"%s\">", data.File.URL))
+	html.WriteString("</video>")
+	if data.Caption != "" {
+		html.WriteString("\n")
+		html.WriteString(data.Caption)
+	}
+
+	return html.String(), nil
+}
+
+// GenerateMarkdown generates markdown for ListBlocks
+func (h *VideoHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	return h.GenerateHTML(editorJSBlock)
+}
+
+// Line
+type line struct {
+	Style         string `json:"style"`
+	LineThickness int    `json:"lineThickness"`
+	LineWidth     int    `json:"lineWidth"`
+}
+
+type LineHandler struct{}
+
+func (*LineHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*line, error) {
+	line := &line{}
+	return line, json.Unmarshal(editorJSBlock.Data, line)
+}
+
+// Type "delimiter"
+func (*LineHandler) Type() string {
+	return "delimiter"
+}
+
+func renderLineHtml(line *line) (string, error) {
+	return fmt.Sprintf("<div class=\"ce-delimiter cdx-block ce-delimiter-line\"><hr class=\"ce-delimiter-thickness-%d\" style=\"width: %d%%;\"></div>", line.LineThickness, line.LineWidth), nil
+}
+
+// GenerateHTML generates html for ListBlocks
+func (h *LineHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	line, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	return renderLineHtml(line)
+}
+
+func renderLineMarkdown(line *line) (string, error) {
+	return "---", nil
+}
+
+// GenerateMarkdown generates markdown for ListBlocks
+func (h *LineHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+	list, err := h.parse(editorJSBlock)
+	if err != nil {
+		return "", err
+	}
+
+	return renderLineMarkdown(list)
 }

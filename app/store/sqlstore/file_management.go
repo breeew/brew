@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.FileManagementStore = NewFileManagementStore(provider)
 	})
 }
@@ -38,7 +38,7 @@ func (s *FileManagementStore) Create(ctx context.Context, data types.FileManagem
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -54,7 +54,7 @@ func (s *FileManagementStore) GetByID(ctx context.Context, spaceID, file string)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.FileManagement
@@ -69,7 +69,7 @@ func (s *FileManagementStore) UpdateStatus(ctx context.Context, spaceID string, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -82,7 +82,7 @@ func (s *FileManagementStore) Delete(ctx context.Context, spaceID, file string) 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)

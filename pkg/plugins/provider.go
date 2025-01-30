@@ -2,13 +2,17 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/object-storage/s3"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func Setup(install func(p core.Plugins), mode string) {
@@ -76,7 +80,7 @@ func (lfs *NoneFileStorage) GenGetObjectPreSignURL(url string) (string, error) {
 	return "", fmt.Errorf("Unsupported")
 }
 
-func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+func (lfs *NoneFileStorage) GenUploadFileMeta(filePath, fileName string, _ int64) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{}, fmt.Errorf("Unsupported")
 }
 
@@ -88,6 +92,10 @@ func (lfs *NoneFileStorage) DeleteFile(fullFilePath string) error {
 	return fmt.Errorf("Unsupported")
 }
 
+func (fs *NoneFileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	return nil, fmt.Errorf("Unsupported")
+}
+
 type LocalFileStorage struct {
 	StaticDomain string
 }
@@ -96,7 +104,7 @@ func (lfs *LocalFileStorage) GetStaticDomain() string {
 	return lfs.StaticDomain
 }
 
-func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
+func (lfs *LocalFileStorage) GenUploadFileMeta(filePath, fileName string, _ int64) (core.UploadFileMeta, error) {
 	return core.UploadFileMeta{
 		FullPath: filepath.Join(filePath, fileName),
 		Domain:   lfs.StaticDomain,
@@ -128,6 +136,35 @@ func (lfs *LocalFileStorage) SaveFile(filePath, fileName string, content []byte)
 	return nil
 }
 
+func (lfs *LocalFileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to create directory: %v", err)
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("Error opening file: %v", err)
+	}
+	defer file.Close() // 确保文件在使用后关闭
+
+	bytes, _ := io.ReadAll(file)
+	// 读取文件的前 512 个字节
+	file.Seek(0, 0)
+	buffer := make([]byte, 512)
+	_, err = file.Read(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading file: %v", err)
+	}
+
+	// 检测文件类型
+	mimeType := http.DetectContentType(buffer)
+	return &s3.GetObjectResult{
+		File:     bytes,
+		FileType: mimeType,
+	}, nil
+}
+
 // DeleteFile deletes a file from the local file system using the full file path.
 func (lfs *LocalFileStorage) DeleteFile(fullFilePath string) error {
 	err := os.Remove(fullFilePath)
@@ -150,8 +187,8 @@ func (fs *S3FileStorage) GetStaticDomain() string {
 	return fs.StaticDomain
 }
 
-func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string) (core.UploadFileMeta, error) {
-	key, err := fs.S3.GenClientUploadKey(filePath, fileName)
+func (fs *S3FileStorage) GenUploadFileMeta(filePath, fileName string, contentLength int64) (core.UploadFileMeta, error) {
+	key, err := fs.S3.GenClientUploadKey(filePath, fileName, contentLength)
 	if err != nil {
 		return core.UploadFileMeta{}, err
 	}
@@ -166,6 +203,10 @@ func (fs *S3FileStorage) SaveFile(filePath, fileName string, content []byte) err
 	return fs.Upload(filePath, fileName, bytes.NewReader(content))
 }
 
+func (fs *S3FileStorage) DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error) {
+	return fs.GetObject(ctx, filePath)
+}
+
 // DeleteFile deletes a file
 func (fs *S3FileStorage) DeleteFile(fullFilePath string) error {
 	return fs.Delete(fullFilePath)
@@ -173,4 +214,9 @@ func (fs *S3FileStorage) DeleteFile(fullFilePath string) error {
 
 func (fs *S3FileStorage) GenGetObjectPreSignURL(url string) (string, error) {
 	return fs.S3.GenGetObjectPreSignURL(strings.TrimPrefix(url, fs.GetStaticDomain()))
+}
+
+type Assistant interface {
+	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
+	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
 }

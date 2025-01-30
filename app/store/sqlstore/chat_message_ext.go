@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.ChatMessageExtStore = NewChatMessageExtStore(provider)
 	})
 }
@@ -47,7 +47,7 @@ func (s *ChatMessageExtStore) Create(ctx context.Context, data types.ChatMessage
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -63,7 +63,7 @@ func (s *ChatMessageExtStore) GetChatMessageExt(ctx context.Context, spaceID, se
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.ChatMessageExt
@@ -85,7 +85,7 @@ func (s *ChatMessageExtStore) Update(ctx context.Context, messageID string, data
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -98,7 +98,19 @@ func (s *ChatMessageExtStore) Delete(ctx context.Context, id string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *ChatMessageExtStore) DeleteSessionMessageExt(ctx context.Context, spaceID, sessionID string) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -110,7 +122,7 @@ func (s *ChatMessageExtStore) DeleteAll(ctx context.Context, spaceID string) err
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -123,7 +135,7 @@ func (s *ChatMessageExtStore) ListChatMessageExts(ctx context.Context, messageID
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.ChatMessageExt

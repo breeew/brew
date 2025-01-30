@@ -38,11 +38,15 @@ type Stores struct {
 	store.ResourceStore
 	store.UserStore
 	store.ChatSessionStore
+	store.ChatSessionPinStore
 	store.ChatMessageStore
 	store.ChatSummaryStore
 	store.ChatMessageExtStore
 	store.FileManagementStore
 	store.AITokenUsageStore
+	store.ShareTokenStore
+	store.JournalStore
+	store.BulterTableStore
 }
 
 func (s *Provider) batchExecStoreFuncs(fname string) {
@@ -53,14 +57,14 @@ func (s *Provider) batchExecStoreFuncs(fname string) {
 	}
 }
 
-type registerKey struct{}
+type RegisterKey struct{}
 
 func MustSetup(m sqlstore.ConnectConfig, s ...sqlstore.ConnectConfig) func() *Provider {
 
 	provider.SqlProvider = sqlstore.MustSetupProvider(m, s...)
 
-	for _, f := range register.ResolveFuncHandlers(registerKey{}) {
-		f()
+	for _, f := range register.ResolveFuncHandlers[*Provider](RegisterKey{}) {
+		f(provider)
 	}
 
 	return func() *Provider {
@@ -153,4 +157,20 @@ func (p *Provider) FileManagementStore() store.FileManagementStore {
 
 func (p *Provider) AITokenUsageStore() store.AITokenUsageStore {
 	return p.stores.AITokenUsageStore
+}
+
+func (p *Provider) ShareTokenStore() store.ShareTokenStore {
+	return p.stores.ShareTokenStore
+}
+
+func (p *Provider) JournalStore() store.JournalStore {
+	return p.stores.JournalStore
+}
+
+func (p *Provider) ChatSessionPinStore() store.ChatSessionPinStore {
+	return p.stores.ChatSessionPinStore
+}
+
+func (p *Provider) BulterTableStore() store.BulterTableStore {
+	return p.stores.BulterTableStore
 }

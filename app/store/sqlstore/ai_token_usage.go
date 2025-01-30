@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.AITokenUsageStore = NewAITokenUsageStore(provider)
 	})
 }
@@ -39,7 +39,7 @@ func (s *AITokenUsageStore) Create(ctx context.Context, data types.AITokenUsage)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -61,7 +61,7 @@ func (s *AITokenUsageStore) Get(ctx context.Context, _type, subType, objectID, u
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.AITokenUsage
@@ -78,7 +78,7 @@ func (s *AITokenUsageStore) Delete(ctx context.Context, spaceID, userID string, 
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -92,10 +92,27 @@ func (s *AITokenUsageStore) List(ctx context.Context, spaceID, userID string, pa
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.AITokenUsage
+	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// ListUserEachModelUsage
+func (s *AITokenUsageStore) ListUserEachModelUsage(ctx context.Context, userID string, st, et time.Time) ([]types.AITokenSummary, error) {
+	query := sq.Select("sum(usage_prompt) as usage_prompt,sum(usage_output) as usage_output,model").From(s.GetTable()).
+		Where(sq.And{sq.Eq{"user_id": userID}, sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}}).GroupBy("model")
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return nil, ErrorSqlBuild(err)
+	}
+
+	var res []types.AITokenSummary
 	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
 		return nil, err
 	}
@@ -108,7 +125,7 @@ func (s *AITokenUsageStore) SumUserUsageByType(ctx context.Context, userID strin
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.UserTokenUsageWithType

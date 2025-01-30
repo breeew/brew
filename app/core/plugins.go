@@ -2,24 +2,50 @@ package core
 
 import (
 	"context"
+	"time"
 
+	"github.com/breeew/brew-api/pkg/object-storage/s3"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/gin-gonic/gin"
 )
 
 type Plugins interface {
+	Name() string
 	Install(*Core) error
 	DefaultAppid() string
 	TryLock(ctx context.Context, key string) (bool, error)
-	UseLimiter(key string, method string, defaultRatelimit int) Limiter
-	FileUploader() FileStorage
-	RegisterHTTPEngine(*gin.Engine)
-	AIChatLogic() AIChatLogic
+	UseLimiter(c *gin.Context, key string, method string, opts ...LimitOption) Limiter
+	FileStorage() FileStorage
+	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
+	AIChatLogic(agentType string) AIChatLogic
+	EncryptData(data []byte) ([]byte, error)
+	DecryptData(data []byte) ([]byte, error)
+	DeleteSpace(ctx context.Context, spaceID string) error
+	AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) ([]*types.PassageInfo, error)
+	Cache() Cache
+}
+
+type LimitConfig struct {
+	Limit int
+}
+
+type LimitOption func(l *LimitConfig)
+
+func WithLimit(limit int) LimitOption {
+	return func(l *LimitConfig) {
+		l.Limit = limit
+	}
+}
+
+type Cache interface {
+	Get(ctx context.Context, key string) (string, error)
+	SetEx(ctx context.Context, key, value string, expiresAt time.Duration) error
+	Expire(ctx context.Context, key string, expiration time.Duration) error
 }
 
 type AIChatLogic interface {
 	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
-	RequestAssistant(ctx context.Context, docs *types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
+	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
 	GetChatSessionSeqID(ctx context.Context, spaceID, sessionID string) (int64, error)
 	GenMessageID() string
 }
@@ -34,10 +60,11 @@ type UploadFileMeta struct {
 // FileStorage interface defines methods for file operations.
 type FileStorage interface {
 	GetStaticDomain() string
-	GenUploadFileMeta(filePath, fileName string) (UploadFileMeta, error)
+	GenUploadFileMeta(filePath, fileName string, contentLength int64) (UploadFileMeta, error)
 	SaveFile(filePath, fileName string, content []byte) error
 	DeleteFile(fullFilePath string) error
 	GenGetObjectPreSignURL(url string) (string, error)
+	DownloadFile(ctx context.Context, filePath string) (*s3.GetObjectResult, error)
 }
 
 type Limiter interface {

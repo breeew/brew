@@ -75,6 +75,12 @@ func (p *KnowledgeProcess) Flush() {
 		if v.RetryTimes > 3 {
 			continue
 		}
+
+		if v.Content, err = p.core.DecryptData(v.Content); err != nil {
+			slog.Error("Failed to decrypt knowledge content", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+			continue
+		}
+
 		switch v.Stage {
 		case types.KNOWLEDGE_STAGE_SUMMARIZE:
 			NewSummaryRequest(v)
@@ -99,17 +105,17 @@ type KnowledgeProcess struct {
 }
 
 func (p *KnowledgeProcess) Start() {
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessSummary()
 		})
 	}
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessEmbedding()
 		})
 	}
-	for range 10 {
+	for range p.concurrency {
 		go safe.Run(func() {
 			p.ProcessUsage()
 		})
@@ -271,6 +277,12 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 		chunks  []string
 	)
 	for _, v := range chunksData {
+		decryptData, err := p.core.DecryptData([]byte(v.Chunk))
+		if err != nil {
+			slog.Error("Failed to decrypt knowledge chunk", slog.String("error", err.Error()))
+			continue
+		}
+		v.Chunk = string(decryptData)
 		chunks = append(chunks, sw.Do(v.Chunk))
 
 		vectors = append(vectors, types.Vector{
@@ -417,20 +429,18 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 
 	if len(summary.Chunks) == 0 {
 		summary.Chunks = append(summary.Chunks, markdownContent)
-		// summary.Summary = req.data.Content
-	} else {
-		// summary.Summary = sw.Undo(summary.Summary)
 	}
 
-	var chunks []types.KnowledgeChunk
+	originalLenght := len([]rune(markdownContent))
+	var chunks []*types.KnowledgeChunk
 	for _, v := range summary.Chunks {
-		chunks = append(chunks, types.KnowledgeChunk{
+		chunks = append(chunks, &types.KnowledgeChunk{
 			ID:             utils.GenRandomID(),
 			SpaceID:        req.data.SpaceID,
 			KnowledgeID:    req.data.ID,
 			UserID:         req.data.UserID,
 			Chunk:          sw.Undo(v),
-			OriginalLength: len([]rune(markdownContent)),
+			OriginalLength: originalLenght,
 			UpdatedAt:      time.Now().Unix(),
 			CreatedAt:      time.Now().Unix(),
 		})
@@ -462,6 +472,16 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 			if err = p.core.Store().KnowledgeChunkStore().BatchDelete(req.ctx, req.data.SpaceID, req.data.ID); err != nil {
 				slog.Error("Failed to pre-delete knowledge chunks", append(logAttrs, slog.String("error", err.Error()))...)
 				return err
+			}
+
+			for _, v := range chunks {
+				encryptData, err := p.core.EncryptData([]byte(v.Chunk))
+				if err != nil {
+					slog.Error("Failed to encrypt knowledge chunk content", slog.String("error", err.Error()), slog.String("id", v.ID))
+					return err
+				}
+
+				v.Chunk = string(encryptData)
 			}
 
 			if err = p.core.Store().KnowledgeChunkStore().BatchCreate(req.ctx, chunks); err != nil {
@@ -542,6 +562,9 @@ type CommonProcessResponse struct {
 }
 
 func NewRecordUsageRequest(model, _type, subType, spaceID, userID string, usage *openai.Usage) chan CommonProcessResponse {
+	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
+		return nil
+	}
 	resp := make(chan CommonProcessResponse, 1)
 	knowledgeProcess.RecordUsageChan <- &RecordUsageRequest{
 		ctx:      context.Background(),

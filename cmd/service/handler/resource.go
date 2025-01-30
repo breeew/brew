@@ -13,7 +13,7 @@ type CreateResourceRequest struct {
 	ID          string `json:"id" binding:"required"`
 	Title       string `json:"title"`
 	Cycle       *int   `json:"cycle"`
-	Prompt      string `json:"prompt"`
+	Tag         string `json:"tag" binding:"required"`
 	Description string `json:"description"`
 }
 
@@ -33,7 +33,7 @@ func (s *HttpSrv) CreateResource(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	err = v1.NewResourceLogic(c, s.Core).CreateResource(spaceID, req.ID, req.Title, req.Description, req.Prompt, cycle)
+	err = v1.NewResourceLogic(c, s.Core).CreateResource(spaceID, req.ID, req.Title, req.Description, req.Tag, cycle)
 	if err != nil {
 		response.APIError(c, err)
 		return
@@ -45,7 +45,7 @@ type UpdateResourceRequest struct {
 	ID          string `json:"id" binding:"required"`
 	Title       string `json:"title"`
 	Cycle       *int   `json:"cycle"`
-	Prompt      string `json:"prompt"`
+	Tag         string `json:"tag"`
 	Description string `json:"description"`
 }
 
@@ -65,7 +65,7 @@ func (s *HttpSrv) UpdateResource(c *gin.Context) {
 	}
 
 	spaceID, _ := v1.InjectSpaceID(c)
-	err = v1.NewResourceLogic(c, s.Core).Update(spaceID, req.ID, req.Title, req.Description, req.Prompt, cycle)
+	err = v1.NewResourceLogic(c, s.Core).Update(spaceID, req.ID, req.Title, req.Description, req.Tag, cycle)
 	if err != nil {
 		response.APIError(c, err)
 		return
@@ -122,4 +122,34 @@ func (s *HttpSrv) GetResource(c *gin.Context) {
 		return
 	}
 	response.APISuccess(c, data)
+}
+
+type ListUserResourcesRequest struct {
+	Page     uint64 `json:"page"`
+	Pagesize uint64 `json:"pagesize"`
+}
+
+type ListUserResourcesResponse struct {
+	List []types.Resource `json:"list"`
+}
+
+func (s *HttpSrv) ListUserResources(c *gin.Context) {
+	var (
+		err error
+		req ListUserResourcesRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	list, err := v1.NewResourceLogic(c, s.Core).ListUserResources(req.Page, req.Pagesize)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, ListUserResourcesResponse{
+		List: list,
+	})
 }

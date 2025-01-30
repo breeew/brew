@@ -43,7 +43,7 @@ func (u *_userInfo) lazyRolerFromKnowledgeID(spaceID, id string) *srv.LazyRoler 
 	})
 }
 
-func setupUserInfo(ctx context.Context, core *core.Core) UserInfo {
+func SetupUserInfo(ctx context.Context, core *core.Core) UserInfo {
 	userInfo, ok := InjectTokenClaim(ctx)
 	if !ok {
 		slog.Error("Not found user in context", slog.String("component", "logic.v1.setupUserInfo"))

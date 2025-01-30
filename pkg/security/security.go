@@ -28,28 +28,34 @@ func GenSign(appid, secret string, signTime int64) string {
 type TokenClaims struct {
 	Appid      string            `json:"aid"` // 后续可能有用吧
 	AppName    string            `json:"an"`
-	User       string            `json:"u"` // 对应平台的用户唯一标识
-	Fields     map[string]string `json:"f"`
+	User       string            `json:"u"`   // 对应平台的用户唯一标识
+	Fields     map[string]string `json:"f"`   // unsafe
 	ExpireTime int64             `json:"exp"` // 过期时间 时间戳
 	NotBefore  int64             `json:"nbf"` // 生效时间 时间戳
 }
 
-func NewTokenClaims(appid, appName, userID, roleType string, expireTime int64) TokenClaims {
+func NewTokenClaims(appid, appName, userID, planID, roleType string, expireTime int64) TokenClaims {
 	return TokenClaims{
 		Appid:   appid,
 		AppName: appName,
 		User:    userID,
 		Fields: map[string]string{
 			ROLE_TYPE_KEY: roleType,
+			PLAN_KEY:      planID,
 		},
 		ExpireTime: expireTime,
 		NotBefore:  time.Now().Unix() - 1,
 	}
 }
 
+func (t TokenClaims) PlanID() string {
+	return t.Fields[PLAN_KEY]
+}
+
 const (
 	ROLE_KEY      = "role"
 	ROLE_TYPE_KEY = "role_type"
+	PLAN_KEY      = "plan"
 )
 
 func (t TokenClaims) GetRole() string {

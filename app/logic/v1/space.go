@@ -24,7 +24,7 @@ func NewSpaceLogic(ctx context.Context, core *core.Core) *SpaceLogic {
 	l := &SpaceLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l
@@ -221,6 +221,10 @@ func (l *SpaceLogic) DeleteUserSpace(spaceID string) error {
 			return errors.New("SpaceLogic.DeleteUserSpace.KnowledgeStore.DeleteAll", i18n.ERROR_INTERNAL, err)
 		}
 
+		if err := l.core.Store().KnowledgeChunkStore().DeleteAll(ctx, spaceID); err != nil {
+			return errors.New("SpaceLogic.DeleteUserSpace.KnowledgeChunkStore.DeleteAll", i18n.ERROR_INTERNAL, err)
+		}
+
 		if err := l.core.Store().VectorStore().DeleteAll(ctx, spaceID); err != nil {
 			return errors.New("SpaceLogic.DeleteUserSpace.VectorStore.DeleteAll", i18n.ERROR_INTERNAL, err)
 		}
@@ -229,12 +233,20 @@ func (l *SpaceLogic) DeleteUserSpace(spaceID string) error {
 			return errors.New("SpaceLogic.DeleteUserSpace.ChatSessionStore.DeleteAll", i18n.ERROR_INTERNAL, err)
 		}
 
+		if err := l.core.Store().ChatSessionPinStore().DeleteAll(ctx, spaceID); err != nil {
+			return errors.New("SpaceLogic.DeleteUserSpace.ChatSessionPinStore.DeleteAll", i18n.ERROR_INTERNAL, err)
+		}
+
 		if err := l.core.Store().ChatMessageStore().DeleteAll(ctx, spaceID); err != nil {
 			return errors.New("SpaceLogic.DeleteUserSpace.ChatMessageStore.DeleteAll", i18n.ERROR_INTERNAL, err)
 		}
 
 		if err := l.core.Store().ChatMessageExtStore().DeleteAll(ctx, spaceID); err != nil {
 			return errors.New("SpaceLogic.DeleteUserSpace.ChatMessageExtStore.DeleteAll", i18n.ERROR_INTERNAL, err)
+		}
+
+		if err := l.core.Store().ChatSummaryStore().DeleteAll(ctx, spaceID); err != nil {
+			return errors.New("SpaceLogic.DeleteUserSpace.ChatSummaryStore.DeleteAll", i18n.ERROR_INTERNAL, err)
 		}
 		return nil
 	})

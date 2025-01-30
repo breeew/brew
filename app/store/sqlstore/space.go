@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	register.RegisterFunc(registerKey{}, func() {
+	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
 		provider.stores.SpaceStore = NewSpaceStore(provider)
 	})
 }
@@ -41,7 +41,7 @@ func (s *SpaceStore) Create(ctx context.Context, data types.Space) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -56,7 +56,7 @@ func (s *SpaceStore) GetSpace(ctx context.Context, spaceID string) (*types.Space
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res types.Space
@@ -80,7 +80,7 @@ func (s *SpaceStore) Update(ctx context.Context, spaceID, title, desc string) er
 	}
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -92,7 +92,7 @@ func (s *SpaceStore) Delete(ctx context.Context, spaceID string) error {
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return errorSqlBuild(err)
+		return ErrorSqlBuild(err)
 	}
 
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
@@ -108,7 +108,7 @@ func (s *SpaceStore) List(ctx context.Context, spaceIDs []string, page, pageSize
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
-		return nil, errorSqlBuild(err)
+		return nil, ErrorSqlBuild(err)
 	}
 
 	var res []types.Space

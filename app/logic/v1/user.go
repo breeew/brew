@@ -29,19 +29,25 @@ func NewUserLogic(ctx context.Context, core *core.Core) *UserLogic {
 	return l
 }
 
-func (l *UserLogic) Register(appid, name, email, password string) (string, error) {
+func (l *UserLogic) Register(appid, name, email, password, workspaceName string) (string, error) {
 	salt := utils.RandomStr(10)
-	userID := utils.GenRandomID()
+	userID := utils.GenUniqIDStr()
 
-	l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
-		err := l.core.Store().UserStore().Create(ctx, types.User{
+	err := l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
+		defaultPlan, err := l.core.Plugins.CreateUserDefaultPlan(ctx, appid, userID)
+		if err != nil {
+			return errors.New("UserLogic.Register.Plugins.CreateUserDefaultPlan", i18n.ERROR_INTERNAL, err)
+		}
+
+		err = l.core.Store().UserStore().Create(ctx, types.User{
 			ID:        userID,
 			Appid:     appid,
 			Name:      name,
 			Email:     email,
-			Avatar:    "",
+			Avatar:    l.core.Cfg().Site.DefaultAvatar,
 			Salt:      salt,
 			Source:    "platform",
+			PlanID:    defaultPlan,
 			Password:  utils.GenUserPassword(salt, password),
 			UpdatedAt: time.Now().Unix(),
 			CreatedAt: time.Now().Unix(),
@@ -53,7 +59,7 @@ func (l *UserLogic) Register(appid, name, email, password string) (string, error
 		spaceID := utils.GenRandomID()
 		err = l.core.Store().SpaceStore().Create(ctx, types.Space{
 			SpaceID:     spaceID,
-			Title:       "Main",
+			Title:       workspaceName,
 			Description: "default space",
 			CreatedAt:   time.Now().Unix(),
 		})
@@ -73,6 +79,10 @@ func (l *UserLogic) Register(appid, name, email, password string) (string, error
 		return nil
 	})
 
+	if err != nil {
+		return "", err
+	}
+
 	return userID, nil
 }
 
@@ -83,7 +93,7 @@ func (l *UserLogic) Login(appid, email, password string) (string, error) {
 	}
 
 	if user == nil || user.Password != utils.GenUserPassword(user.Salt, password) {
-		return "", errors.New("UserLogic.Login.UserStore.GetByEmail", i18n.ERROR_INVALID_ACCOUNT, err).Code(http.StatusBadRequest)
+		return "", errors.New("UserLogic.Login.Password.check", i18n.ERROR_INVALID_ACCOUNT, err).Code(http.StatusBadRequest)
 	}
 
 	accessToken := utils.MD5(user.ID + utils.GenRandomID())
@@ -124,7 +134,7 @@ func NewAuthedUserLogic(ctx context.Context, core *core.Core) *AuthedUserLogic {
 	l := &AuthedUserLogic{
 		ctx:      ctx,
 		core:     core,
-		UserInfo: setupUserInfo(ctx, core),
+		UserInfo: SetupUserInfo(ctx, core),
 	}
 
 	return l
