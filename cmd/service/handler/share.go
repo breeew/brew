@@ -191,7 +191,7 @@ func (s *HttpSrv) CopyKnowledge(c *gin.Context) {
 		return
 	}
 
-	if err = v1.NewShareLogic(c, s.Core).CopyKnowledgeByShareToken(req.Token, req.UserSpace, req.UserSpace); err != nil {
+	if err = v1.NewShareLogic(c, s.Core).CopyKnowledgeByShareToken(req.Token, req.UserSpace, req.UserResource); err != nil {
 		response.APIError(c, err)
 		return
 	}
