@@ -193,6 +193,7 @@ type AITokenUsageStore interface {
 	List(ctx context.Context, spaceID, userID string, page, pageSize uint64) ([]types.AITokenUsage, error)
 	ListUserEachModelUsage(ctx context.Context, userID string, st, et time.Time) ([]types.AITokenSummary, error)
 	SumUserUsageByType(ctx context.Context, userID string, st, et time.Time) ([]types.UserTokenUsageWithType, error)
+	SumUserUsage(ctx context.Context, userID string, st, et time.Time) (types.UserTokenUsage, error)
 	Delete(ctx context.Context, spaceID, userID string, st, et time.Time) error
 }
 

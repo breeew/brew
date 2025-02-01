@@ -393,7 +393,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 			hasMatched = true
 		}
 		if hasMatched && v.Cos >= 0.5 {
-			continue
+			break
 		}
 		knowledgeIDs = append(knowledgeIDs, v.KnowledgeID)
 		result.Refs = append(result.Refs, v)
@@ -403,7 +403,7 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 		IDs:     knowledgeIDs,
 		SpaceID: spaceID,
 		UserID:  user.User,
-	}, 1, 100)
+	}, 1, 50)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
 	}
@@ -443,6 +443,14 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 	}
 	queryOptions.WithDocs(docs)
 
+	var prompt string
+	if len(docs) == 0 {
+		prompt = l.core.Prompt().Base
+	} else {
+		prompt = l.core.Prompt().Query
+	}
+
+	queryOptions.WithPrompt(ai.BuildRAGPrompt(prompt, ai.NewDocs(docs), l.core.Srv().AI()))
 	resp, err := queryOptions.Query()
 	if err != nil {
 		return nil, errors.New("KnowledgeLogic.Query.queryOptions.Query", i18n.ERROR_INTERNAL, err)

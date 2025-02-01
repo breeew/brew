@@ -187,11 +187,6 @@ func KnowledgeToKnowledgeResponse(item *types.Knowledge) *types.KnowledgeRespons
 		if err != nil {
 			slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", item.ID), slog.String("error", err.Error()))
 		}
-
-		// editor will be used blocks data, content only show as brief
-		if len([]rune(result.Content)) > 300 {
-			result.Content = string([]rune(result.Content)[:300])
-		}
 	}
 	return result
 }

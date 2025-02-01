@@ -47,9 +47,18 @@ func GetSpaceLimitBuilder(appCore *core.Core) middleware.LimiterFunc {
 	}
 }
 
+func GetAILimitBuilder(appCore *core.Core) middleware.LimiterFunc {
+	return func(key string, opts ...core.LimitOption) gin.HandlerFunc {
+		return middleware.UseLimit(appCore, "ai", func(c *gin.Context) string {
+			return key
+		}, opts...)
+	}
+}
+
 func setupHttpRouter(s *handler.HttpSrv) {
 	userLimit := GetUserLimitBuilder(s.Core)
 	spaceLimit := GetSpaceLimitBuilder(s.Core)
+	aiLimit := GetAILimitBuilder(s.Core)
 
 	s.Engine.LoadHTMLGlob("./tpls/*")
 	s.Engine.GET("/s/k/:token", s.BuildKnowledgeSharePage)
@@ -123,8 +132,8 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			editScope := knowledge.Group("")
 			{
 				editScope.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionEdit), spaceLimit("knowledge_modify"))
-				editScope.POST("", s.CreateKnowledge)
-				editScope.PUT("", s.UpdateKnowledge)
+				editScope.POST("", aiLimit("create_knowledge"), s.CreateKnowledge)
+				editScope.PUT("", aiLimit("create_knowledge"), s.UpdateKnowledge)
 				editScope.DELETE("", s.DeleteKnowledge)
 			}
 		}
@@ -160,7 +169,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			message := chat.Group("/:session/message")
 			{
 				message.Use(spaceLimit("create_message"), middleware.PaymentRequired)
-				message.POST("", s.CreateChatMessage)
+				message.POST("", aiLimit("chat_message"), s.CreateChatMessage)
 			}
 		}
 
