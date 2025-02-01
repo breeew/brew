@@ -134,3 +134,19 @@ func (s *AITokenUsageStore) SumUserUsageByType(ctx context.Context, userID strin
 	}
 	return res, nil
 }
+
+func (s *AITokenUsageStore) SumUserUsage(ctx context.Context, userID string, st, et time.Time) (types.UserTokenUsage, error) {
+	query := sq.Select("SUM(usage_prompt) as usage_prompt", "SUM(usage_output) as usage_output", "user_id").From(s.GetTable()).
+		Where(sq.Eq{"user_id": userID}).Where(sq.And{sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return types.UserTokenUsage{}, ErrorSqlBuild(err)
+	}
+
+	var res types.UserTokenUsage
+	if err = s.GetReplica(ctx).Get(&res, queryString, args...); err != nil {
+		return types.UserTokenUsage{}, err
+	}
+	return res, nil
+}

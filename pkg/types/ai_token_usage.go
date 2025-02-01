@@ -26,10 +26,16 @@ type UserTokenUsageWithType struct {
 	UsageOutput int    `json:"usage_output" db:"usage_output"` // 使用的输出令牌数
 }
 
+type UserTokenUsage struct {
+	UserID      string `json:"user_id" db:"user_id"`           // 用户 ID
+	UsagePrompt int    `json:"usage_prompt" db:"usage_prompt"` // 使用的提示词令牌数
+	UsageOutput int    `json:"usage_output" db:"usage_output"` // 使用的输出令牌数
+}
+
 const (
 	USAGE_TYPE_KNOWLEDGE = "knowledge"
 	USAGE_TYPE_CHAT      = "chat"
-	USAGE_TYPE_SYSTEM = "system"
+	USAGE_TYPE_SYSTEM    = "system"
 
 	USAGE_SUB_TYPE_EMBEDDING     = "embedding"
 	USAGE_SUB_TYPE_SUMMARY       = "summary"

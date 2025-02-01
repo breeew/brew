@@ -27,6 +27,7 @@ type Plugins interface {
 
 type LimitConfig struct {
 	Limit int
+	Every time.Duration
 }
 
 type LimitOption func(l *LimitConfig)
@@ -34,6 +35,12 @@ type LimitOption func(l *LimitConfig)
 func WithLimit(limit int) LimitOption {
 	return func(l *LimitConfig) {
 		l.Limit = limit
+	}
+}
+
+func WithRange(r time.Duration) LimitOption {
+	return func(l *LimitConfig) {
+		l.Every = r
 	}
 }
 
