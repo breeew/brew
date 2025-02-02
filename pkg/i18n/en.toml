@@ -1,3 +1,7 @@
+['error.moreThanMax']
+one = "More than the max limit"
+other = "More than the max limit"
+
 ['error.already_saved']
 one = "Already saved"
 other = "Already saved"

@@ -1,3 +1,7 @@
+['error.moreThanMax']
+one = "超出最大上限"
+other = "超出最大上限"
+
 ['error.already_saved']
 one = "已保存过该内容"
 other = "已保存过该内容"

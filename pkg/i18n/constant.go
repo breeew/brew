@@ -19,6 +19,7 @@ const (
 	ERROR_TITLE_EXIST                = "error.title.exist"
 	ERROR_FORBIDDEN                  = "error.forbidden"
 	ERROR_TOO_MANY_REQUESTS          = "error.tooManyRequests"
+	ERROR_MORE_TAHN_MAX          = "error.moreThanMax"
 	ERROR_UNSUPPORTED_FEATURE        = "error.unsupported.feature"
 	ERROR_VERIFY_CODE_ALREADY_SENDED = "error.verifycodesended"
 	ERROR_RESET_EMAIL_ALREADY_SENDED = "error.reset_email_sended"

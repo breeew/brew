@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
@@ -81,6 +82,10 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size
 			StaticDomain: l.core.Plugins.FileStorage().GetStaticDomain(),
 			FullPath:     fullPath,
 		}, nil
+	}
+
+	if size > 1024*1024*10 {
+		return UploadKey{}, errors.New("UploadLogic.FileManagementStore.GreateThanMaxSzie", i18n.ERROR_MORE_TAHN_MAX, nil).Code(http.StatusForbidden)
 	}
 
 	var meta core.UploadFileMeta

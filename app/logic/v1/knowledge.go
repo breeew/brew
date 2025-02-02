@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -525,9 +526,12 @@ func parseEditorJsonToFilesPath(core *core.Core, content types.KnowledgeContent)
 		return nil, nil
 	}
 
-	domain := core.FileStorage().GetStaticDomain()
 	paths := lo.Map(files, func(item string, _ int) string {
-		return strings.TrimPrefix(item, domain)
+		parsed, err := url.Parse(item)
+		if err != nil {
+			return item
+		}
+		return parsed.RequestURI()
 	})
 
 	return paths, nil
