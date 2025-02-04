@@ -114,7 +114,10 @@ iframe {
 }
 </style>
 <body>
-    <iframe class="ibox" src="{{.contentURL}}"></iframe>
+    <!-- <iframe class="ibox" src="{{.contentURL}}"></iframe> -->
+    <script>
+      window.location.href = "{{.contentURL}}"
+    </script>
 </body>
 
 </html>
