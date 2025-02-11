@@ -228,7 +228,7 @@ type ChatSessionPinStore interface {
 	List(ctx context.Context, page, pageSize uint64) ([]types.ChatSessionPin, error)
 }
 
-type BulterTableStore interface {
+type ButlerTableStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.ButlerTable) error
 	GetTableData(ctx context.Context, id string) (*types.ButlerTable, error)

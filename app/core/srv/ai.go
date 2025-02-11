@@ -10,6 +10,7 @@ import (
 	"github.com/breeew/brew-api/pkg/ai/azure_openai"
 	"github.com/breeew/brew-api/pkg/ai/deepseek"
 	"github.com/breeew/brew-api/pkg/ai/jina"
+	"github.com/breeew/brew-api/pkg/ai/ollama"
 	"github.com/breeew/brew-api/pkg/ai/openai"
 	"github.com/breeew/brew-api/pkg/ai/qwen"
 	"github.com/breeew/brew-api/pkg/types"
@@ -40,12 +41,17 @@ type VisionAI interface {
 	NewVisionQuery(ctx context.Context, msgs []*types.MessageContext) *ai.QueryOptions
 }
 
+type RerankAI interface {
+	Rerank(ctx context.Context, query string, docs []*ai.RerankDoc) ([]ai.RankDocItem, *ai.Usage, error)
+}
+
 type AIDriver interface {
 	EmbeddingAI
 	EnhanceAI
 	ChatAI
 	ReaderAI
 	VisionAI
+	RerankAI
 }
 
 type AIConfig struct {
@@ -55,6 +61,7 @@ type AIConfig struct {
 	DeepSeek DeepSeek    `toml:"deepseek"`
 	Jina     Jina        `toml:"jina"`
 	Azure    AzureOpenai `toml:"azure_openai"`
+	Ollama   Ollama      `toml:"ollama"`
 	Agent    AgentDriver `toml:"agent"`
 	// Usage list
 	// embedding.query
@@ -73,13 +80,15 @@ type AgentDriver struct {
 }
 
 type Jina struct {
-	Token          string `toml:"token"`
-	ReaderEndpoint string `toml:"reader_endpoint"`
+	Token          string            `toml:"token"`
+	ReaderEndpoint string            `toml:"reader_endpoint"`
+	ApiEndpoint    string            `toml:"api_endpoint"`
+	Models         map[string]string `toml:"models"`
 }
 
 func (cfg *Jina) Install(root *AI) {
 	var oai any
-	oai = jina.New(cfg.Token)
+	oai = jina.New(cfg.Token, cfg.Models)
 
 	installAI(root, jina.NAME, oai)
 }
@@ -151,6 +160,23 @@ func (cfg *DeepSeek) Install(root *AI) {
 	installAI(root, strings.ToLower(deepseek.NAME), oai)
 }
 
+type Ollama struct {
+	Token          string `toml:"token"`
+	Endpoint       string `toml:"endpoint"`
+	EmbeddingModel string `toml:"embedding_model"`
+	ChatModel      string `toml:"chat_model"`
+}
+
+func (cfg *Ollama) Install(root *AI) {
+	var oai any
+	oai = ollama.New(cfg.Token, cfg.Endpoint, ai.ModelName{
+		ChatModel:      cfg.ChatModel,
+		EmbeddingModel: cfg.EmbeddingModel,
+	})
+
+	installAI(root, strings.ToLower(ollama.NAME), oai)
+}
+
 type Openai struct {
 	Token          string `toml:"token"`
 	Endpoint       string `toml:"endpoint"`
@@ -208,18 +234,21 @@ type AI struct {
 	enhanceDrivers map[string]EnhanceAI
 	visionDrivers  map[string]VisionAI
 	readerDrivers  map[string]ReaderAI
+	rerankDrivers  map[string]RerankAI
 
 	chatUsage    map[string]ChatAI
 	enhanceUsage map[string]EnhanceAI
 	embedUsage   map[string]EmbeddingAI
 	readerUsage  map[string]ReaderAI
 	visionUsage  map[string]VisionAI
+	rerankUsage  map[string]RerankAI
 
 	chatDefault    ChatAI
 	enhanceDefault EnhanceAI
 	embedDefault   EmbeddingAI
 	readerDefault  ReaderAI
 	visionDefault  VisionAI
+	rerankDefault  RerankAI
 }
 
 func (s *AI) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {
@@ -234,6 +263,13 @@ func (s *AI) NewVisionQuery(ctx context.Context, query []*types.MessageContext) 
 		return d.NewVisionQuery(ctx, query)
 	}
 	return s.chatDefault.NewQuery(ctx, query)
+}
+
+func (s *AI) Rerank(ctx context.Context, query string, docs []*ai.RerankDoc) ([]ai.RankDocItem, *ai.Usage, error) {
+	if d := s.rerankUsage["rerank"]; d != nil {
+		return d.Rerank(ctx, query, docs)
+	}
+	return s.rerankDefault.Rerank(ctx, query, docs)
 }
 
 func (s *AI) Lang() string {
@@ -319,6 +355,10 @@ func installAI(a *AI, name string, driver any) {
 	if d, ok := driver.(VisionAI); ok {
 		a.visionDrivers[name] = d
 	}
+
+	if d, ok := driver.(RerankAI); ok {
+		a.rerankDrivers[name] = d
+	}
 }
 
 func SetupAI(cfg AIConfig) (*AI, error) {
@@ -333,6 +373,8 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 		readerUsage:    make(map[string]ReaderAI),
 		visionDrivers:  make(map[string]VisionAI),
 		visionUsage:    make(map[string]VisionAI),
+		rerankDrivers:  make(map[string]RerankAI),
+		rerankUsage:    make(map[string]RerankAI),
 	}
 
 	cfg.Openai.Install(a)
@@ -340,6 +382,7 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 	cfg.QWen.Install(a)
 	cfg.Jina.Install(a)
 	cfg.DeepSeek.Install(a)
+	cfg.Ollama.Install(a)
 	// TODO: Gemini install
 
 	for k, v := range cfg.Usage {
@@ -353,6 +396,8 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 			a.enhanceUsage[k] = a.enhanceDrivers[v]
 		case "vision":
 			a.visionUsage[k] = a.visionDrivers[v]
+		case "rerank":
+			a.rerankUsage[k] = a.rerankDrivers[v]
 		default:
 			a.chatUsage[k] = a.chatDrivers[v]
 		}
@@ -380,6 +425,11 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 
 	for _, v := range a.visionDrivers {
 		a.visionDefault = v
+		break
+	}
+
+	for _, v := range a.rerankDrivers {
+		a.rerankDefault = v
 		break
 	}
 

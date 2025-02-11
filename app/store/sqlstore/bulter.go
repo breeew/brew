@@ -12,7 +12,7 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.stores.BulterTableStore = NewButlerTableStore(provider)
+		provider.stores.ButlerTableStore = NewButlerTableStore(provider)
 	})
 }
 

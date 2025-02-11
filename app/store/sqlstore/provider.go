@@ -46,7 +46,7 @@ type Stores struct {
 	store.AITokenUsageStore
 	store.ShareTokenStore
 	store.JournalStore
-	store.BulterTableStore
+	store.ButlerTableStore
 }
 
 func (s *Provider) batchExecStoreFuncs(fname string) {
@@ -171,6 +171,6 @@ func (p *Provider) ChatSessionPinStore() store.ChatSessionPinStore {
 	return p.stores.ChatSessionPinStore
 }
 
-func (p *Provider) BulterTableStore() store.BulterTableStore {
-	return p.stores.BulterTableStore
+func (p *Provider) BulterTableStore() store.ButlerTableStore {
+	return p.stores.ButlerTableStore
 }

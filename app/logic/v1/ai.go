@@ -16,7 +16,7 @@ import (
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/app/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/ai"
-	"github.com/breeew/brew-api/pkg/ai/agents/bulter"
+	"github.com/breeew/brew-api/pkg/ai/agents/butler"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/safe"
@@ -158,7 +158,7 @@ func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessag
 
 // requestAI
 func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, marks map[string]string, receiveFunc ReceiveFunc, done DoneFunc) error {
-	slog.Debug("request to ai", slog.Any("context", sessionContext.MessageContext), slog.String("prompt", sessionContext.Prompt))
+	// slog.Debug("request to ai", slog.Any("context", sessionContext.MessageContext), slog.String("prompt", sessionContext.Prompt))
 
 	requestCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -293,31 +293,31 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 	return nil
 }
 
-func NewBulterAssistant(core *core.Core, agentType string) *BulterAssistant {
+func NewBulterAssistant(core *core.Core, agentType string) *ButlerAssistant {
 	cfg := openai.DefaultConfig(core.Cfg().AI.Agent.Token)
 	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
 
 	cli := openai.NewClientWithConfig(cfg)
-	return &BulterAssistant{
+	return &ButlerAssistant{
 		core:      core,
 		agentType: agentType,
-		client:    bulter.NewBulterAgent(cli, core.Cfg().AI.Agent.Model, core.Store().BulterTableStore()),
+		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model, core.Store().BulterTableStore()),
 	}
 }
 
-type BulterAssistant struct {
+type ButlerAssistant struct {
 	core      *core.Core
 	agentType string
-	client    *bulter.BulterAgent
+	client    *butler.ButlerAgent
 }
 
-func (s *BulterAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+func (s *ButlerAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
 	// 生成ai响应消息载体的同时，写入关联的内容列表(ext)
 	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
 }
 
 // GenSessionContext 生成session上下文
-func (s *BulterAssistant) GenSessionContext(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage) (*SessionContext, error) {
+func (s *ButlerAssistant) GenSessionContext(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage) (*SessionContext, error) {
 	// latency := s.core.Metrics().GenContextTimer("GenChatSessionContext")
 	// defer latency.ObserveDuration()
 	return GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx, s.core, prompt, reqMsgWithDocs, normalGenMessageCondition, types.GEN_CONTEXT)
@@ -326,14 +326,14 @@ func (s *BulterAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *BulterAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
 	nextReq, usage, err := s.client.Query(reqMsgWithDocs.UserID, reqMsgWithDocs.Message)
 	if err != nil {
 		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
 	}
 
 	if usage != nil {
-		process.NewRecordUsageRequest(s.client.Model, "Bulter", "Bulter", reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, usage)
+		process.NewRecordUsageRequest(s.client.Model, "Agents", "Butler", reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, usage)
 	}
 	// type SessionContext struct {
 	// 	MessageID      string
@@ -351,7 +351,7 @@ func (s *BulterAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 				Content: item.Content,
 			}
 		}),
-		Prompt: "",
+		Prompt: butler.BuildButlerPrompt("", s.core.Srv().AI()),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)

@@ -26,7 +26,7 @@ func init() {
 func new() *qwen.Driver {
 	fmt.Println(os.Getenv("BREW_API_AI_ALI_TOKEN"), os.Getenv("BREW_API_AI_ALI_ENDPOINT"))
 	return qwen.New(os.Getenv("BREW_API_AI_ALI_TOKEN"), os.Getenv("BREW_API_AI_ALI_ENDPOINT"), ai.ModelName{
-		ChatModel:      "qwen-vl-plus",
+		ChatModel:      "qwen-plus",
 		EmbeddingModel: "text-embedding-v3",
 	})
 }
@@ -147,6 +147,7 @@ func Test_EnhanceQuery(t *testing.T) {
 
 	d := new()
 	opts := ai.NewEnhance(context.Background(), d)
+	opts.WithPrompt(ai.PROMPT_ENHANCE_QUERY_CN)
 	res, err := opts.EnhanceQuery(query)
 	if err != nil {
 		t.Fatal(err)

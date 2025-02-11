@@ -15,6 +15,7 @@ import (
 
 	"github.com/breeew/brew-api/app/core"
 	v1 "github.com/breeew/brew-api/app/logic/v1"
+	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/mark"
 	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
@@ -196,7 +197,7 @@ func (s *AIChatLogic) GenMessageID() string {
 
 func (s *SelfHostPlugin) AIChatLogic(agentType string) core.AIChatLogic {
 	switch agentType {
-	case types.AGENT_TYPE_BULTER:
+	case types.AGENT_TYPE_BUTLER:
 		return &AIChatLogic{
 			core:      s.core,
 			Assistant: v1.NewBulterAssistant(s.core, agentType),
@@ -300,4 +301,8 @@ func (s *SelfHostPlugin) AppendKnowledgeContentToDocs(docs []*types.PassageInfo,
 		})
 	}
 	return docs, nil
+}
+
+func (s *SelfHostPlugin) Rerank(query string, knowledges []*types.Knowledge) ([]*types.Knowledge, *ai.Usage, error) {
+	return knowledges, nil, nil
 }

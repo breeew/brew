@@ -1,4 +1,4 @@
-package bulter
+package butler
 
 import (
 	"context"
@@ -12,20 +12,22 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 
+	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/app/store"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
 
-type BulterAgent struct {
+type ButlerAgent struct {
+	core   *core.Core
 	client *openai.Client
 	Model  string
-	store  store.BulterTableStore
+	store  store.ButlerTableStore
 }
 
-func NewBulterAgent(client *openai.Client, model string, store store.BulterTableStore) *BulterAgent {
-	return &BulterAgent{client: client, Model: model, store: store}
+func NewButlerAgent(core *core.Core, client *openai.Client, model string, store store.ButlerTableStore) *ButlerAgent {
+	return &ButlerAgent{core: core, client: client, Model: model, store: store}
 }
 
 var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
@@ -38,9 +40,6 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 				"tableName": {
 					Type:        jsonschema.String,
 					Description: "新创建的表名",
-					Items: &jsonschema.Definition{
-						Type: jsonschema.String,
-					},
 				},
 				"data": {
 					Type:        jsonschema.String,
@@ -49,9 +48,6 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 				"tableDesc": {
 					Type:        jsonschema.String,
 					Description: "该数据表的描述信息，简介",
-					Items: &jsonschema.Definition{
-						Type: jsonschema.String,
-					},
 				},
 			},
 			Required: []string{"tableName", "data", "tableDesc"},
@@ -83,9 +79,6 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 				"tableID": {
 					Type:        jsonschema.String,
 					Description: "需要修改的数据表ID",
-					Items: &jsonschema.Definition{
-						Type: jsonschema.String,
-					},
 				},
 			},
 			Required: []string{"tableID"},
@@ -101,17 +94,17 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 	}
 })
 
-func (b *BulterAgent) Query(userID string, message string) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
+func (b *ButlerAgent) Query(userID string, message string) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	bulterTables, err := b.store.ListButlerTables(ctx, userID)
+	butlerTables, err := b.store.ListButlerTables(ctx, userID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, nil, err
 	}
 
 	userTables := strings.Builder{}
-	for i, v := range bulterTables {
+	for i, v := range butlerTables {
 		if i == 0 {
 			userTables.WriteString("| 表ID | 表名 | 表描述 |  \n")
 			userTables.WriteString("| --- | --- | --- |  \n")
@@ -124,7 +117,7 @@ func (b *BulterAgent) Query(userID string, message string) ([]openai.ChatComplet
 	req := []openai.ChatCompletionMessage{
 		{
 			Role:    "system",
-			Content: BULTER_PROMPT_CN,
+			Content: BUTLER_PROMPT_CN,
 		},
 		{
 			Role:    "system",
@@ -147,7 +140,7 @@ func (b *BulterAgent) Query(userID string, message string) ([]openai.ChatComplet
 	return append(req, appendMessage...), usage, nil
 }
 
-func (b *BulterAgent) HandleUserRequest(userID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
+func (b *ButlerAgent) HandleUserRequest(userID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -213,7 +206,7 @@ func (b *BulterAgent) HandleUserRequest(userID string, messages []openai.ChatCom
 	return nil, nil, fmt.Errorf("Unknown function call.")
 }
 
-func (b *BulterAgent) CreateTable(userID, tableName, tableDescription, data string) ([]openai.ChatCompletionMessage, error) {
+func (b *ButlerAgent) CreateTable(userID, tableName, tableDescription, data string) ([]openai.ChatCompletionMessage, error) {
 	// 创建表格
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -235,7 +228,7 @@ func (b *BulterAgent) CreateTable(userID, tableName, tableDescription, data stri
 	}}, nil
 }
 
-func (b *BulterAgent) QueryTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, error) {
+func (b *ButlerAgent) QueryTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	data, err := b.store.GetTableData(ctx, tableID)
@@ -248,7 +241,7 @@ func (b *BulterAgent) QueryTable(tableID string, messages []openai.ChatCompletio
 	}}, nil
 }
 
-func (b *BulterAgent) ModifyTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
+func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
 	// 创建表格
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -261,7 +254,7 @@ func (b *BulterAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 	reqMessages := []openai.ChatCompletionMessage{
 		{
 			Role:    "system",
-			Content: BULTER_MODIFY_PROMPT_CN,
+			Content: BUTLER_MODIFY_PROMPT_CN,
 		},
 		{
 			Role:    "system",

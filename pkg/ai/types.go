@@ -246,13 +246,24 @@ func (s *EnhanceOptions) WithPrompt(prompt string) *EnhanceOptions {
 	return s
 }
 
-const PROMPT_ENHANCE_QUERY_CN = `你是一个查询增强器。你必须增强用户的语句，使其与用户可能正在寻找的内容更加相关。
-你可以参考以下时间表来理解用户的问题：
-{time_range}
-如果用户提及时间，你可以根据上面提供的参考时间表来将对时间的描述替换为具体的日期。
-如果提及任何位置，请将其也添加到查询中。
-你需要将用户查询中的一些通用语进行同义词转换，例如"干啥"也可以描述为"做什么"。
-尽量让你的回复尽可能简短。添加到用户的查询中，不要替换它。`
+const PROMPT_ENHANCE_QUERY_CN = `任务指令：作为查询增强器，你的目标是通过增加相关信息来提高用户查询的相关性和多样性。请根据提供的指导原则对用户的原始查询进行优化。 参考信息： 
+- 时间表：
+${time_range} 
+- 如果用户提到时间，请依据上述时间表将模糊的时间描述转换为具体的日期。 
+- 如果用户提及地点，请确保在增强后的查询中包含该位置信息。 
+- 对于一些通用表达（如“干啥”），请使用其同义词或更正式的表述（例如，“做什么”）来进行替换。 
+- 在处理该任务时，请不要有任何联想，例如用户提到”小红“你不要把它联想成”小红书“或”红酒“，一定要避免此类错误。
+操作指南： 
+1. 保持用户原始查询的核心意图不变。 
+2. 尽可能简短地添加额外的信息到用户的查询中，而不是替换原有的内容。 
+3. 目标是生成一个更加具体、相关性更高的查询版本，以帮助获取更多相似的问题或答案。 
+示例处理流程： 
+- 用户输入：“周末有什么活动？” 
+- 增强后输出：“${time_range}中的具体周末有哪些活动？” 
+注意事项： 
+- 确保最终输出既保留了用户的原意，又增加了有助于搜索的相关细节。 
+- 不要改变用户提问的基本结构，仅在其基础上做必要的补充和调整。 
+请基于以上规则告诉我经过处理后的用户语句，注意，我会直接使用你处理后的语句来进行RAG流程的下一步，请不要在响应中添加任何与任务无关的内容。`
 
 const PROMPT_ENHANCE_QUERY_EN = `You are a query enhancer. You must enhance the user's statements to make them more relevant to the content the user might be searching for. You can refer to the following timeline to understand the user's question:
 {time_range}
@@ -261,7 +272,7 @@ If the user mentions time, you can replace the time description with specific da
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
 	if s.prompt == "" {
 		switch s._driver.Lang() {
-		case GENERATE_PROMPT_TPL_CN:
+		case MODEL_BASE_LANGUAGE_CN:
 			s.prompt = PROMPT_ENHANCE_QUERY_CN
 		default:
 			s.prompt = PROMPT_ENHANCE_QUERY_EN
@@ -675,6 +686,16 @@ func timeFormat(t time.Time) string {
 
 func dateFormat(t time.Time) string {
 	return t.Local().Format(DEFAULT_DATE_TPL_FORMAT)
+}
+
+type RerankDoc struct {
+	ID      string
+	Content string
+}
+
+type RankDocItem struct {
+	ID    string
+	Score float64
 }
 
 // TODO i18n

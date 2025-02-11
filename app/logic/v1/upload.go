@@ -84,7 +84,7 @@ func (l *UploadLogic) GenClientUploadKey(objectType, kind, fileName string, size
 		}, nil
 	}
 
-	if size > 1024*1024*10 {
+	if size > 1024*1024*30 {
 		return UploadKey{}, errors.New("UploadLogic.FileManagementStore.GreateThanMaxSzie", i18n.ERROR_MORE_TAHN_MAX, nil).Code(http.StatusForbidden)
 	}
 

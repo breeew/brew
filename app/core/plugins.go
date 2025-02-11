@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/object-storage/s3"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ type Plugins interface {
 	EncryptData(data []byte) ([]byte, error)
 	DecryptData(data []byte) ([]byte, error)
 	DeleteSpace(ctx context.Context, spaceID string) error
+	Rerank(query string, knowledges []*types.Knowledge) ([]*types.Knowledge, *ai.Usage, error)
 	AppendKnowledgeContentToDocs(docs []*types.PassageInfo, knowledges []*types.Knowledge) ([]*types.PassageInfo, error)
 	Cache() Cache
 }
