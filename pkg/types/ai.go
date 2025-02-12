@@ -15,9 +15,9 @@ const (
 )
 
 var registeredAgents = map[string][]string{
-	AGENT_TYPE_NORMAL:  {"jihe", "极核"},
-	AGENT_TYPE_JOURNAL: {"journal", "助理"},
-	AGENT_TYPE_BUTLER:  {"butler", "管家"},
+	AGENT_TYPE_NORMAL:  {"Jihe", "极核"},
+	AGENT_TYPE_JOURNAL: {"Journal", "工作助理"},
+	AGENT_TYPE_BUTLER:  {"Butler", "管家"},
 	AGENT_TYPE_NONE:    {},
 }
 

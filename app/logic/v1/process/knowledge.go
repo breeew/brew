@@ -239,7 +239,7 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 		return
 	}
 
-	if knowledge.Stage != types.KNOWLEDGE_STAGE_SUMMARIZE {
+	if knowledge.Stage != types.KNOWLEDGE_STAGE_EMBEDDING {
 		return
 	}
 

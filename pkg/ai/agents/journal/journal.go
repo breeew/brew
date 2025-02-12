@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/breeew/brew-api/app/core"
-	"github.com/breeew/brew-api/pkg/types"
-	"github.com/breeew/brew-api/pkg/utils"
 	"github.com/samber/lo"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
+
+	"github.com/breeew/brew-api/app/core"
+	"github.com/breeew/brew-api/pkg/types"
+	"github.com/breeew/brew-api/pkg/utils"
 )
 
 type JournalAgent struct {
@@ -42,7 +43,7 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 					Description: "获取用户日记的截至日期，格式为 yyyy-mm-dd",
 				},
 			},
-			Required: []string{"tableName", "data", "tableDesc"},
+			Required: []string{"startDate", "endDate"},
 		},
 	},
 }, func(item *openai.FunctionDefinition, _ int) openai.Tool {
@@ -52,7 +53,6 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 })
 
 func (b *JournalAgent) Query(spaceID, userID, startDate, endDate string) ([]types.Journal, error) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -90,9 +90,29 @@ func (b *JournalAgent) HandleUserRequest(spaceID, userID string, messages []open
 					StartDate string `json:"startDate"`
 					EndDate   string `json:"endDate"`
 				}
+
 				if err = json.Unmarshal([]byte(v.Function.Arguments), &params); err != nil {
 					return nil, nil, err
 				}
+
+				st, err := time.ParseInLocation("2006-01-02", params.StartDate, time.Local)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				et, err := time.ParseInLocation("2006-01-02", params.EndDate, time.Local)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				if et.Sub(st).Hours() > 24*31 {
+					messages = append(messages, openai.ChatCompletionMessage{
+						Role:    types.USER_ROLE_ASSISTANT.String(),
+						Content: "Failed to load user journal list, the max range is 31 days",
+					})
+					return messages, nil, nil
+				}
+
 				res, err := b.Query(spaceID, userID, params.StartDate, params.EndDate)
 				if err != nil {
 					return nil, nil, err
@@ -103,7 +123,12 @@ func (b *JournalAgent) HandleUserRequest(spaceID, userID string, messages []open
 				if len(res) == 0 {
 					sb.WriteString("用户在这段时间内没有任何日记")
 				} else {
-					sb.WriteString("以下是查询到的用户日记信息，格式为：\n------  \n{Date}  \n{Journal Content}  \n------\n")
+					sb.WriteString("我需要告诉用户我查询了 ")
+					sb.WriteString(params.StartDate)
+					sb.WriteString(" 至 ")
+					sb.WriteString(params.EndDate)
+					sb.WriteString(" 日期的日记信息  \n")
+					sb.WriteString("以下是查询到的用户日记内容，格式为：\n------  \n{Date}  \n{Journal Content}  \n------\n")
 
 					for _, v := range res {
 						content, err := b.core.DecryptData(v.Content)
@@ -120,13 +145,22 @@ func (b *JournalAgent) HandleUserRequest(spaceID, userID string, messages []open
 						sb.WriteString("  \n------  \n")
 					}
 				}
-messages = append(messages, openai.ChatCompletionMessage{
-	Role: ,
-})
+				messages = append(messages, openai.ChatCompletionMessage{
+					Role:    types.USER_ROLE_ASSISTANT.String(),
+					Content: sb.String(),
+				})
+
+				return messages, &resp.Usage, nil
 			default:
 
 			}
 		}
+	} else {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    types.USER_ROLE_ASSISTANT.String(),
+			Content: resp.Choices[0].Message.Content,
+		})
 	}
-	return nil, nil, fmt.Errorf("Unknown function call.")
+
+	return messages, nil, nil
 }

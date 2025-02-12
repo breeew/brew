@@ -13,7 +13,6 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 
 	"github.com/breeew/brew-api/app/core"
-	"github.com/breeew/brew-api/app/store"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
@@ -23,11 +22,10 @@ type ButlerAgent struct {
 	core   *core.Core
 	client *openai.Client
 	Model  string
-	store  store.ButlerTableStore
 }
 
-func NewButlerAgent(core *core.Core, client *openai.Client, model string, store store.ButlerTableStore) *ButlerAgent {
-	return &ButlerAgent{core: core, client: client, Model: model, store: store}
+func NewButlerAgent(core *core.Core, client *openai.Client, model string) *ButlerAgent {
+	return &ButlerAgent{core: core, client: client, Model: model}
 }
 
 var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
@@ -98,7 +96,7 @@ func (b *ButlerAgent) Query(userID string, message string) ([]openai.ChatComplet
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	butlerTables, err := b.store.ListButlerTables(ctx, userID)
+	butlerTables, err := b.core.Store().BulterTableStore().ListButlerTables(ctx, userID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, nil, err
 	}
@@ -210,7 +208,7 @@ func (b *ButlerAgent) CreateTable(userID, tableName, tableDescription, data stri
 	// 创建表格
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	err := b.store.Create(ctx, types.ButlerTable{
+	err := b.core.Store().BulterTableStore().Create(ctx, types.ButlerTable{
 		TableID:          utils.GenUniqIDStr(),
 		UserID:           userID,
 		TableName:        tableName,
@@ -231,7 +229,7 @@ func (b *ButlerAgent) CreateTable(userID, tableName, tableDescription, data stri
 func (b *ButlerAgent) QueryTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	data, err := b.store.GetTableData(ctx, tableID)
+	data, err := b.core.Store().BulterTableStore().GetTableData(ctx, tableID)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +245,7 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	table, err := b.store.GetTableData(ctx, tableID)
+	table, err := b.core.Store().BulterTableStore().GetTableData(ctx, tableID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -312,7 +310,7 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				if err = b.store.Update(ctx, tableID, params.Data); err != nil {
+				if err = b.core.Store().BulterTableStore().Update(ctx, tableID, params.Data); err != nil {
 					return nil, nil, fmt.Errorf("Failed to modify user table data, %w", err)
 				}
 

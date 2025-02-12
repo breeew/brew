@@ -17,6 +17,7 @@ import (
 	"github.com/breeew/brew-api/app/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/agents/butler"
+	"github.com/breeew/brew-api/pkg/ai/agents/journal"
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/safe"
@@ -128,6 +129,7 @@ func notifyAssistantMessageInitialized(core *core.Core, msg *types.ChatMessage) 
 }
 
 func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessage, err error) error {
+	slog.Error("Failed to request AI", slog.String("error", err.Error()), slog.String("message_id", aiMessage.ID))
 	imTopic := protocol.GenIMTopic(aiMessage.SessionID)
 	content := types.AssistantFailedMessage
 	completeStatus := types.MESSAGE_PROGRESS_FAILED
@@ -164,6 +166,10 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	defer cancel()
 
 	tool := core.Srv().AI().NewQuery(requestCtx, sessionContext.MessageContext)
+
+	if sessionContext.Prompt == "" {
+		sessionContext.Prompt = core.Cfg().Prompt.Base
+	}
 	tool.WithPrompt(sessionContext.Prompt)
 
 	resp, err := tool.QueryStream()
@@ -301,7 +307,7 @@ func NewBulterAssistant(core *core.Core, agentType string) *ButlerAssistant {
 	return &ButlerAssistant{
 		core:      core,
 		agentType: agentType,
-		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model, core.Store().BulterTableStore()),
+		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model),
 	}
 }
 
@@ -352,6 +358,115 @@ func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 			}
 		}),
 		Prompt: butler.BuildButlerPrompt("", s.core.Srv().AI()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
+	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
+	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
+		// set chat session pin
+		if len(docs.Refs) == 0 {
+			return
+		}
+		go safe.Run(func() {
+			switch s.agentType {
+			case types.AGENT_TYPE_NORMAL:
+				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
+					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
+				}
+			case types.AGENT_TYPE_JOURNAL:
+				// TODO
+			default:
+			}
+		})
+	})
+
+	marks := make(map[string]string)
+	for _, v := range docs.Docs {
+		for fake, real := range v.SW.Map() {
+			marks[fake] = real
+		}
+	}
+
+	if err = requestAI(ctx, s.core, chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
+		slog.Error("failed to request AI", slog.String("error", err.Error()))
+		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+	}
+	return nil
+}
+
+func NewJournalAssistant(core *core.Core, agentType string) *JournalAssistant {
+	cfg := openai.DefaultConfig(core.Cfg().AI.Agent.Token)
+	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
+
+	cli := openai.NewClientWithConfig(cfg)
+	return &JournalAssistant{
+		core:      core,
+		agentType: agentType,
+		agent:     journal.NewJournalAgent(core, cli, core.Cfg().AI.Agent.Model),
+	}
+}
+
+type JournalAssistant struct {
+	core      *core.Core
+	agentType string
+	agent     *journal.JournalAgent
+}
+
+func (s *JournalAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+	// 生成ai响应消息载体的同时，写入关联的内容列表(ext)
+	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
+}
+
+// GenSessionContext 生成session上下文
+func (s *JournalAssistant) GenSessionContext(ctx context.Context, prompt string, reqMsgWithDocs *types.ChatMessage) (*SessionContext, error) {
+	// latency := s.core.Metrics().GenContextTimer("GenChatSessionContext")
+	// defer latency.ObserveDuration()
+	return GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx, s.core, prompt, reqMsgWithDocs, normalGenMessageCondition, types.GEN_CONTEXT)
+}
+
+// RequestAssistant 向智能助理发起请求
+// reqMsgInfo 用户请求的内容
+// recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
+func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+	baseReq := []openai.ChatCompletionMessage{
+		{
+			Role:    types.USER_ROLE_SYSTEM.String(),
+			Content: journal.BuildJournalPrompt("", s.core.Srv().AI()),
+		},
+		{
+			Role:    types.USER_ROLE_USER.String(),
+			Content: reqMsgWithDocs.Message,
+		},
+	}
+	nextReq, usage, err := s.agent.HandleUserRequest(reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, baseReq)
+	if err != nil {
+		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+	}
+
+	if len(nextReq) == 0 {
+		nextReq = baseReq
+	}
+
+	if usage != nil {
+		process.NewRecordUsageRequest(s.agent.Model, "Agents", "Journal", reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, usage)
+	}
+	// type SessionContext struct {
+	// 	MessageID      string
+	// 	SessionID      string
+	// 	MessageContext []*types.MessageContext
+	// 	Prompt         string
+	// }
+
+	chatSessionContext := &SessionContext{
+		MessageID: reqMsgWithDocs.ID,
+		SessionID: reqMsgWithDocs.SessionID,
+		MessageContext: lo.Map(nextReq, func(item openai.ChatCompletionMessage, _ int) *types.MessageContext {
+			return &types.MessageContext{
+				Role:    types.GetMessageUserRole(item.Role),
+				Content: item.Content,
+			}
+		}),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)

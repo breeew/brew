@@ -48,28 +48,35 @@ func (l *HistoryLogic) GetMessageExt(spaceID, sessionID, messageID string) (*Cha
 		return nil, errors.New("HistoryLogic.GetMessageExt.ChatMessageExtStore.GetChatMessageExt", i18n.ERROR_INTERNAL, err)
 	}
 
-	if data == nil {
-		return nil, errors.New("HistoryLogic.GetMessageExt.nil", i18n.ERROR_INTERNAL, err)
-	}
-
-	docs, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, types.GetKnowledgeOptions{
-		IDs:     data.RelDocs,
-		SpaceID: spaceID,
-	}, types.NO_PAGING, types.NO_PAGING)
-
 	result := &ChatMessageExt{
-		MessageID:        messageID,
-		SessionID:        sessionID,
-		Evaluate:         data.Evaluate,
-		GenerationStatus: data.GenerationStatus,
+		MessageID: messageID,
+		SessionID: sessionID,
 	}
-	for _, v := range docs {
-		result.RelDocs = append(result.RelDocs, RelDoc{
-			Title:    v.Title,
-			ID:       v.ID,
-			Resource: v.Resource,
-			SpaceID:  v.SpaceID,
-		})
+
+	if data == nil {
+		return result, nil
+	}
+
+	result.Evaluate = data.Evaluate
+	result.GenerationStatus = data.GenerationStatus
+
+	if len(data.RelDocs) > 0 {
+		docs, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, types.GetKnowledgeOptions{
+			IDs:     data.RelDocs,
+			SpaceID: spaceID,
+		}, types.NO_PAGING, types.NO_PAGING)
+		if err != nil {
+			return nil, errors.New("HistoryLogic.GetMessageExt.KnowledgeStore.ListKnowledges", i18n.ERROR_INTERNAL, err)
+		}
+
+		for _, v := range docs {
+			result.RelDocs = append(result.RelDocs, RelDoc{
+				Title:    v.Title,
+				ID:       v.ID,
+				Resource: v.Resource,
+				SpaceID:  v.SpaceID,
+			})
+		}
 	}
 
 	return result, nil

@@ -165,7 +165,11 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			}
 		})
 	case types.AGENT_TYPE_JOURNAL:
-		// TODO
+		go safe.Run(func() {
+			if err := JournalHandle(l.core, msg); err != nil {
+				slog.Error("Failed to handle journal message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
 	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
@@ -253,7 +257,7 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 }
 
 func JournalHandle(core *core.Core, userMessage *types.ChatMessage) error {
-	logic := core.AIChatLogic(types.AGENT_TYPE_BUTLER)
+	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
