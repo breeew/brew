@@ -2,7 +2,6 @@ package sqlstore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -139,8 +138,6 @@ func (s *JournalStore) ListWithDate(ctx context.Context, spaceID, userID, startD
 	if err != nil {
 		return nil, ErrorSqlBuild(err)
 	}
-
-	fmt.Println(queryString, args)
 
 	var res []types.Journal
 	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
