@@ -17,7 +17,7 @@ func main() {
 		},
 	}
 
-	root.AddCommand(service.NewCommand())
+	root.AddCommand(service.NewCommand(), service.NewProcessCommand())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

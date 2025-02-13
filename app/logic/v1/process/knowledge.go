@@ -133,18 +133,19 @@ type SummaryResponse struct {
 }
 
 func (p *KnowledgeProcess) CheckProcess(id string, handler func()) {
-	p.mu.Lock()
-	if _, exist := p.processingMap[id]; exist {
-		p.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
+	ok, err := p.core.TryLock(ctx, fmt.Sprintf("knowledge:process:%s", id))
+	if err != nil {
+		slog.Error("Failed to lock knowledge process", slog.String("key", fmt.Sprintf("knowledge:process:%s", id)))
 		return
 	}
-	p.processingMap[id] = struct{}{}
-	p.mu.Unlock()
+
+	if !ok {
+		return
+	}
 
 	handler()
-	p.mu.Lock()
-	delete(p.processingMap, id)
-	p.mu.Unlock()
 }
 
 func NewSummaryRequest(data types.Knowledge) chan SummaryResponse {
@@ -230,10 +231,21 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 		slog.String("component", "KnowledgeProcess.processEmbedding"),
 	}
 
+	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
+	defer cancel()
+	knowledge, err := p.core.Store().KnowledgeStore().GetKnowledge(ctx, req.data.SpaceID, req.data.ID)
+	if err != nil {
+		slog.Error("Failed to process knowledge summary", append(logAttrs, slog.String("error", err.Error()))...)
+		return
+	}
+
+	if knowledge.Stage != types.KNOWLEDGE_STAGE_EMBEDDING {
+		return
+	}
+
 	slog.Info("Receive new embedding request",
 		logAttrs...)
 
-	var err error
 	defer func() {
 		slog.Info("Embedding finished",
 			logAttrs...)
@@ -265,9 +277,6 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 	// content := sw.Do(req.data.Summary)
 
 	var chunksData []types.KnowledgeChunk
-
-	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
-	defer cancel()
 
 	if req.data.Kind == types.KNOWLEDGE_KIND_CHUNK {
 		// type KnowledgeChunk struct {
@@ -342,7 +351,7 @@ func (p *KnowledgeProcess) processEmbedding(req *EmbeddingRequest) {
 	NewRecordKnowledgeUsageRequest(vectorResults.Model, types.USAGE_SUB_TYPE_EMBEDDING, req.data, vectorResults.Usage)
 
 	if len(vectorResults.Data) != len(vectors) {
-		slog.Error("Embedding results count not matched chunks count", append(logAttrs, slog.String("error", err.Error()))...)
+		slog.Error("Embedding results count not matched chunks count", append(logAttrs, slog.String("error", "embedding result length not match"))...)
 		return
 	}
 
@@ -409,10 +418,21 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 		slog.String("component", "KnowledgeProcess.processSummary"),
 	}
 
+	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
+	defer cancel()
+	knowledge, err := p.core.Store().KnowledgeStore().GetKnowledge(ctx, req.data.SpaceID, req.data.ID)
+	if err != nil {
+		slog.Error("Failed to process knowledge summary", append(logAttrs, slog.String("error", err.Error()))...)
+		return
+	}
+
+	if knowledge.Stage != types.KNOWLEDGE_STAGE_SUMMARIZE {
+		return
+	}
+
 	slog.Info("Receive new summary request",
 		logAttrs...)
 
-	var err error
 	defer func() {
 		slog.Info("Summary finished",
 			logAttrs...)
@@ -446,8 +466,6 @@ func (p *KnowledgeProcess) processSummary(req *SummaryRequest) {
 
 	secretContent := sw.Do(markdownContent)
 
-	ctx, cancel := context.WithTimeout(req.ctx, time.Minute*5)
-	defer cancel()
 	summary, err := p.core.Srv().AI().Chunk(ctx, &secretContent)
 	if err != nil {
 		slog.Error("Failed to summarize knowledge", append(logAttrs, slog.String("error", err.Error()))...)

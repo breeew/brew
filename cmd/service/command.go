@@ -1,6 +1,11 @@
 package service
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -34,11 +39,36 @@ func NewCommand() *cobra.Command {
 }
 
 func Run(opts *Options) error {
-
 	app := core.MustSetupCore(core.MustLoadBaseConfig(opts.ConfigPath))
 	plugins.Setup(app.InstallPlugins, opts.Init)
 	process.NewProcess(app).Start()
 	serve(app)
 
+	return nil
+}
+
+func NewProcessCommand() *cobra.Command {
+	opts := &Options{}
+	cmd := &cobra.Command{
+		Use:   "process",
+		Short: "process",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunProcess(opts)
+		},
+	}
+	opts.AddFlags(cmd.Flags())
+	return cmd
+}
+
+func RunProcess(opts *Options) error {
+	app := core.MustSetupCore(core.MustLoadBaseConfig(opts.ConfigPath))
+	plugins.Setup(app.InstallPlugins, opts.Init)
+	process.NewProcess(app).Start()
+	fmt.Println("Process starting...")
+	sigs := make(chan os.Signal, 1)
+	// 监听 os.Interrupt (Ctrl+C) 和 syscall.SIGTERM (kill)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	// 阻塞等待信号
+	<-sigs
 	return nil
 }

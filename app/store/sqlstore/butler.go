@@ -12,11 +12,11 @@ import (
 
 func init() {
 	register.RegisterFunc[*Provider](RegisterKey{}, func(provider *Provider) {
-		provider.stores.BulterTableStore = NewButlerTableStore(provider)
+		provider.stores.ButlerTableStore = NewButlerTableStore(provider)
 	})
 }
 
-// ButlerStore 处理 bw_bulter 表的操作
+// ButlerStore 处理 bw_butler 表的操作
 type ButlerStore struct {
 	CommonFields // CommonFields 是定义在该代码所在包内的，所以可以直接使用，不用加types.来引用
 }
@@ -25,7 +25,7 @@ type ButlerStore struct {
 func NewButlerTableStore(provider SqlProviderAchieve) *ButlerStore {
 	repo := &ButlerStore{}
 	repo.SetProvider(provider)
-	repo.SetTable(types.TABLE_BULTER) // 使用 types 包中的常量
+	repo.SetTable(types.TABLE_BUTLER) // 使用 types 包中的常量
 	repo.SetAllColumns("table_id", "user_id", "table_name", "table_description", "table_data", "created_at", "updated_at")
 	return repo
 }

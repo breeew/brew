@@ -1,4 +1,4 @@
-package bulter_test
+package butler_test
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/app/core"
-	"github.com/breeew/brew-api/pkg/ai/agents/bulter"
+	"github.com/breeew/brew-api/pkg/ai/agents/butler"
 	"github.com/breeew/brew-api/pkg/plugins"
 )
 
@@ -16,14 +16,14 @@ func newCore() *core.Core {
 	return core
 }
 
-func newBulter() *bulter.BulterAgent {
+func newBulter() *butler.ButlerAgent {
 	core := newCore()
 	plugins.Setup(core.InstallPlugins, "selfhost")
 	cfg := openai.DefaultConfig(core.Cfg().AI.Agent.Token)
 	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
 
 	cli := openai.NewClientWithConfig(cfg)
-	return bulter.NewBulterAgent(cli, core.Cfg().AI.Agent.Model, core.Store().BulterTableStore())
+	return butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model)
 }
 
 func TestBulter(t *testing.T) {

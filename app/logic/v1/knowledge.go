@@ -76,8 +76,10 @@ func (l *KnowledgeLogic) GetKnowledge(spaceID, id string) (*types.Knowledge, err
 		return nil, errors.New("KnowledgeLogic.GetKnowledge.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, err).Code(http.StatusNotFound)
 	}
 
-	if data.Content, err = l.core.DecryptData(data.Content); err != nil {
-		return nil, errors.New("JournalLogic.GetJournal.DecryptData", i18n.ERROR_INTERNAL, err)
+	if len(data.Content) > 0 {
+		if data.Content, err = l.core.DecryptData(data.Content); err != nil {
+			return nil, errors.New("KnowledgeLogic.GetJournal.DecryptData", i18n.ERROR_INTERNAL, err)
+		}
 	}
 
 	return data, nil
@@ -271,6 +273,10 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		slog.Error("failed to enhance user query", slog.String("query", query), slog.String("error", err.Error()))
 		// return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EnhanceQuery", i18n.ERROR_INTERNAL, err)
 	}
+	usage := &ai.Usage{
+		Model: resp.Model,
+		Usage: resp.Usage,
+	}
 
 	queryStrs := []string{query}
 	if len(resp.News) > 0 {
@@ -296,11 +302,18 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		return types.RAGDocs{}, nil, nil
 	}
 
+	// rerank
+
 	var (
 		knowledgeIDs []string
+		cosLimit     float32 = 0.5
 	)
+
+	if len(refs) > 10 {
+		cosLimit = refs[0].Cos + 0.15
+	}
 	for i, v := range refs {
-		if i > 0 && ((v.Cos > 0.5 && v.OriginalLength > 150) || (i > 2 && v.Cos > 0.7)) {
+		if i > 0 && (v.Cos > cosLimit && v.OriginalLength > 150) {
 			// TODO：more and more verify best ratio
 			continue
 		}
@@ -330,23 +343,37 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		if v.Content, err = l.core.DecryptData(v.Content); err != nil {
 			return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.Query.DecryptData", i18n.ERROR_INTERNAL, err)
 		}
+
+		if v.ContentType == types.KNOWLEDGE_CONTENT_TYPE_BLOCKS {
+			content, err := utils.ConvertEditorJSBlocksToMarkdown(json.RawMessage(v.Content))
+			if err != nil {
+				slog.Error("Failed to convert editor blocks to markdown", slog.String("knowledge_id", v.ID), slog.String("error", err.Error()))
+				continue
+			}
+
+			v.ContentType = types.KNOWLEDGE_CONTENT_TYPE_MARKDOWN
+			v.Content = types.KnowledgeContent(content)
+		}
 	}
 
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 	if len(knowledges) == 0 {
 		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
-		return result, &ai.Usage{
-			Model: resp.Model,
-			Usage: resp.Usage,
-		}, nil
+		return result, usage, nil
 	}
 
-	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, knowledges); err != nil {
-		return result, &ai.Usage{
-			Model: resp.Model,
-			Usage: resp.Usage,
-		}, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	rankList, usage, err := l.core.Rerank(query, knowledges)
+	if err != nil {
+		if usage != nil {
+			usage.Usage.PromptTokens += usage.Usage.TotalTokens
+		}
+		return result, usage, errors.New("KnowledgeLogic.Query.Rerank", i18n.ERROR_INTERNAL, err)
 	}
+
+	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, rankList); err != nil {
+		return result, usage, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	}
+
 	return result, &ai.Usage{
 		Model: resp.Model,
 		Usage: resp.Usage,

@@ -158,14 +158,18 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 
 	// check agents call
 	switch types.FilterAgent(msgArgs.Message) {
-	case types.AGENT_TYPE_BULTER:
+	case types.AGENT_TYPE_BUTLER:
 		go safe.Run(func() {
-			if err := BulterHandle(l.core, msg); err != nil {
+			if err := ButlerHandle(l.core, msg); err != nil {
 				slog.Error("Failed to handle butler message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	case types.AGENT_TYPE_JOURNAL:
-		// TODO
+		go safe.Run(func() {
+			if err := JournalHandle(l.core, msg); err != nil {
+				slog.Error("Failed to handle journal message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
+			}
+		})
 	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
@@ -252,8 +256,31 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 	}
 }
 
-func BulterHandle(core *core.Core, userMessage *types.ChatMessage) error {
-	logic := core.AIChatLogic(types.AGENT_TYPE_BULTER)
+func JournalHandle(core *core.Core, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+		SpaceID:   userMessage.SpaceID,
+		SessionID: userMessage.SessionID,
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		return err
+	}
+
+	notifyAssistantMessageInitialized(core, aiMessage)
+
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage,
+		aiMessage)
+}
+
+func ButlerHandle(core *core.Core, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_BUTLER)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -280,9 +307,9 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs types.RAGDo
 	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL)
 
 	var relDocs []string
-	if len(docs.Refs) > 0 {
-		relDocs = lo.Map(docs.Refs, func(item types.QueryResult, _ int) string {
-			return item.KnowledgeID
+	if len(docs.Docs) > 0 {
+		relDocs = lo.Map(docs.Docs, func(item *types.PassageInfo, _ int) string {
+			return item.ID
 		})
 	}
 

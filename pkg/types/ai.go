@@ -11,13 +11,13 @@ const (
 	AGENT_TYPE_NONE    = ""
 	AGENT_TYPE_NORMAL  = "rag"
 	AGENT_TYPE_JOURNAL = "journal"
-	AGENT_TYPE_BULTER  = "bulter"
+	AGENT_TYPE_BUTLER  = "butler"
 )
 
 var registeredAgents = map[string][]string{
-	AGENT_TYPE_NORMAL:  {"jihe", "极核"},
-	AGENT_TYPE_JOURNAL: {"journal", "助理"},
-	AGENT_TYPE_BULTER:  {"bulter", "管家"},
+	AGENT_TYPE_NORMAL:  {"Jihe", "极核"},
+	AGENT_TYPE_JOURNAL: {"Journal", "工作助理"},
+	AGENT_TYPE_BUTLER:  {"Butler", "管家"},
 	AGENT_TYPE_NONE:    {},
 }
 

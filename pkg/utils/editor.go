@@ -41,7 +41,11 @@ type listv2 struct {
 type listv2Item struct {
 	Content string          `json:"content"`
 	Items   json.RawMessage `json:"items"`
-	Meta    any             `json:"meta"`
+	Meta    listV2ItemMeta  `json:"meta"`
+}
+
+type listV2ItemMeta struct {
+	Checked bool `json:"checked,omitempty"`
 }
 
 // ListV2Handler is the default ListV2Handler for EditorJS HTML generation
@@ -105,8 +109,12 @@ func renderListv2Markdown(style string, index int, list []listv2Item) (string, e
 	listItemPrefix := positionPrefix + "- "
 	results := []string{}
 	for i, s := range list {
-		if style == "ordered" {
+		switch style {
+		case "ordered":
 			listItemPrefix = fmt.Sprintf("%d. ", i+1)
+		case "checklist":
+			listItemPrefix = fmt.Sprintf("- [%s] ", lo.If(s.Meta.Checked, "x").Else(" "))
+		default:
 		}
 
 		results = append(results, fmt.Sprintf("%s%s  ", listItemPrefix, s.Content))

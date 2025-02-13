@@ -285,6 +285,43 @@ type EnhanceQueryResult struct {
 	Querys []string `json:"querys"`
 }
 
+// func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.EnhanceQueryResult, error) {
+// 	slog.Debug("EnhanceQuery", slog.String("driver", NAME))
+
+// 	req := openai.ChatCompletionRequest{
+// 		Model: s.model.ChatModel,
+// 		Messages: []openai.ChatCompletionMessage{
+// 			{
+// 				Role:    types.USER_ROLE_SYSTEM.String(),
+// 				Content: prompt,
+// 			},
+// 			{
+// 				Role:    types.USER_ROLE_USER.String(),
+// 				Content: query,
+// 			},
+// 		},
+// 		Temperature: 0.1,
+// 		MaxTokens:   200,
+// 	}
+
+// 	var (
+// 		result ai.EnhanceQueryResult
+// 	)
+
+// 	resp, err := s.client.CreateChatCompletion(ctx, req)
+// 	if err != nil || len(resp.Choices) != 1 {
+// 		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,
+// 			len(resp.Choices))
+// 	}
+
+// 	fmt.Println(resp.Choices[0].Message.Content)
+
+// 	result.Original = query
+// 	result.Model = resp.Model
+// 	result.Usage = &resp.Usage
+// 	return result, nil
+// }
+
 func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.EnhanceQueryResult, error) {
 	slog.Debug("EnhanceQuery", slog.String("driver", NAME))
 	// describe the function & its inputs
@@ -333,7 +370,6 @@ func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.Enh
 		result         ai.EnhanceQueryResult
 	)
 
-	fmt.Println("enhance prompt", req)
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil || len(resp.Choices) != 1 {
 		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,

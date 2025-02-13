@@ -137,7 +137,8 @@ func (s *AITokenUsageStore) SumUserUsageByType(ctx context.Context, userID strin
 
 func (s *AITokenUsageStore) SumUserUsage(ctx context.Context, userID string, st, et time.Time) (types.UserTokenUsage, error) {
 	query := sq.Select("SUM(usage_prompt) as usage_prompt", "SUM(usage_output) as usage_output", "user_id").From(s.GetTable()).
-		Where(sq.Eq{"user_id": userID}).Where(sq.And{sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}})
+		Where(sq.Eq{"user_id": userID}).Where(sq.And{sq.GtOrEq{"created_at": st.Unix()}, sq.LtOrEq{"created_at": et.Unix()}}).
+		GroupBy("user_id")
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
