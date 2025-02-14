@@ -469,7 +469,6 @@ func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, qu
 			apply(queryOptions)
 		}
 	}
-	queryOptions.WithDocs(docs)
 
 	var prompt string
 	if len(docs) == 0 {

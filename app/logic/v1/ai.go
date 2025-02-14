@@ -14,6 +14,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/app/core"
+	"github.com/breeew/brew-api/app/core/srv"
 	"github.com/breeew/brew-api/app/logic/v1/process"
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/agents/butler"
@@ -26,31 +27,32 @@ import (
 	"github.com/breeew/brew-api/pkg/utils"
 )
 
-type ReceiveFunc func(startAt int32, msg types.MessageContent, isIntercept bool) error
-type DoneFunc func(startAt int32) error
-
 // handleAssistantMessage 通过ws通知前端开始响应用户请求
-func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) ReceiveFunc {
+func getStreamReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage) types.ReceiveFunc {
 	imTopic := protocol.GenIMTopic(msg.SessionID)
-	return func(startAt int32, message types.MessageContent, isIntercepted bool) error {
+	return func(startAt int32, message types.MessageContent, progressStatus types.MessageProgress) error {
 		if msg.Message == "" {
 			msg.Message = string(message.Bytes())
 		}
 
-		completeStatus := types.MESSAGE_PROGRESS_GENERATING
 		assistantStatus := types.WS_EVENT_ASSISTANT_CONTINUE
-		if isIntercepted {
-			completeStatus = types.MESSAGE_PROGRESS_INTERCEPTED
+		switch progressStatus {
+		case types.MESSAGE_PROGRESS_CANCELED:
 			assistantStatus = types.WS_EVENT_ASSISTANT_DONE
-			// todo retry
-			if err := core.Store().ChatMessageStore().RewriteMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
+			if err := core.Store().ChatMessageStore().UpdateMessageCompleteStatus(ctx, msg.SessionID, msg.ID, int32(progressStatus)); err != nil {
+				slog.Error("failed to finished ai answer message", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
+					slog.String("error", err.Error()))
+			}
+		case types.MESSAGE_PROGRESS_FAILED:
+			assistantStatus = types.WS_EVENT_ASSISTANT_FAILED
+			if err := core.Store().ChatMessageStore().RewriteMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(progressStatus)); err != nil {
 				slog.Error("failed to rewrite ai answer message to db", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
 					slog.String("error", err.Error()))
 				return err
 			}
-		} else {
+		default:
 			// todo retry
-			if err := core.Store().ChatMessageStore().AppendMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(completeStatus)); err != nil {
+			if err := core.Store().ChatMessageStore().AppendMessage(ctx, msg.SpaceID, msg.SessionID, msg.ID, message.Bytes(), int32(progressStatus)); err != nil {
 				slog.Error("failed to append ai answer message to db", slog.String("session_id", msg.SessionID), slog.String("msg_id", msg.ID),
 					slog.String("error", err.Error()))
 				return err
@@ -63,7 +65,7 @@ func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage
 			Message:   string(message.Bytes()),
 			StartAt:   startAt,
 			MsgType:   msg.MsgType,
-			Complete:  int32(completeStatus),
+			Complete:  int32(progressStatus),
 		}); err != nil {
 			slog.Error("failed to publish ai answer", slog.String("imtopic", imTopic), slog.String("error", err.Error()))
 			return err
@@ -74,7 +76,7 @@ func getReceiveFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage
 }
 
 // handleAssistantMessage 通过ws通知前端智能助理完成用户请求
-func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage, callback func()) DoneFunc {
+func getStreamDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage, callback func(msg *types.ChatMessage)) types.DoneFunc {
 	imTopic := protocol.GenIMTopic(msg.SessionID)
 	return func(startAt int32) error {
 		// todo retry
@@ -100,7 +102,7 @@ func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage, c
 			}
 
 			if callback != nil {
-				callback()
+				callback(msg)
 			}
 		}
 
@@ -112,25 +114,45 @@ func getDoneFunc(ctx context.Context, core *core.Core, msg *types.ChatMessage, c
 			Message:   message,
 			StartAt:   startAt,
 		}); err != nil {
-			slog.Error("failed to publish gpt answer", slog.String("imtopic", imTopic), slog.String("error", err.Error()))
+			slog.Error("failed to publish AI answer", slog.String("imtopic", imTopic), slog.String("error", err.Error()))
 			return err
 		}
 		return nil
 	}
 }
 
-func notifyAssistantMessageInitialized(core *core.Core, msg *types.ChatMessage) error {
-	imTopic := protocol.GenIMTopic(msg.SessionID)
-	if err := core.Srv().Tower().PublishMessageMeta(imTopic, types.WS_EVENT_ASSISTANT_INIT, chatMsgToTextMsg(msg)); err != nil {
-		slog.Error("failed to publish ai message builded event", slog.String("imtopic", imTopic))
-		return err
+// protocol.GenIMTopic(msg.SessionID)
+func DefaultMessager(topic string, tower *srv.Tower) types.Messager {
+	return &FireTowerMessager{
+		topic: topic,
+		tower: tower,
+	}
+}
+
+type FireTowerMessager struct {
+	topic string
+	tower *srv.Tower
+}
+
+func (s *FireTowerMessager) PublishMessage(_type types.WsEventType, data any) error {
+	switch _type {
+	case types.WS_EVENT_ASSISTANT_INIT:
+		if err := s.tower.PublishStreamMessageWithSubject(s.topic, "on_message_init", types.WS_EVENT_ASSISTANT_INIT, data); err != nil {
+			slog.Error("failed to publish ai message builded event", slog.String("im_topic", s.topic), slog.String("error", err.Error()))
+			return err
+		}
+	case types.WS_EVENT_ASSISTANT_CONTINUE:
+		if err := s.tower.PublishStreamMessageWithSubject(s.topic, "on_message", types.WS_EVENT_ASSISTANT_INIT, data); err != nil {
+			slog.Error("failed to publish ai message stream", slog.String("im_topic", s.topic), slog.String("error", err.Error()))
+			return err
+		}
+	default:
 	}
 	return nil
 }
 
-func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessage, err error) error {
-	slog.Error("Failed to request AI", slog.String("error", err.Error()), slog.String("message_id", aiMessage.ID))
-	imTopic := protocol.GenIMTopic(aiMessage.SessionID)
+func handleAndNotifyAssistantFailed(core *core.Core, receiver types.Receiver, reqMessage *types.ChatMessage, err error) error {
+	slog.Error("Failed to request AI", slog.String("error", err.Error()), slog.String("message_id", reqMessage.ID))
 	content := types.AssistantFailedMessage
 	completeStatus := types.MESSAGE_PROGRESS_FAILED
 	if err == context.Canceled { // 用户手动终止 会关闭上下文
@@ -138,28 +160,23 @@ func handleAndNotifyAssistantFailed(core *core.Core, aiMessage *types.ChatMessag
 		content = ""
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if err := core.Store().ChatMessageStore().UpdateMessageCompleteStatus(ctx, aiMessage.SessionID, aiMessage.ID, int32(completeStatus)); err != nil {
-		slog.Error("failed to finished ai answer message", slog.String("session_id", aiMessage.SessionID), slog.String("msg_id", aiMessage.ID),
-			slog.String("error", err.Error()))
-	}
-
-	if err := core.Srv().Tower().PublishStreamMessage(imTopic, types.WS_EVENT_ASSISTANT_FAILED, &types.StreamMessage{
-		MessageID: aiMessage.ID,
-		SessionID: aiMessage.SessionID,
-		Complete:  int32(completeStatus),
-		MsgType:   aiMessage.MsgType,
-		Message:   content,
-	}); err != nil {
-		slog.Error("failed to publish gpt answer", slog.String("imtopic", imTopic), slog.String("error", err.Error()))
-		return err
-	}
-	return nil
+	receiveFunc := receiver.GetReceiveFunc()
+	return receiveFunc(0, &types.TextMessage{Text: content}, completeStatus)
+	// if err := core.Srv().Tower().PublishStreamMessage(imTopic, types.WS_EVENT_ASSISTANT_FAILED, &types.StreamMessage{
+	// 	MessageID: aiMessage.ID,
+	// 	SessionID: aiMessage.SessionID,
+	// 	Complete:  int32(completeStatus),
+	// 	MsgType:   aiMessage.MsgType,
+	// 	Message:   content,
+	// }); err != nil {
+	// 	slog.Error("failed to publish gpt answer", slog.String("imtopic", imTopic), slog.String("error", err.Error()))
+	// 	return err
+	// }
+	// return nil
 }
 
 // requestAI
-func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionContext, marks map[string]string, receiveFunc ReceiveFunc, done DoneFunc) error {
+func requestAI(ctx context.Context, core *core.Core, isStream bool, sessionContext *SessionContext, marks map[string]string, receiveFunc types.ReceiveFunc, done types.DoneFunc) error {
 	// slog.Debug("request to ai", slog.Any("context", sessionContext.MessageContext), slog.String("prompt", sessionContext.Prompt))
 
 	requestCtx, cancel := context.WithCancel(ctx)
@@ -172,6 +189,20 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	}
 	tool.WithPrompt(sessionContext.Prompt)
 
+	if !isStream {
+		msg, err := tool.Query()
+		if err != nil {
+			return err
+		}
+
+		if msg.Usage != nil {
+			process.NewRecordChatUsageRequest(msg.Model, types.USAGE_SUB_TYPE_CHAT, sessionContext.MessageID, msg.Usage)
+			return nil
+		}
+		content := msg.Message()
+		defer done(int32(len([]rune(content))))
+		return receiveFunc(0, &types.TextMessage{Text: content}, types.MESSAGE_PROGRESS_COMPLETE)
+	}
 	resp, err := tool.QueryStream()
 	if err != nil {
 		return err
@@ -206,7 +237,7 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 			}
 
 			if msg.Message != "" {
-				if err := receiveFunc(int32(len(sended)), &types.TextMessage{Text: msg.Message}, false); err != nil {
+				if err := receiveFunc(int32(len(sended)), &types.TextMessage{Text: msg.Message}, types.MESSAGE_PROGRESS_GENERATING); err != nil {
 					return errors.New("ChatGPTLogic.RequestChatGPT.for.respChan.receive", i18n.ERROR_INTERNAL, err)
 				}
 				sended = append(sended, []rune(msg.Message)...)
@@ -220,21 +251,23 @@ func requestAI(ctx context.Context, core *core.Core, sessionContext *SessionCont
 	}
 }
 
-func NewNormalAssistant(core *core.Core, agentType string) *NormalAssistant {
+func NewNormalAssistant(core *core.Core, agentType string, receiver types.Receiver) *NormalAssistant {
 	return &NormalAssistant{
 		core:      core,
 		agentType: agentType,
+		receiver:  receiver,
 	}
 }
 
 type NormalAssistant struct {
 	core      *core.Core
 	agentType string
+	receiver  types.Receiver
 }
 
-func (s *NormalAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+func (s *NormalAssistant) InitAssistantMessage(ctx context.Context, msgID string, seqID int64, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
 	// 生成ai响应消息载体的同时，写入关联的内容列表(ext)
-	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
+	return initAssistantMessage(ctx, s.core, msgID, seqID, userReqMessage, ext)
 }
 
 // GenSessionContext 生成session上下文
@@ -244,10 +277,86 @@ func (s *NormalAssistant) GenSessionContext(ctx context.Context, prompt string, 
 	return GenChatSessionContextAndSummaryIfExceedsTokenLimit(ctx, s.core, prompt, reqMsgWithDocs, normalGenMessageCondition, types.GEN_CONTEXT)
 }
 
+func NewChatReceiver(ctx context.Context, core *core.Core, msger types.Messager) types.Receiver {
+	return &ChatReceiveHandler{
+		ctx:      ctx,
+		core:     core,
+		Messager: msger,
+	}
+}
+
+type ChatReceiveHandler struct {
+	ctx  context.Context
+	core *core.Core
+	types.Messager
+	receiveMsg *types.ChatMessage
+}
+
+func (s *ChatReceiveHandler) IsStream() bool {
+	return true
+}
+
+func (s *ChatReceiveHandler) RecvMessageInit(userReqMsg *types.ChatMessage, msgID string, seqID int64, ext types.ChatMessageExt) error {
+	ctx, cancel := context.WithTimeout(s.ctx, time.Second*5)
+	defer cancel()
+	var err error
+	s.receiveMsg, err = initAssistantMessage(ctx, s.core, msgID, seqID, userReqMsg, ext)
+	if err != nil {
+		return err
+	}
+	return s.PublishMessage(types.WS_EVENT_ASSISTANT_INIT, chatMsgToTextMsg(s.receiveMsg))
+}
+
+func (s *ChatReceiveHandler) GetReceiveFunc() types.ReceiveFunc {
+	return getStreamReceiveFunc(s.ctx, s.core, s.receiveMsg)
+}
+
+func (s *ChatReceiveHandler) GetDoneFunc(callback func(msg *types.ChatMessage)) types.DoneFunc {
+	return getStreamDoneFunc(s.ctx, s.core, s.receiveMsg, callback)
+}
+
+func NewQueryReceiver(ctx context.Context, core *core.Core, responseChan chan types.MessageContent) types.Receiver {
+	return &QueryReceiveHandler{
+		ctx:  ctx,
+		core: core,
+		resp: make(chan types.MessageContent, 1),
+	}
+}
+
+type QueryReceiveHandler struct {
+	ctx  context.Context
+	core *core.Core
+	resp chan types.MessageContent
+}
+
+func (s *QueryReceiveHandler) IsStream() bool {
+	return false
+}
+
+func (s *QueryReceiveHandler) RecvMessageInit(userReqMsg *types.ChatMessage, msgID string, seqID int64, ext types.ChatMessageExt) error {
+	return nil
+}
+
+func (s *QueryReceiveHandler) GetReceiveFunc() types.ReceiveFunc {
+	return func(startAt int32, message types.MessageContent, _ types.MessageProgress) error {
+		s.resp <- message
+		return nil
+	}
+}
+
+func (s *QueryReceiveHandler) GetDoneFunc(callback func(receiveMsg *types.ChatMessage)) types.DoneFunc {
+	return func(startAt int32) error {
+		if callback != nil {
+			callback(nil)
+		}
+		return nil
+	}
+}
+
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsg *types.ChatMessage) error {
 	// TODO: Get space prompt
 	var prompt string
 	if len(docs.Refs) == 0 {
@@ -256,15 +365,38 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 		prompt = s.core.Prompt().Query
 	}
 	prompt = ai.BuildRAGPrompt(prompt, ai.NewDocs(docs.Docs), s.core.Srv().AI())
-	chatSessionContext, err := s.GenSessionContext(ctx, prompt, reqMsgWithDocs)
-	if err != nil {
-		return err
+
+	var (
+		sessionContext *SessionContext
+		err            error
+	)
+	if reqMsg.SessionID != "" {
+		sessionContext, err = s.GenSessionContext(ctx, prompt, reqMsg)
+		if err != nil {
+			return err
+		}
+	} else {
+		sessionContext = &SessionContext{
+			Prompt:    prompt,
+			MessageID: reqMsg.ID,
+			MessageContext: []*types.MessageContext{
+				{
+					Role:    types.USER_ROLE_USER,
+					Content: reqMsg.Message,
+				},
+			},
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
-	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
-	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
+
+	receiveFunc := s.receiver.GetReceiveFunc()
+	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)
+	doneFunc := s.receiver.GetDoneFunc(func(recvMsgInfo *types.ChatMessage) {
+		if recvMsgInfo == nil {
+			return
+		}
 		// set chat session pin
 		go safe.Run(func() {
 			switch s.agentType {
@@ -275,12 +407,28 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
 					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
 				}
-			case types.AGENT_TYPE_JOURNAL:
-				// TODO
 			default:
 			}
 		})
 	})
+
+	// doneFunc := getStreamDoneFunc(ctx, s.core, recvMsgInfo, func() {
+	// 	// set chat session pin
+	// 	go safe.Run(func() {
+	// 		switch s.agentType {
+	// 		case types.AGENT_TYPE_NORMAL:
+	// 			if len(docs.Refs) == 0 {
+	// 				return
+	// 			}
+	// 			if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
+	// 				slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
+	// 			}
+	// 		case types.AGENT_TYPE_JOURNAL:
+	// 			// TODO
+	// 		default:
+	// 		}
+	// 	})
+	// })
 
 	marks := make(map[string]string)
 	for _, v := range docs.Docs {
@@ -292,14 +440,14 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 		}
 	}
 
-	if err = requestAI(ctx, s.core, chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
+	if err = requestAI(ctx, s.core, s.receiver.IsStream(), sessionContext, marks, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
-		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 	return nil
 }
 
-func NewBulterAssistant(core *core.Core, agentType string) *ButlerAssistant {
+func NewBulterAssistant(core *core.Core, agentType string, receiver types.Receiver) *ButlerAssistant {
 	cfg := openai.DefaultConfig(core.Cfg().AI.Agent.Token)
 	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
 
@@ -308,6 +456,7 @@ func NewBulterAssistant(core *core.Core, agentType string) *ButlerAssistant {
 		core:      core,
 		agentType: agentType,
 		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model),
+		receiver:  receiver,
 	}
 }
 
@@ -315,11 +464,12 @@ type ButlerAssistant struct {
 	core      *core.Core
 	agentType string
 	client    *butler.ButlerAgent
+	receiver  types.Receiver
 }
 
-func (s *ButlerAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+func (s *ButlerAssistant) InitAssistantMessage(ctx context.Context, msgID string, seqID int64, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
 	// 生成ai响应消息载体的同时，写入关联的内容列表(ext)
-	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
+	return initAssistantMessage(ctx, s.core, msgID, seqID, userReqMessage, ext)
 }
 
 // GenSessionContext 生成session上下文
@@ -332,10 +482,10 @@ func (s *ButlerAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage) error {
 	nextReq, usage, err := s.client.Query(reqMsgWithDocs.UserID, reqMsgWithDocs.Message)
 	if err != nil {
-		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
 	}
 
 	if usage != nil {
@@ -362,24 +512,11 @@ func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
-	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
-	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
-		// set chat session pin
-		if len(docs.Refs) == 0 {
-			return
-		}
-		go safe.Run(func() {
-			switch s.agentType {
-			case types.AGENT_TYPE_NORMAL:
-				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
-					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
-				}
-			case types.AGENT_TYPE_JOURNAL:
-				// TODO
-			default:
-			}
-		})
-	})
+
+	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)
+	receiveFunc := s.receiver.GetReceiveFunc()
+	doneFunc := s.receiver.GetDoneFunc(nil)
+	// doneFunc := getStreamDoneFunc(ctx, s.core, recvMsgInfo, nil)
 
 	marks := make(map[string]string)
 	for _, v := range docs.Docs {
@@ -388,14 +525,14 @@ func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 		}
 	}
 
-	if err = requestAI(ctx, s.core, chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
+	if err = requestAI(ctx, s.core, s.receiver.IsStream(), chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
-		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
 	}
 	return nil
 }
 
-func NewJournalAssistant(core *core.Core, agentType string) *JournalAssistant {
+func NewJournalAssistant(core *core.Core, agentType string, receiver types.Receiver) *JournalAssistant {
 	cfg := openai.DefaultConfig(core.Cfg().AI.Agent.Token)
 	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
 
@@ -404,6 +541,7 @@ func NewJournalAssistant(core *core.Core, agentType string) *JournalAssistant {
 		core:      core,
 		agentType: agentType,
 		agent:     journal.NewJournalAgent(core, cli, core.Cfg().AI.Agent.Model),
+		receiver:  receiver,
 	}
 }
 
@@ -411,11 +549,12 @@ type JournalAssistant struct {
 	core      *core.Core
 	agentType string
 	agent     *journal.JournalAgent
+	receiver  types.Receiver
 }
 
-func (s *JournalAssistant) InitAssistantMessage(ctx context.Context, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+func (s *JournalAssistant) InitAssistantMessage(ctx context.Context, msgID string, seqID int64, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
 	// 生成ai响应消息载体的同时，写入关联的内容列表(ext)
-	return initAssistantMessage(ctx, s.core, userReqMessage, ext)
+	return initAssistantMessage(ctx, s.core, msgID, seqID, userReqMessage, ext)
 }
 
 // GenSessionContext 生成session上下文
@@ -428,7 +567,7 @@ func (s *JournalAssistant) GenSessionContext(ctx context.Context, prompt string,
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage, recvMsgInfo *types.ChatMessage) error {
+func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage) error {
 	baseReq := []openai.ChatCompletionMessage{
 		{
 			Role:    types.USER_ROLE_SYSTEM.String(),
@@ -441,7 +580,7 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 	}
 	nextReq, usage, err := s.agent.HandleUserRequest(reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, baseReq)
 	if err != nil {
-		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
 	}
 
 	if len(nextReq) == 0 {
@@ -471,24 +610,10 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
-	receiveFunc := getReceiveFunc(ctx, s.core, recvMsgInfo)
-	doneFunc := getDoneFunc(ctx, s.core, recvMsgInfo, func() {
-		// set chat session pin
-		if len(docs.Refs) == 0 {
-			return
-		}
-		go safe.Run(func() {
-			switch s.agentType {
-			case types.AGENT_TYPE_NORMAL:
-				if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
-					slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
-				}
-			case types.AGENT_TYPE_JOURNAL:
-				// TODO
-			default:
-			}
-		})
-	})
+	receiveFunc := s.receiver.GetReceiveFunc()
+	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)
+	doneFunc := s.receiver.GetDoneFunc(nil)
+	// doneFunc := getStreamDoneFunc(ctx, s.core, recvMsgInfo, nil)
 
 	marks := make(map[string]string)
 	for _, v := range docs.Docs {
@@ -497,9 +622,9 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 		}
 	}
 
-	if err = requestAI(ctx, s.core, chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
+	if err = requestAI(ctx, s.core, s.receiver.IsStream(), chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
-		return handleAndNotifyAssistantFailed(s.core, recvMsgInfo, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
 	}
 	return nil
 }
@@ -569,16 +694,14 @@ func createChatSessionKnowledgePin(core *core.Core, recvMsgInfo *types.ChatMessa
 
 }
 
-func initAssistantMessage(ctx context.Context, core *core.Core, userReqMsg *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
-	answerMsg, err := prepareTheAnswerMsg(ctx, core, userReqMsg.SpaceID, userReqMsg.SessionID)
-	if err != nil {
-		slog.Error("failed to generate answer message for ai", slog.String("session_id", userReqMsg.SessionID), slog.String("error", err.Error()))
-		return nil, err
-	}
+func initAssistantMessage(ctx context.Context, core *core.Core, msgID string, seqID int64, userReqMsg *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error) {
+	// pre-generate response messages
+	answerMsg := genUncompleteAIMessage(userReqMsg.SpaceID, userReqMsg.SessionID, msgID, seqID)
 
 	answerMsg.MsgBlock = userReqMsg.MsgBlock
 	answerMsg.UserID = userReqMsg.UserID // ai answer message is also belong to user
 
+	var err error
 	err = core.Store().Transaction(ctx, func(ctx context.Context) error {
 		if err = core.Store().ChatMessageStore().Create(ctx, answerMsg); err != nil {
 			slog.Error("failed to insert ai answer message to db", slog.String("msg_id", answerMsg.ID), slog.String("session_id", answerMsg.SessionID), slog.String("error", err.Error()))
@@ -599,19 +722,6 @@ func initAssistantMessage(ctx context.Context, core *core.Core, userReqMsg *type
 	}
 
 	return answerMsg, nil
-}
-
-func prepareTheAnswerMsg(ctx context.Context, core *core.Core, spaceID, sessionID string) (*types.ChatMessage, error) {
-	// generate message meta
-	chatLogic := core.Plugins.AIChatLogic("")
-	msgID := chatLogic.GenMessageID()
-	seqID, err := chatLogic.GetChatSessionSeqID(ctx, spaceID, sessionID)
-	if err != nil {
-		slog.Error("Failed to get session message sequence id", slog.String("session_id", sessionID), slog.String("error", err.Error()))
-		return nil, err
-	}
-	// pre-generate response messages
-	return genUncompleteAIMessage(spaceID, sessionID, msgID, seqID), nil
 }
 
 // generate uncomplete ai response message meta

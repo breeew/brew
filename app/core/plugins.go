@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/object-storage/s3"
 	"github.com/breeew/brew-api/pkg/types"
-	"github.com/gin-gonic/gin"
 )
 
 type Plugins interface {
@@ -18,7 +19,7 @@ type Plugins interface {
 	UseLimiter(c *gin.Context, key string, method string, opts ...LimitOption) Limiter
 	FileStorage() FileStorage
 	CreateUserDefaultPlan(ctx context.Context, appid, userID string) (string, error)
-	AIChatLogic(agentType string) AIChatLogic
+	AIChatLogic(agentType string, receiver types.Receiver) AIChatLogic
 	EncryptData(data []byte) ([]byte, error)
 	DecryptData(data []byte) ([]byte, error)
 	DeleteSpace(ctx context.Context, spaceID string) error
@@ -53,8 +54,8 @@ type Cache interface {
 }
 
 type AIChatLogic interface {
-	InitAssistantMessage(ctx context.Context, userMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
-	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage, recvMsgInfo *types.ChatMessage) error
+	InitAssistantMessage(ctx context.Context, msgID string, seqID int64, userReqMessage *types.ChatMessage, ext types.ChatMessageExt) (*types.ChatMessage, error)
+	RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgInfo *types.ChatMessage) error
 	GetChatSessionSeqID(ctx context.Context, spaceID, sessionID string) (int64, error)
 	GenMessageID() string
 }

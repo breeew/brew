@@ -35,17 +35,16 @@ func Test_Generate(t *testing.T) {
 			Content: "我的车现在停在哪里？",
 		},
 	})
-	opts.WithDocsSoltName("{solt}").WithPrompt(`
-		以下是关于回答用户提问可以参考的内容(json格式)：
+	prompt := ai.BuildRAGPrompt(`
+		以下是关于回答用户提问的“参考内容”，这些内容都是历史记录，其中提到的时间点无法与当前时间进行参照：
 		--------------------------------------
-		{solt}
+		{relevant_passage}
 		--------------------------------------
-		你需要结合“参考内容”来回答用户的提问，如果参考内容完全没有用户想要的结果，请告诉用户你无法回答该内容，因为你并没有为此记录过任何内容。
+		你需要结合“参考内容”来回答用户的提问，
 		注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
-		如果你从上述内容中找到了用户想要的答案，可以结合内容相关的属性来给到用户更多的帮助，比如告诉用户这件事发生在哪天(参考date_time属性)，注意，“参考内容”中提到的时间并不一定是基于现在时间所描述出来的，你需要根据date_time及时间表来给出正确的时间描述。
+		如果你从上述内容中找到了用户想要的答案，可以结合内容相关的属性来给到用户更多的帮助，比如参考“事件发生时间”来告诉用户这件事发生在哪天。
 		请你使用 {lang} 语言，以Markdown格式回复用户。
-	`)
-	opts.WithDocs([]*types.PassageInfo{
+	`, ai.NewDocs([]*types.PassageInfo{
 		{
 			ID:       "xcjoijoijo12",
 			Content:  "我有一辆白色的车",
@@ -71,7 +70,9 @@ func Test_Generate(t *testing.T) {
 			Content:  "停车楼里有十辆车",
 			DateTime: "2024-06-03 15:20:10",
 		},
-	})
+	}), d)
+
+	opts.WithPrompt(prompt)
 	res, err := opts.Query()
 	if err != nil {
 		t.Fatal(err)

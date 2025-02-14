@@ -125,7 +125,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 				viewScope.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionView))
 				viewScope.GET("", s.GetKnowledge)
 				viewScope.GET("/list", spaceLimit("knowledge_list"), s.ListKnowledge)
-				viewScope.POST("/query", spaceLimit("query"), s.Query)
+				viewScope.POST("/query", spaceLimit("chat_message"), s.Query)
 				viewScope.GET("/time/list", spaceLimit("knowledge_list"), s.GetDateCreatedKnowledge)
 			}
 
