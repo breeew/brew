@@ -208,10 +208,6 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	return msg.Sequence, nil
 }
 
-func HandleQuery(core *core.Core) {
-
-}
-
 // 补充 session pin docs to docs
 func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, docs types.RAGDocs) {
 	if chatSession == nil || len(docs.Refs) == 0 {
@@ -266,6 +262,17 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 		slog.Error("Failed to append knowledge content to docs", slog.String("session_id", chatSession.ID), slog.String("error", err.Error()))
 		return
 	}
+}
+
+func JournalHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL, receiver)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage)
 }
 
 func JournalSessionHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
@@ -338,6 +345,16 @@ func ButlerSessionHandle(core *core.Core, receiver types.Receiver, userMessage *
 		userMessage)
 }
 
+func RAGHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL, receiver)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return logic.RequestAssistant(ctx,
+		docs,
+		userMessage)
+}
+
 // genMode new request or re-request
 func RAGSessionHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
 	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL, receiver)
@@ -367,6 +384,7 @@ func RAGSessionHandle(core *core.Core, receiver types.Receiver, userMessage *typ
 	if err := receiver.RecvMessageInit(userMessage, logic.GenMessageID(), seqID, ext); err != nil {
 		slog.Error("Failed to notify chat message inited event", slog.String("session_id", userMessage.SessionID),
 			slog.String("message_id", userMessage.ID), slog.String("error", err.Error()))
+		return err
 	}
 	// rag docs merge to user request message
 

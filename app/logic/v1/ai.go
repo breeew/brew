@@ -197,12 +197,12 @@ func requestAI(ctx context.Context, core *core.Core, isStream bool, sessionConte
 
 		if msg.Usage != nil {
 			process.NewRecordChatUsageRequest(msg.Model, types.USAGE_SUB_TYPE_CHAT, sessionContext.MessageID, msg.Usage)
-			return nil
 		}
 		content := msg.Message()
 		defer done(int32(len([]rune(content))))
 		return receiveFunc(0, &types.TextMessage{Text: content}, types.MESSAGE_PROGRESS_COMPLETE)
 	}
+
 	resp, err := tool.QueryStream()
 	if err != nil {
 		return err
@@ -411,24 +411,6 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 			}
 		})
 	})
-
-	// doneFunc := getStreamDoneFunc(ctx, s.core, recvMsgInfo, func() {
-	// 	// set chat session pin
-	// 	go safe.Run(func() {
-	// 		switch s.agentType {
-	// 		case types.AGENT_TYPE_NORMAL:
-	// 			if len(docs.Refs) == 0 {
-	// 				return
-	// 			}
-	// 			if err := createChatSessionKnowledgePin(s.core, recvMsgInfo, &docs); err != nil {
-	// 				slog.Error("Failed to create chat session knowledge pins", slog.String("session_id", recvMsgInfo.SessionID), slog.String("error", err.Error()))
-	// 			}
-	// 		case types.AGENT_TYPE_JOURNAL:
-	// 			// TODO
-	// 		default:
-	// 		}
-	// 	})
-	// })
 
 	marks := make(map[string]string)
 	for _, v := range docs.Docs {

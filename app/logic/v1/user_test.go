@@ -14,7 +14,7 @@ import (
 
 func NewCore() *core.Core {
 	core := core.MustSetupCore(core.MustLoadBaseConfig(os.Getenv("TEST_CONFIG_PATH")))
-	plugins.Setup(core.InstallPlugins, "saas")
+	plugins.Setup(core.InstallPlugins, "selfhost")
 	return core
 }
 

@@ -213,6 +213,7 @@ func (s *HttpSrv) DeleteKnowledge(c *gin.Context) {
 
 type QueryRequest struct {
 	Query    string               `json:"query" binding:"required"`
+	Agent    string               `json:"agent"`
 	Resource *types.ResourceQuery `json:"resource"`
 }
 
@@ -226,7 +227,7 @@ func (s *HttpSrv) Query(c *gin.Context) {
 
 	spaceID, _ := v1.InjectSpaceID(c)
 	// v1.KnowledgeQueryResult
-	result, err := v1.NewKnowledgeLogic(c, s.Core).Query(spaceID, req.Resource, req.Query)
+	result, err := v1.NewKnowledgeLogic(c, s.Core).Query(spaceID, req.Agent, req.Resource, req.Query)
 	if err != nil {
 		response.APIError(c, err)
 		return
