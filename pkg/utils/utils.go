@@ -233,3 +233,25 @@ func Cosine(a []float64, b []float64) float64 {
 	}
 	return s / (math.Sqrt(sa) * math.Sqrt(sb))
 }
+
+func MaskString(s string, preLen, postLen int) string {
+	runes := []rune(s)
+
+	var pre, post string
+
+	// 获取前6位
+	if len(runes) >= preLen {
+		pre = string(runes[:preLen])
+	} else {
+		pre = string(runes)
+	}
+
+	// 获取后4位
+	if len(runes) >= postLen {
+		post = string(runes[len(runes)-postLen:])
+	} else {
+		post = string(runes)
+	}
+
+	return pre + "******" + post
+}

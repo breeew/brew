@@ -115,6 +115,22 @@ func (s *AccessTokenStore) ListAccessTokens(ctx context.Context, appid, userID s
 	return res, nil
 }
 
+func (s *AccessTokenStore) Total(ctx context.Context, appid, userID string) (int64, error) {
+	query := sq.Select("COUNT(*)").From(s.GetTable()).
+		Where(sq.Eq{"appid": appid, "user_id": userID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return 0, ErrorSqlBuild(err)
+	}
+
+	var res int64
+	if err = s.GetReplica(ctx).Get(&res, queryString, args...); err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
 func (s *AccessTokenStore) ClearUserTokens(ctx context.Context, appid, userID string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "user_id": userID})
 

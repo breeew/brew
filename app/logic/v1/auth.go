@@ -3,6 +3,8 @@ package v1
 import (
 	"context"
 	"database/sql"
+	"net/http"
+	"time"
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/errors"
@@ -65,4 +67,40 @@ REGEN:
 	}
 
 	return accessToken, nil
+}
+
+func (l *AuthedUserLogic) CreateAccessToken(info string) (string, error) {
+	total, err := l.core.Store().AccessTokenStore().Total(l.ctx, l.GetUserInfo().Appid, l.GetUserInfo().User)
+	if err != nil {
+		return "", errors.New("AuthedUserLogic.CreateAccessToken.AccessTokenStore.Total", i18n.ERROR_INTERNAL, err)
+	}
+
+	if total > 10 {
+		return "", errors.New("AuthedUserLogic.CreateAccessToken.AccessTokenStore.limit", i18n.ERROR_MORE_TAHN_MAX, nil).Code(http.StatusForbidden)
+	}
+
+	token := utils.RandomStr(64)
+	err = l.core.Store().AccessTokenStore().Create(l.ctx, types.AccessToken{
+		UserID:    l.GetUserInfo().User,
+		Appid:     l.GetUserInfo().Appid,
+		Info:      info,
+		Version:   types.DEFAULT_ACCESS_TOKEN_VERSION,
+		Token:     token,
+		ExpiresAt: time.Now().Local().AddDate(999, 0, 0).Unix(),
+		CreatedAt: time.Now().Unix(),
+	})
+
+	if err != nil {
+		return "", errors.New("AuthedUserLogic.CreateAccessTokens.AccessTokenStore.Create", i18n.ERROR_INTERNAL, err)
+	}
+
+	return token, nil
+}
+
+func (l *AuthedUserLogic) GetAccessTokens(page, pageSize uint64) ([]types.AccessToken, error) {
+	list, err := l.core.Store().AccessTokenStore().ListAccessTokens(l.ctx, l.GetUserInfo().Appid, l.GetUserInfo().User, page, pageSize)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.New("AuthedUserLogic.GetAccessTokens.AccessTokenStore.ListAccessTokens", i18n.ERROR_INTERNAL, err)
+	}
+	return list, err
 }
