@@ -74,6 +74,7 @@ type AccessTokenStore interface {
 	Create(ctx context.Context, data types.AccessToken) error
 	GetAccessToken(ctx context.Context, appid, token string) (*types.AccessToken, error)
 	Delete(ctx context.Context, appid, userID string, id int64) error
+	Deletes(ctx context.Context, appid, userID string, ids []int64) error
 	ListAccessTokens(ctx context.Context, appid, userID string, page, pageSize uint64) ([]types.AccessToken, error)
 	ClearUserTokens(ctx context.Context, appid, userID string) error
 	Total(ctx context.Context, appid, userID string) (int64, error)

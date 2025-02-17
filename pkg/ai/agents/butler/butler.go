@@ -70,7 +70,7 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 	},
 	{
 		Name:        "modifyTable",
-		Description: "如果已经存在相关的数据表，则使用该方法来增,删,改相关的记录",
+		Description: "如果已经存在相关的数据表，则使用该方法来对数据表内容进行变更，包括增、删、改",
 		Parameters: jsonschema.Definition{
 			Type: jsonschema.Object,
 			Properties: map[string]jsonschema.Definition{
@@ -316,7 +316,7 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 
 				return []openai.ChatCompletionMessage{{
 					Role:    "system",
-					Content: fmt.Sprintf("已经成功修改了数据表：%s \n 表内容：\n%s\n请将结果总结给用户", table.TableName, params.Data),
+					Content: fmt.Sprintf("已经成功修改了数据表：%s \n 表内容：\n%s\n请将结果总结给用户，并告知用户你更新了数据表", table.TableName, params.Data),
 				}}, &resp.Usage, nil
 			default:
 			}

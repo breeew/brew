@@ -87,7 +87,19 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 
 // Delete 删除 access_token 记录
 func (s *AccessTokenStore) Delete(ctx context.Context, appid, userID string, id int64) error {
-	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "userID": userID, "id": id})
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "user_id": userID, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *AccessTokenStore) Deletes(ctx context.Context, appid, userID string, ids []int64) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "user_id": userID, "id": ids})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {

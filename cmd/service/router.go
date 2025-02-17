@@ -88,6 +88,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			user.PUT("/profile", userLimit("profile"), s.UpdateUserProfile)
 			user.POST("/secret/token", s.CreateAccessToken)
 			user.GET("/secret/tokens", s.GetUserAccessTokens)
+			user.DELETE("/secret/tokens", s.DeleteAccessTokens)
 		}
 
 		space := authed.Group("/space")

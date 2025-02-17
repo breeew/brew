@@ -119,3 +119,26 @@ func (s *HttpSrv) CreateAccessToken(c *gin.Context) {
 
 	response.APISuccess(c, token)
 }
+
+type DeleteAccessTokensRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}
+
+func (s *HttpSrv) DeleteAccessTokens(c *gin.Context) {
+	var (
+		err error
+		req DeleteAccessTokensRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	if err = v1.NewAuthedUserLogic(c, s.Core).DelAccessTokens(req.IDs); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, nil)
+}

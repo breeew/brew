@@ -104,3 +104,11 @@ func (l *AuthedUserLogic) GetAccessTokens(page, pageSize uint64) ([]types.Access
 	}
 	return list, err
 }
+
+func (l *AuthedUserLogic) DelAccessTokens(ids []int64) error {
+	err := l.core.Store().AccessTokenStore().Deletes(l.ctx, l.GetUserInfo().Appid, l.GetUserInfo().User, ids)
+	if err != nil {
+		return errors.New("AuthedUserLogic.DelAccessTokens.AccessTokenStore.Delete", i18n.ERROR_INTERNAL, err)
+	}
+	return err
+}
