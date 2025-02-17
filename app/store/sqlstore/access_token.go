@@ -87,7 +87,19 @@ func (s *AccessTokenStore) GetAccessToken(ctx context.Context, appid, token stri
 
 // Delete 删除 access_token 记录
 func (s *AccessTokenStore) Delete(ctx context.Context, appid, userID string, id int64) error {
-	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "userID": userID, "id": id})
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "user_id": userID, "id": id})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	return err
+}
+
+func (s *AccessTokenStore) Deletes(ctx context.Context, appid, userID string, ids []int64) error {
+	query := sq.Delete(s.GetTable()).Where(sq.Eq{"appid": appid, "user_id": userID, "id": ids})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -111,6 +123,22 @@ func (s *AccessTokenStore) ListAccessTokens(ctx context.Context, appid, userID s
 	var res []types.AccessToken
 	if err = s.GetReplica(ctx).Select(&res, queryString, args...); err != nil {
 		return nil, err
+	}
+	return res, nil
+}
+
+func (s *AccessTokenStore) Total(ctx context.Context, appid, userID string) (int64, error) {
+	query := sq.Select("COUNT(*)").From(s.GetTable()).
+		Where(sq.Eq{"appid": appid, "user_id": userID})
+
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return 0, ErrorSqlBuild(err)
+	}
+
+	var res int64
+	if err = s.GetReplica(ctx).Get(&res, queryString, args...); err != nil {
+		return 0, err
 	}
 	return res, nil
 }

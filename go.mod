@@ -116,6 +116,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/resend/resend-go/v2 v2.13.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect

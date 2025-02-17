@@ -367,7 +367,9 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		if usage != nil {
 			usage.Usage.PromptTokens += usage.Usage.TotalTokens
 		}
-		return result, usage, errors.New("KnowledgeLogic.Query.Rerank", i18n.ERROR_INTERNAL, err)
+		slog.Error("Failed to request rerank api", slog.String("error", err.Error()))
+		// return result, usage, errors.New("KnowledgeLogic.Query.Rerank", i18n.ERROR_INTERNAL, err)
+		rankList = knowledges
 	}
 
 	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, rankList); err != nil {
@@ -385,112 +387,73 @@ type KnowledgeQueryResult struct {
 	Message string              `json:"message"`
 }
 
-func (l *KnowledgeLogic) Query(spaceID string, resource *types.ResourceQuery, query string) (*KnowledgeQueryResult, error) {
-	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{query})
-	if err != nil || len(vector.Data) == 0 {
-		return nil, errors.New("KnowledgeLogic.Query.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
-	}
-
-	user := l.GetUserInfo()
-
-	refs, err := l.core.Store().VectorStore().Query(l.ctx, types.GetVectorsOptions{
+func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQuery, query string) (*KnowledgeQueryResult, error) {
+	msgArgs := &types.ChatMessage{
+		ID:       utils.GenUniqIDStr(),
+		UserID:   l.GetUserInfo().User,
 		SpaceID:  spaceID,
-		UserID:   user.User,
-		Resource: resource,
-	}, pgvector.NewVector(vector.Data[0]), 100)
-	if err != nil {
-		return nil, errors.New("KnowledgeLogic.Query.VectorStore.Query", i18n.ERROR_INTERNAL, err)
+		Message:  query,
+		MsgType:  types.MESSAGE_TYPE_TEXT,
+		SendTime: time.Now().Unix(),
+		Role:     types.USER_ROLE_USER,
+		Complete: types.MESSAGE_PROGRESS_COMPLETE,
 	}
 
-	slog.Debug("got query result", slog.String("query", query), slog.Any("result", refs))
-	var result = KnowledgeQueryResult{
-		Message: "no content matched",
-	}
-	// TODO switch mode, no refs no gen || no refs ai gen without docs
-	// current is no refs no gen
-	if len(refs) == 0 {
-		return &result, nil
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
 
 	var (
-		knowledgeIDs []string
-		hasMatched   bool
+		responseChan = make(chan types.MessageContent, 1)
+		receiver     = NewQueryReceiver(ctx, l.core, responseChan)
+
+		result = &KnowledgeQueryResult{}
+		err    error
 	)
-	for _, v := range refs {
-		if !hasMatched && v.Cos < 0.5 {
-			hasMatched = true
+
+	// check agents call
+	switch lo.If(agent != "", agent).Else(types.FilterAgent(msgArgs.Message)) {
+	case types.AGENT_TYPE_BUTLER:
+		err = ButlerHandle(l.core, receiver, msgArgs)
+		if err != nil {
+			slog.Error("Failed to handle butler message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
 		}
-		if hasMatched && v.Cos >= 0.5 {
-			break
+	case types.AGENT_TYPE_JOURNAL:
+		err = JournalHandle(l.core, receiver, msgArgs)
+		if err != nil {
+			slog.Error("Failed to handle journal message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
 		}
-		knowledgeIDs = append(knowledgeIDs, v.KnowledgeID)
-		result.Refs = append(result.Refs, v)
-	}
+	case types.AGENT_TYPE_NORMAL:
+		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(msgArgs.SpaceID, l.GetUserInfo().User, msgArgs.Message, resource)
+		if usage != nil && usage.Usage != nil {
+			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+		}
+		if err != nil {
+			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)
+		} else {
+			result.Refs = docs.Refs
 
-	knowledges, err := l.core.Store().KnowledgeStore().ListKnowledges(l.ctx, types.GetKnowledgeOptions{
-		IDs:     knowledgeIDs,
-		SpaceID: spaceID,
-		UserID:  user.User,
-	}, 1, 50)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge", i18n.ERROR_INTERNAL, err)
-	}
-	if len(knowledges) == 0 {
-		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
-	}
-
-	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
-
-	var (
-		docs []*types.PassageInfo
-	)
-	for _, v := range knowledges {
-		if v.Content, err = l.core.DecryptData(v.Content); err != nil {
-			slog.Error("Failed to decrypt knowledge data", slog.String("error", err.Error()))
-			continue
+			if err = RAGHandle(l.core, receiver, msgArgs, docs, types.GEN_MODE_NORMAL); err != nil {
+				slog.Error("Failed to handle rag message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
+			}
+		}
+	default:
+		// else rag handler
+		err = RAGHandle(l.core, receiver, msgArgs, types.RAGDocs{}, types.GEN_MODE_NORMAL)
+		if err != nil {
+			slog.Error("Failed to handle message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
 		}
 	}
 
-	docs, err = l.core.AppendKnowledgeContentToDocs(docs, knowledges)
 	if err != nil {
-		return nil, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+		return nil, err
 	}
 
-	message := &types.MessageContext{
-		Role:    types.USER_ROLE_USER,
-		Content: query,
+	queryResult := <-responseChan
+	if queryResult != nil {
+		result.Message = string(queryResult.Bytes())
 	}
 
-	// TODO: gen query opts from user setting
-	queryOptions := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{message})
-	if resource != nil && len(resource.Include) == 1 {
-		// match user resource setting
-		for _, apply := range userSetting[resource.Include[0]] {
-			apply(queryOptions)
-		}
-	}
-	queryOptions.WithDocs(docs)
-
-	var prompt string
-	if len(docs) == 0 {
-		prompt = l.core.Prompt().Base
-	} else {
-		prompt = l.core.Prompt().Query
-	}
-
-	queryOptions.WithPrompt(ai.BuildRAGPrompt(prompt, ai.NewDocs(docs), l.core.Srv().AI()))
-	resp, err := queryOptions.Query()
-	if err != nil {
-		return nil, errors.New("KnowledgeLogic.Query.queryOptions.Query", i18n.ERROR_INTERNAL, err)
-	}
-
-	result.Message = strings.Join(resp.Received, "\n")
-
-	for _, v := range docs {
-		result.Message = v.SW.Undo(result.Message)
-	}
-
-	return &result, nil
+	return result, nil
 }
 
 type BlockFile struct {

@@ -2,9 +2,11 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 
 	v1 "github.com/breeew/brew-api/app/logic/v1"
 	"github.com/breeew/brew-api/app/response"
+	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
 
@@ -53,6 +55,87 @@ func (s *HttpSrv) UpdateUserProfile(c *gin.Context) {
 
 	err = v1.NewAuthedUserLogic(c, s.Core).UpdateUserProfile(req.UserName, req.Email)
 	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, nil)
+}
+
+type GetUserAccessTokensRequest struct {
+	Page     uint64 `json:"page" form:"page" binding:"required"`
+	Pagesize uint64 `json:"pagesize" form:"pagesize" binding:"required"`
+}
+
+type GetUserAccessTokensResponse struct {
+	List []types.AccessToken `json:"list"`
+}
+
+func (s *HttpSrv) GetUserAccessTokens(c *gin.Context) {
+	var (
+		err error
+		req GetUserAccessTokensRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	list, err := v1.NewAuthedUserLogic(c, s.Core).GetAccessTokens(req.Page, req.Pagesize)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	masked := lo.Map(list, func(item types.AccessToken, _ int) types.AccessToken {
+		item.Token = utils.MaskString(item.Token, 6, 4)
+		return item
+	})
+
+	response.APISuccess(c, GetUserAccessTokensResponse{
+		List: masked,
+	})
+}
+
+type CreateAccessTokenRequest struct {
+	Desc string `json:"desc" binding:"required"`
+}
+
+func (s *HttpSrv) CreateAccessToken(c *gin.Context) {
+	var (
+		err error
+		req CreateAccessTokenRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	var token string
+	if token, err = v1.NewAuthedUserLogic(c, s.Core).CreateAccessToken(req.Desc); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	response.APISuccess(c, token)
+}
+
+type DeleteAccessTokensRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}
+
+func (s *HttpSrv) DeleteAccessTokens(c *gin.Context) {
+	var (
+		err error
+		req DeleteAccessTokensRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	if err = v1.NewAuthedUserLogic(c, s.Core).DelAccessTokens(req.IDs); err != nil {
 		response.APIError(c, err)
 		return
 	}

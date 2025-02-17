@@ -65,8 +65,8 @@ func (t *Tower) NewMessage(imtopic string, _type fireprotocol.FireOperation, dat
 	return fire
 }
 
-func (t *Tower) PublishMessageMeta(imtopic string, logic types.WsEventType, data *types.MessageMeta) error {
-	return t.publish(imtopic, fireprotocol.PublishOperation, PublishData{
+func (t *Tower) PublishMessageMeta(topic string, logic types.WsEventType, data *types.MessageMeta) error {
+	return t.publish(topic, fireprotocol.PublishOperation, PublishData{
 		Subject: "on_message_init",
 		Version: "v1",
 		Type:    logic,
@@ -74,8 +74,8 @@ func (t *Tower) PublishMessageMeta(imtopic string, logic types.WsEventType, data
 	})
 }
 
-func (t *Tower) PublishStreamMessage(imtopic string, logic types.WsEventType, data any) error {
-	return t.publish(imtopic, fireprotocol.PublishOperation, PublishData{
+func (t *Tower) PublishStreamMessage(topic string, logic types.WsEventType, data any) error {
+	return t.publish(topic, fireprotocol.PublishOperation, PublishData{
 		Subject: "on_message",
 		Version: "v1",
 		Type:    logic,
@@ -83,8 +83,17 @@ func (t *Tower) PublishStreamMessage(imtopic string, logic types.WsEventType, da
 	})
 }
 
-func (t *Tower) PublishSessionReName(imtopic string, sessionID, name string) error {
-	return t.publish(imtopic, fireprotocol.PublishOperation, PublishData{
+func (t *Tower) PublishStreamMessageWithSubject(topic string, subject string, logic types.WsEventType, data any) error {
+	return t.publish(topic, fireprotocol.PublishOperation, PublishData{
+		Subject: subject,
+		Version: "v1",
+		Type:    logic,
+		Data:    data,
+	})
+}
+
+func (t *Tower) PublishSessionReName(topic string, sessionID, name string) error {
+	return t.publish(topic, fireprotocol.PublishOperation, PublishData{
 		Subject: "session_rename",
 		Version: "v1",
 		Type:    types.WS_EVENT_OTHERS,

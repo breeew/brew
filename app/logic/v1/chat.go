@@ -120,7 +120,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	}
 
 	if msg.Sequence == 0 {
-		seqid, err = l.core.Plugins.AIChatLogic("").GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
+		seqid, err = l.core.Plugins.AIChatLogic("", nil).GetChatSessionSeqID(l.ctx, chatSession.SpaceID, chatSession.ID)
 		if err != nil {
 			err = errors.Trace("ChatLogic.NewUserMessageSend.GetDialogSeqID", err)
 			return
@@ -129,17 +129,20 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		msg.Sequence = seqid
 	}
 
-	queryMsg := msg.Message
 	// if len([]rune(queryMsg)) < 20 && latestMessage != nil {
 	// 	queryMsg = fmt.Sprintf("%s. %s", latestMessage.Message, queryMsg)
 	// }
+
+	messager := DefaultMessager(protocol.GenIMTopic(msg.SessionID), l.core.Srv().Tower())
+	receiver := NewChatReceiver(ctx, l.core, messager)
 
 	err = l.core.Store().Transaction(ctx, func(ctx context.Context) error {
 		if err = l.core.Store().ChatMessageStore().Create(l.ctx, msg); err != nil {
 			return errors.New("ChatLogic.NewUserMessageSend.ChatMessageStore.Create", i18n.ERROR_INTERNAL, err)
 		}
 
-		err = l.core.Srv().Tower().PublishMessageMeta(protocol.GenIMTopic(chatSession.ID), types.WS_EVENT_MESSAGE_PUBLISH, chatMsgToTextMsg(msg))
+		err = messager.PublishMessage(types.WS_EVENT_MESSAGE_PUBLISH, chatMsgToTextMsg(msg))
+		// err = l.core.Srv().Tower().PublishMessageMeta(protocol.GenIMTopic(chatSession.ID), types.WS_EVENT_MESSAGE_PUBLISH, chatMsgToTextMsg(msg))
 		if err != nil {
 			slog.Error("failed to publish user message", slog.String("imtopic", protocol.GenIMTopic(chatSession.ID)),
 				slog.String("msg_id", msgArgs.ID),
@@ -149,31 +152,36 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		}
 		return nil
 	})
-
-	// update session latest access time
-	if err := l.core.Store().ChatSessionStore().UpdateChatSessionLatestAccessTime(l.ctx, chatSession.SpaceID, chatSession.ID); err != nil {
-		slog.Error("Failed to update chat session latest access time", slog.String("error", err.Error()),
-			slog.String("space_id", chatSession.SpaceID), slog.String("session_id", chatSession.ID))
+	if err != nil {
+		return 0, err
 	}
+
+	go safe.Run(func() {
+		// update session latest access time
+		if err := l.core.Store().ChatSessionStore().UpdateChatSessionLatestAccessTime(l.ctx, chatSession.SpaceID, chatSession.ID); err != nil {
+			slog.Error("Failed to update chat session latest access time", slog.String("error", err.Error()),
+				slog.String("space_id", chatSession.SpaceID), slog.String("session_id", chatSession.ID))
+		}
+	})
 
 	// check agents call
 	switch types.FilterAgent(msgArgs.Message) {
 	case types.AGENT_TYPE_BUTLER:
 		go safe.Run(func() {
-			if err := ButlerHandle(l.core, msg); err != nil {
+			if err := ButlerSessionHandle(l.core, receiver, msg); err != nil {
 				slog.Error("Failed to handle butler message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	case types.AGENT_TYPE_JOURNAL:
 		go safe.Run(func() {
-			if err := JournalHandle(l.core, msg); err != nil {
+			if err := JournalSessionHandle(l.core, receiver, msg); err != nil {
 				slog.Error("Failed to handle journal message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
-			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, queryMsg, resourceQuery)
+			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, msg.Message, resourceQuery)
 			if usage != nil && usage.Usage != nil {
 				process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
 			}
@@ -185,19 +193,19 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			// Supplement associated document content.
 			SupplementSessionChatDocs(l.core, chatSession, docs)
 
-			if err := RAGHandle(l.core, msg, docs, types.GEN_MODE_NORMAL); err != nil {
+			if err := RAGSessionHandle(l.core, receiver, msg, docs, types.GEN_MODE_NORMAL); err != nil {
 				slog.Error("Failed to handle rag message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	default:
 		// else rag handler
 		go safe.Run(func() {
-			if err := RAGHandle(l.core, msg, types.RAGDocs{}, types.GEN_MODE_NORMAL); err != nil {
+			if err := RAGSessionHandle(l.core, receiver, msg, types.RAGDocs{}, types.GEN_MODE_NORMAL); err != nil {
 				slog.Error("Failed to handle message", slog.String("msg_id", msg.ID), slog.String("error", err.Error()))
 			}
 		})
 	}
-	return msg.Sequence, err
+	return msg.Sequence, nil
 }
 
 // 补充 session pin docs to docs
@@ -256,55 +264,100 @@ func SupplementSessionChatDocs(core *core.Core, chatSession *types.ChatSession, 
 	}
 }
 
-func JournalHandle(core *core.Core, userMessage *types.ChatMessage) error {
-	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL)
+func JournalHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL, receiver)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
-		SpaceID:   userMessage.SpaceID,
-		SessionID: userMessage.SessionID,
-		CreatedAt: time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
-	})
-	if err != nil {
-		return err
-	}
-
-	notifyAssistantMessageInitialized(core, aiMessage)
 
 	return logic.RequestAssistant(ctx,
 		types.RAGDocs{},
-		userMessage,
-		aiMessage)
+		userMessage)
 }
 
-func ButlerHandle(core *core.Core, userMessage *types.ChatMessage) error {
-	logic := core.AIChatLogic(types.AGENT_TYPE_BUTLER)
+func JournalSessionHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_JOURNAL, receiver)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+	ext := types.ChatMessageExt{
 		SpaceID:   userMessage.SpaceID,
 		SessionID: userMessage.SessionID,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
-	})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	seqID, err := logic.GetChatSessionSeqID(ctx, userMessage.SpaceID, userMessage.SessionID)
 	if err != nil {
 		return err
 	}
 
-	notifyAssistantMessageInitialized(core, aiMessage)
+	if err := receiver.RecvMessageInit(userMessage, logic.GenMessageID(), seqID, ext); err != nil {
+		slog.Error("Failed to notify chat message inited event", slog.String("session_id", userMessage.SessionID),
+			slog.String("message_id", userMessage.ID), slog.String("error", err.Error()))
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
 	return logic.RequestAssistant(ctx,
 		types.RAGDocs{},
-		userMessage,
-		aiMessage)
+		userMessage)
+}
+
+func ButlerHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_BUTLER, receiver)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage)
+}
+
+func ButlerSessionHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_BUTLER, receiver)
+
+	ext := types.ChatMessageExt{
+		SpaceID:   userMessage.SpaceID,
+		SessionID: userMessage.SessionID,
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	seqID, err := logic.GetChatSessionSeqID(ctx, userMessage.SpaceID, userMessage.SessionID)
+	if err != nil {
+		return err
+	}
+
+	if err := receiver.RecvMessageInit(userMessage, logic.GenMessageID(), seqID, ext); err != nil {
+		slog.Error("Failed to notify chat message inited event", slog.String("session_id", userMessage.SessionID),
+			slog.String("message_id", userMessage.ID), slog.String("error", err.Error()))
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return logic.RequestAssistant(ctx,
+		types.RAGDocs{},
+		userMessage)
+}
+
+func RAGHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL, receiver)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return logic.RequestAssistant(ctx,
+		docs,
+		userMessage)
 }
 
 // genMode new request or re-request
-func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
-	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL)
+func RAGSessionHandle(core *core.Core, receiver types.Receiver, userMessage *types.ChatMessage, docs types.RAGDocs, genMode types.RequestAssistantMode) error {
+	logic := core.AIChatLogic(types.AGENT_TYPE_NORMAL, receiver)
 
 	var relDocs []string
 	if len(docs.Docs) > 0 {
@@ -313,33 +366,33 @@ func RAGHandle(core *core.Core, userMessage *types.ChatMessage, docs types.RAGDo
 		})
 	}
 
-	// var marks = make(map[string]string)
-	// for _, v := range docs.Docs {
-	// 	for fakeData, realData := range v.SW.Map() {
-	// 		marks[fakeData] = realData
-	// 	}
-	// }
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	aiMessage, err := logic.InitAssistantMessage(ctx, userMessage, types.ChatMessageExt{
+	ext := types.ChatMessageExt{
 		SpaceID:   userMessage.SpaceID,
 		SessionID: userMessage.SessionID,
 		RelDocs:   relDocs,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
-	})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	seqID, err := logic.GetChatSessionSeqID(ctx, userMessage.SpaceID, userMessage.SessionID)
 	if err != nil {
 		return err
 	}
 
-	notifyAssistantMessageInitialized(core, aiMessage)
+	if err := receiver.RecvMessageInit(userMessage, logic.GenMessageID(), seqID, ext); err != nil {
+		slog.Error("Failed to notify chat message inited event", slog.String("session_id", userMessage.SessionID),
+			slog.String("message_id", userMessage.ID), slog.String("error", err.Error()))
+		return err
+	}
 	// rag docs merge to user request message
 
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	return logic.RequestAssistant(ctx,
 		docs,
-		userMessage,
-		aiMessage)
+		userMessage)
 }
 
 func chatMsgToTextMsg(msg *types.ChatMessage) *types.MessageMeta {

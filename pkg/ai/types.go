@@ -58,11 +58,6 @@ type QueryOptions struct {
 	vars         map[string]string
 }
 
-func (s *QueryOptions) WithDocs(docs []*types.PassageInfo) *QueryOptions {
-	s.docs = docs
-	return s
-}
-
 func (s *QueryOptions) WithPrompt(prompt string) *QueryOptions {
 	s.prompt = strings.TrimSpace(prompt)
 	return s

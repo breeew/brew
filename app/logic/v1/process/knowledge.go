@@ -634,8 +634,7 @@ func NewRecordUsageRequest(model, _type, subType, spaceID, userID string, usage 
 
 func NewRecordChatUsageRequest(model, subType, messageID string, usage *openai.Usage) chan CommonProcessResponse {
 	if knowledgeProcess == nil || knowledgeProcess.ctx.Err() != nil {
-		slog.Error("Knowledge Process not working", slog.String("error", knowledgeProcess.ctx.Err().Error()),
-			slog.String("message", messageID), slog.Any("usage", usage))
+		slog.Error("Knowledge Process not working", slog.String("message", messageID), slog.Any("usage", usage))
 		return nil
 	}
 
