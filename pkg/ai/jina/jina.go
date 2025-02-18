@@ -128,8 +128,6 @@ func (s *Driver) Rerank(ctx context.Context, query string, docs []*ai.RerankDoc)
 		})
 	}
 
-	fmt.Println(result)
-
 	return rank, &ai.Usage{
 		Model: model,
 		Usage: &openai.Usage{

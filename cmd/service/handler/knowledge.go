@@ -233,9 +233,6 @@ func (s *HttpSrv) Query(c *gin.Context) {
 		return
 	}
 
-	tmp, _ := json.Marshal(result)
-	slog.Debug(string(tmp))
-
 	response.APISuccess(c, result)
 }
 
