@@ -14,6 +14,7 @@ import (
 	"github.com/davidscottmills/goeditorjs"
 	"github.com/pgvector/pgvector-go"
 	"github.com/samber/lo"
+	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/app/core/srv"
@@ -264,8 +265,16 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
-func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (types.RAGDocs, *ai.Usage, error) {
-	var result types.RAGDocs
+type UsageItem struct {
+	Subject string
+	Usage   ai.Usage
+}
+
+func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query string, resource *types.ResourceQuery) (types.RAGDocs, []UsageItem, error) {
+	var (
+		result types.RAGDocs
+		usages []UsageItem
+	)
 	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
 	aiOpts.WithPrompt(l.core.Prompt().EnhanceQuery)
 	resp, err := aiOpts.EnhanceQuery(query)
@@ -273,9 +282,15 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		slog.Error("failed to enhance user query", slog.String("query", query), slog.String("error", err.Error()))
 		// return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EnhanceQuery", i18n.ERROR_INTERNAL, err)
 	}
-	usage := &ai.Usage{
-		Model: resp.Model,
-		Usage: resp.Usage,
+
+	if resp.Usage != nil {
+		usages = append(usages, UsageItem{
+			Usage: ai.Usage{
+				Model: resp.Model,
+				Usage: resp.Usage,
+			},
+			Subject: types.USAGE_SUB_TYPE_QUERY_ENHANCE,
+		})
 	}
 
 	queryStrs := []string{query}
@@ -359,44 +374,57 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	slog.Debug("match knowledges", slog.String("query", query), slog.Any("resource", resource), slog.Int("knowledge_length", len(knowledges)))
 	if len(knowledges) == 0 {
 		// return nil, errors.New("KnowledgeLogic.Query.KnowledgeStore.ListKnowledge.nil", i18n.ERROR_LOGIC_VECTOR_DB_NOT_MATCHED_CONTENT_DB, nil)
-		return result, usage, nil
+		return result, usages, nil
 	}
 
 	rankList, usage, err := l.core.Rerank(query, knowledges)
 	if err != nil {
-		if usage != nil {
-			usage.Usage.PromptTokens += usage.Usage.TotalTokens
-		}
 		slog.Error("Failed to request rerank api", slog.String("error", err.Error()))
 		// return result, usage, errors.New("KnowledgeLogic.Query.Rerank", i18n.ERROR_INTERNAL, err)
 		rankList = knowledges
 	}
 
-	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, rankList); err != nil {
-		return result, usage, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	slog.Debug("rerank result", slog.Int("knowledge_length", len(rankList)))
+
+	if usage != nil {
+		usages = append(usages, UsageItem{
+			Usage: ai.Usage{
+				Model: usage.Model,
+				Usage: &openai.Usage{
+					PromptTokens: usage.Usage.PromptTokens,
+				},
+			},
+			Subject: types.USAGE_SUB_TYPE_RERANK,
+		})
 	}
 
-	return result, &ai.Usage{
-		Model: resp.Model,
-		Usage: resp.Usage,
-	}, nil
+	if result.Docs, err = l.core.AppendKnowledgeContentToDocs(result.Docs, rankList); err != nil {
+		return result, usages, errors.New("KnowledgeLogic.Query.AppendKnowledgeContentToDocs", i18n.ERROR_INTERNAL, err)
+	}
+
+	return result, usages, nil
 }
 
 type KnowledgeQueryResult struct {
-	Refs    []types.QueryResult `json:"refs"`
+	Refs    []types.QueryResult `json:"-"`
 	Message string              `json:"message"`
 }
 
 func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQuery, query string) (*KnowledgeQueryResult, error) {
 	msgArgs := &types.ChatMessage{
-		ID:       utils.GenUniqIDStr(),
-		UserID:   l.GetUserInfo().User,
-		SpaceID:  spaceID,
-		Message:  query,
-		MsgType:  types.MESSAGE_TYPE_TEXT,
-		SendTime: time.Now().Unix(),
-		Role:     types.USER_ROLE_USER,
-		Complete: types.MESSAGE_PROGRESS_COMPLETE,
+		ID:        utils.GenUniqIDStr(),
+		UserID:    l.GetUserInfo().User,
+		SpaceID:   spaceID,
+		SessionID: "", // session 为空则表示为 query
+		Message:   query,
+		MsgType:   types.MESSAGE_TYPE_TEXT,
+		SendTime:  time.Now().Unix(),
+		Role:      types.USER_ROLE_USER,
+		Complete:  types.MESSAGE_PROGRESS_COMPLETE,
+	}
+
+	if err := l.core.Store().ChatMessageStore().Create(l.ctx, msgArgs); err != nil {
+		return nil, errors.New("KnowledgeLogic.Query.ChatMessageStore.Create", i18n.ERROR_INTERNAL, err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
@@ -423,9 +451,11 @@ func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQu
 			slog.Error("Failed to handle journal message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
 		}
 	case types.AGENT_TYPE_NORMAL:
-		docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(msgArgs.SpaceID, l.GetUserInfo().User, msgArgs.Message, resource)
-		if usage != nil && usage.Usage != nil {
-			process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+		docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(msgArgs.SpaceID, l.GetUserInfo().User, msgArgs.Message, resource)
+		if len(usages) > 0 {
+			for _, v := range usages {
+				process.NewRecordChatUsageRequest(v.Usage.Model, v.Subject, msgArgs.ID, v.Usage.Usage)
+			}
 		}
 		if err != nil {
 			err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)

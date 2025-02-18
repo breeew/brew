@@ -199,6 +199,7 @@ func requestAI(ctx context.Context, core *core.Core, isStream bool, sessionConte
 			process.NewRecordChatUsageRequest(msg.Model, types.USAGE_SUB_TYPE_CHAT, sessionContext.MessageID, msg.Usage)
 		}
 		content := msg.Message()
+
 		defer done(int32(len([]rune(content))))
 		return receiveFunc(0, &types.TextMessage{Text: content}, types.MESSAGE_PROGRESS_COMPLETE)
 	}
@@ -319,7 +320,7 @@ func NewQueryReceiver(ctx context.Context, core *core.Core, responseChan chan ty
 	return &QueryReceiveHandler{
 		ctx:  ctx,
 		core: core,
-		resp: make(chan types.MessageContent, 1),
+		resp: responseChan,
 	}
 }
 
@@ -339,7 +340,11 @@ func (s *QueryReceiveHandler) RecvMessageInit(userReqMsg *types.ChatMessage, msg
 
 func (s *QueryReceiveHandler) GetReceiveFunc() types.ReceiveFunc {
 	return func(startAt int32, message types.MessageContent, _ types.MessageProgress) error {
-		s.resp <- message
+		select {
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		case s.resp <- message:
+		}
 		return nil
 	}
 }

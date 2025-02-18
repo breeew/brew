@@ -84,7 +84,7 @@ type RerankResponseItem struct {
 }
 
 func (s *Driver) Rerank(ctx context.Context, query string, docs []*ai.RerankDoc) ([]ai.RankDocItem, *ai.Usage, error) {
-	slog.Debug("Reader", slog.String("driver", NAME))
+	slog.Debug("Rerank", slog.String("driver", NAME))
 	model := s.models["rerank"]
 	request := RerankRequestBody{
 		Model: model,
@@ -127,6 +127,7 @@ func (s *Driver) Rerank(ctx context.Context, query string, docs []*ai.RerankDoc)
 			Score: v.RelevanceScore,
 		})
 	}
+
 	return rank, &ai.Usage{
 		Model: model,
 		Usage: &openai.Usage{
