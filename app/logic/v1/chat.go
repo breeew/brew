@@ -181,9 +181,11 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
-			docs, usage, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, msg.Message, resourceQuery)
-			if usage != nil && usage.Usage != nil {
-				process.NewRecordChatUsageRequest(usage.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, usage.Usage)
+			docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, msg.Message, resourceQuery)
+			if len(usages) > 0 {
+				for _, v := range usages {
+					process.NewRecordChatUsageRequest(v.Usage.Model, v.Subject, msgArgs.ID, v.Usage.Usage)
+				}
 			}
 			if err != nil {
 				err = errors.Trace("ChatLogic.getRelevanceKnowledges", err)

@@ -706,7 +706,7 @@ func (p *KnowledgeProcess) ProcessUsage() {
 				continue
 			}
 
-			p.CheckProcess(fmt.Sprintf("session_%s_usage", req.sessionID), func() {
+			p.CheckProcess(fmt.Sprintf("session_%s_%s_usage", req.sessionID, req.subType), func() {
 				req.response <- CommonProcessResponse{
 					Error: p.RecordSessionUsage(req),
 				}
@@ -716,7 +716,7 @@ func (p *KnowledgeProcess) ProcessUsage() {
 				continue
 			}
 
-			p.CheckProcess(fmt.Sprintf("message_%s_usage", req.messageID), func() {
+			p.CheckProcess(fmt.Sprintf("message_%s_%s_usage", req.messageID, req.subType), func() {
 				req.response <- CommonProcessResponse{
 					Error: p.RecordChatUsage(req),
 				}
@@ -726,7 +726,7 @@ func (p *KnowledgeProcess) ProcessUsage() {
 				continue
 			}
 
-			p.CheckProcess(fmt.Sprintf("knowledge_%s_usage_%s", req.subType, req.knowledge.ID), func() {
+			p.CheckProcess(fmt.Sprintf("knowledge_%s_usage_%s", req.knowledge.ID, req.subType), func() {
 				req.response <- CommonProcessResponse{
 					Error: p.RecordKnowledgeUsage(req),
 				}

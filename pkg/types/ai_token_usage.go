@@ -43,6 +43,7 @@ const (
 	USAGE_SUB_TYPE_QUERY         = "query"
 	USAGE_SUB_TYPE_NAMED_CHAT    = "named_chat"
 	USAGE_SUB_TYPE_QUERY_ENHANCE = "query_enhance"
+	USAGE_SUB_TYPE_RERANK        = "rerank"
 
 	USAGE_SUB_TYPE_DESCRIBE_IMAGE = "describe_image"
 )

@@ -51,12 +51,12 @@ func TestKnowledgeInsert(t *testing.T) {
 func TestKnowledgeQuery(t *testing.T) {
 	logic := setupKnowledgeLogic()
 
-	res, err := logic.Query(spaceid, "", nil, "我昨天做了哪些工作")
+	res, err := logic.Query(spaceid, "rag", nil, "我昨天做了哪些工作")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fmt.Println(res)
+	fmt.Println(res.Message)
 }
 
 func TestHidden(t *testing.T) {
