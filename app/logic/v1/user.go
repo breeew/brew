@@ -140,8 +140,8 @@ func NewAuthedUserLogic(ctx context.Context, core *core.Core) *AuthedUserLogic {
 	return l
 }
 
-func (l *AuthedUserLogic) UpdateUserProfile(userName, email string) error {
-	err := l.core.Store().UserStore().UpdateUserProfile(l.ctx, l.GetUserInfo().Appid, l.GetUserInfo().User, userName, email)
+func (l *AuthedUserLogic) UpdateUserProfile(userName, email, avatar string) error {
+	err := l.core.Store().UserStore().UpdateUserProfile(l.ctx, l.GetUserInfo().Appid, l.GetUserInfo().User, userName, email, avatar)
 	if err != nil {
 		return errors.New("AuthedUserLogic.UpdateUserProfile.UserStore.UpdateUserProfile", i18n.ERROR_INTERNAL, err)
 	}

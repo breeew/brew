@@ -23,3 +23,4 @@ COMMENT ON COLUMN bw_vectors.updated_at IS '更新时间，UNIX时间戳';
 
 
 CREATE INDEX idx_vectors_space_id_resource_knowledge_id ON bw_vectors (space_id, resource, knowledge_id);
+CREATE INDEX idx_vectors_embedding ON bw_vectors USING hnsw (embedding vector_ip_ops) WITH (m = 32, ef_construction = 128);

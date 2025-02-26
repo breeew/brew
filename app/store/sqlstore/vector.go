@@ -187,8 +187,8 @@ func (s *VectorStore) Query(ctx context.Context, opts types.GetVectorsOptions, v
 	// <#> - (negative) inner product
 	// <=> - cosine distance
 	// <+> - L1 distance (added in 0.7.0)
-	cosColum, vectorArgs, _ := sq.Expr("(embedding <=> ?) as cos", vectors).ToSql()
-	query := sq.Select("id", "knowledge_id", "original_length", cosColum).From(s.GetTable()).Limit(limit).OrderBy("cos ASC")
+	cosColum, vectorArgs, _ := sq.Expr("1 - (embedding <=> ?) as cos", vectors).ToSql()
+	query := sq.Select("id", "knowledge_id", "original_length", cosColum).From(s.GetTable()).Limit(limit).OrderBy("cos DESC")
 	opts.Apply(&query)
 
 	queryString, args, err := query.ToSql()

@@ -115,18 +115,6 @@ func Test_Generate(t *testing.T) {
 	t.Log(res)
 }
 
-func Test_EnhanceQuery(t *testing.T) {
-	query := "今日待办"
-
-	d := new()
-	opts := ai.NewEnhance(context.Background(), d)
-	res, err := opts.EnhanceQuery(query)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(res)
-}
-
 func Test_Summarize(t *testing.T) {
 	content := `
 通过docker部署向量数据库postgres，pgvector的docker部署方式：

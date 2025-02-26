@@ -148,7 +148,7 @@ func (s *SelfHostPlugin) Install(c *core.Core) error {
 			return err
 		}
 		ctx = context.WithValue(ctx, v1.TOKEN_CONTEXT_KEY, claims)
-		spaceID, err = v1.NewSpaceLogic(ctx, s.core).CreateUserSpace("default", "default")
+		spaceID, err = v1.NewSpaceLogic(ctx, s.core).CreateUserSpace("default", "default", "", "")
 		if err != nil {
 			return err
 		}

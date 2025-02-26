@@ -362,18 +362,21 @@ func (s *QueryReceiveHandler) GetDoneFunc(callback func(receiveMsg *types.ChatMe
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
 func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsg *types.ChatMessage) error {
-	// TODO: Get space prompt
+	space, err := s.core.Store().SpaceStore().GetSpace(ctx, reqMsg.SpaceID)
+	if err != nil {
+		return err
+	}
+
 	var prompt string
 	if len(docs.Refs) == 0 {
-		prompt = s.core.Prompt().Base
+		prompt = lo.If(space.BasePrompt != "", space.BasePrompt).Else(s.core.Prompt().Base)
 	} else {
-		prompt = s.core.Prompt().Query
+		prompt = lo.If(space.ChatPrompt != "", space.ChatPrompt).Else(s.core.Prompt().Query)
 	}
 	prompt = ai.BuildRAGPrompt(prompt, ai.NewDocs(docs.Docs), s.core.Srv().AI())
 
 	var (
 		sessionContext *SessionContext
-		err            error
 	)
 	if reqMsg.SessionID != "" {
 		sessionContext, err = s.GenSessionContext(ctx, prompt, reqMsg)

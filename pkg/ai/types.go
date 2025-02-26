@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkoukk/tiktoken-go"
+	"github.com/samber/lo"
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/pkg/mark"
@@ -34,7 +36,7 @@ type Lang interface {
 }
 
 type Enhance interface {
-	EnhanceQuery(ctx context.Context, prompt, query string) (EnhanceQueryResult, error)
+	EnhanceQuery(ctx context.Context, messages []openai.ChatCompletionMessage) (EnhanceQueryResult, error)
 	Lang() string
 }
 
@@ -95,9 +97,9 @@ const PROMPT_PROCESS_CONTENT_CN = `
 请在处理后提供清洗后的文本、分块结果、摘要以及添加上下文信息后的最终文本作为整体总结内容。
 注意：无论是清洗还是分块，你只需要回答不重复的内容，并且不必告诉用户这是清洗内容，那是分块内容。
 你可以结合以下基于现在的时间表来理解用户的内容：
-{time_range}
+${time_range}
 此外参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
-{symbol}
+${symbol}
 `
 
 const PROMPT_PROCESS_CONTENT_EN = `
@@ -112,9 +114,9 @@ If the user’s content contains time descriptions, convert any semantic time ex
 After processing, provide the cleaned text, chunked result, summary, and the final text with contextual information as a comprehensive output.
 Note: For cleaning and chunking, respond only with unique information and avoid labeling sections as "cleaned text" or "chunked content."
 You can use the current timeline to better understand the user's content: 
-{time_range}
+${time_range}
 Additionally, some system syntax may appear in the reference content. You can ignore these markers and treat them as a single string: 
-{symbol}
+${symbol}
 `
 
 const PROMPT_CHUNK_CONTENT_CN = `
@@ -139,9 +141,9 @@ const PROMPT_CHUNK_CONTENT_CN = `
 分块结束后，重新检查所有分块，是否与用户所描述内容相关，若不相关则删除该分块。
 
 你可以结合以下基于现在的时间表来理解用户的内容：
-{time_range}
+${time_range}
 此外参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
-{symbol}
+${symbol}
 `
 
 const PROMPT_CHUNK_CONTENT_EN = `
@@ -163,10 +165,10 @@ Generate at least 1 chunk and a maximum of 10 chunks, along with up to 5 tags.
 After chunking, recheck all chunks to ensure they are relevant to the user's described content. If not, remove that chunk.
 
 You can refer to the current timeline to better understand the user's content:
-{time_range}
+${time_range}
 
 Additionally, some system syntax may appear in the reference content. You can ignore these markers and treat them as a single string:
-{symbol}
+${symbol}
 `
 
 // 首先需要明确，参考内容中使用$hidden[]包裹起来的内容是用户脱敏后的内容，你无需做特殊处理，如果需要原样回答即可
@@ -175,17 +177,17 @@ Additionally, some system syntax may appear in the reference content. You can ig
 //	你在回答时如果需要回答该用户，可以直接回答“$hidden[user1]”
 const GENERATE_PROMPT_TPL_CN = GENERATE_PROMPT_TPL_NONE_CONTENT_CN + `
 我先给你提供一个时间线的参考：
-{time_range}
+${time_range}
 你需要结合上述时间线来理解我问题中所提到的时间(如果有)。
 以下是我记录的一些“参考内容”，这些内容都是历史记录，请不要将参考内容中提到的时间以为是基于现在发生的：
 --------------------------------------
-{relevant_passage}
+${relevant_passage}
 --------------------------------------
 你需要结合“参考内容”来回答用户的提问，
 注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
 如果你从“参考内容”中找到了我想要的答案，可以告诉我你参考了哪些内容的ID，并尽可能地将参考内容中相关的图片、音视频也一同告诉我(URL等)。
 以下是参考内容中可能出现的一些系统语法，你可以忽略这些标识，把它当成一个字符串整体：
-{symbol}
+${symbol}
 Markdown中有些内容是通过HTML标签表示的，请不要额外处理这些HTML标签，例如<video>等，它们都是系统语法，请不要语义化这些内容。
 在回答时请提前组织好语言，不要反复出现重复的内容。
 用户使用什么语言与你沟通，你就使用什么语言回复用户，如果你不会该语言则使用英语来与用户交流。
@@ -193,7 +195,7 @@ Markdown中有些内容是通过HTML标签表示的，请不要额外处理这�
 
 const GENERATE_PROMPT_TPL_EN = GENERATE_PROMPT_TPL_NONE_CONTENT_EN + `
 Here’s a reference timeline I’m providing: 
-{time_range}
+${time_range}
 You need to use the timeline above to understand any mentioned time in my question (if applicable).
 Below are some "reference materials" that include historical records. Please do not assume that the times mentioned in the reference content are based on current events:
 {relevant_passage}
@@ -202,7 +204,7 @@ Note that some parts of the "reference materials" may describe the same event bu
 If you find the answer within the "reference materials," let me know which content IDs you used as references. Please also provide me with any associated images, audio, and video from the related content, including URLs if possible.
 Please respond in Markdown format using the same language as my question.
 Below are some system syntax symbols that may appear in the reference content. You can ignore these, treating them as strings without semantic interpretation: 
-{symbol}
+${symbol}
 You must respond in the language used by the user in their most recent question. If you are not proficient in that language, you may respond in English.
 `
 
@@ -213,12 +215,12 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 
 const IMAGE_GENERATE_PROMPT_CN = `
 请帮我分析出图片中的重要信息，使用一段话告诉我。
-请使用 {lang} 语言来回答我。
+请使用 ${lang} 语言来回答我。
 `
 
 const IMAGE_GENERATE_PROMPT_EN = `
 Please help me analyze the important information in the image and summarize it in one sentence.
-Please answer me using the {lang} language.
+Please answer me using the ${lang} language.
 `
 
 const GENERATE_PROMPT_TPL_NONE_CONTENT_EN = `You are an RAG assistant named Brew, and your model is Brew Engine. You need to respond to users in Markdown format.`
@@ -227,13 +229,23 @@ type EnhanceOptions struct {
 	ctx     context.Context
 	prompt  string
 	_driver Enhance
+	vars    map[string]string
 }
 
 func NewEnhance(ctx context.Context, driver Enhance) *EnhanceOptions {
-	return &EnhanceOptions{
+	opt := &EnhanceOptions{
 		ctx:     ctx,
 		_driver: driver,
+		vars:    make(map[string]string),
 	}
+
+	opt.vars[PROMPT_VAR_TIME_RANGE] = lo.If(driver.Lang() == MODEL_BASE_LANGUAGE_CN, PROMPT_ENHANCE_QUERY_CN).Else(PROMPT_ENHANCE_QUERY_EN)
+	opt.vars[PROMPT_VAR_LANG] = driver.Lang()
+	opt.vars[PROMPT_VAR_HISTORIES] = "null"
+	opt.vars[PROMPT_VAR_SYMBOL] = CurrentSymbols
+	opt.vars[PROMPT_VAR_SITE_TITLE] = SITE_TITLE
+
+	return opt
 }
 
 func (s *EnhanceOptions) WithPrompt(prompt string) *EnhanceOptions {
@@ -241,27 +253,133 @@ func (s *EnhanceOptions) WithPrompt(prompt string) *EnhanceOptions {
 	return s
 }
 
-const PROMPT_ENHANCE_QUERY_CN = `任务指令：作为查询增强器，你的目标是通过增加相关信息来提高用户查询的相关性和多样性。请根据提供的指导原则对用户的原始查询进行优化。 参考信息： 
-- 时间表：
-${time_range} 
-- 如果用户提到时间，请依据上述时间表将模糊的时间描述转换为具体的日期。 
-- 如果用户提及地点，请确保在增强后的查询中包含该位置信息。 
-- 对于一些通用表达（如“干啥”），请使用其同义词或更正式的表述（例如，“做什么”）来进行替换。 
-- 在处理该任务时，请不要有任何联想，例如用户提到”小红“你不要把它联想成”小红书“或”红酒“，一定要避免此类错误。
-操作指南： 
-1. 保持用户原始查询的核心意图不变。 
-2. 尽可能简短地添加额外的信息到用户的查询中，而不是替换原有的内容。 
-3. 目标是生成一个更加具体、相关性更高的查询版本，以帮助获取更多相似的问题或答案。 
-示例处理流程： 
-- 用户输入：“周末有什么活动？” 
-- 增强后输出：“${time_range}中的具体周末有哪些活动？” 
-注意事项： 
-- 确保最终输出既保留了用户的原意，又增加了有助于搜索的相关细节。 
-- 不要改变用户提问的基本结构，仅在其基础上做必要的补充和调整。 
-请基于以上规则告诉我经过处理后的用户语句，注意，我会直接使用你处理后的语句来进行RAG流程的下一步，请不要在响应中添加任何与任务无关的内容。`
+func (s *EnhanceOptions) WithHistories(messages []*types.ChatMessage) *EnhanceOptions {
+	if len(messages) == 0 {
+		return s
+	}
+
+	sort.Slice(messages, func(i, j int) bool {
+		return messages[i].SendTime < messages[j].SendTime
+	})
+	str := strings.Builder{}
+	for _, v := range messages {
+		str.WriteString(v.Role.String())
+		str.WriteString(":")
+		if v.Role == types.USER_ROLE_ASSISTANT && len([]rune(v.Message)) > 20 {
+			str.WriteString(string([]rune(v.Message)[:20]))
+			str.WriteString("......")
+		} else {
+			str.WriteString(v.Message)
+		}
+		str.WriteString("\n")
+	}
+
+	s.vars[PROMPT_VAR_HISTORIES] = str.String()
+	return s
+}
+
+// const PROMPT_ENHANCE_QUERY_CN = `任务指令：作为查询增强器，你的目标是通过增加相关信息来提高用户查询的相关性和多样性。请根据提供的指导原则对用户的原始查询进行优化。 参考信息：
+// - 时间表：
+// ${time_range}
+// - 如果用户提到时间，请依据上述时间表将模糊的时间描述转换为具体的日期。
+// - 如果用户提及地点，请确保在增强后的查询中包含该位置信息。
+// - 对于一些通用表达（如“干啥”），请使用其同义词或更正式的表述（例如，“做什么”）来进行替换。
+// 操作指南：
+// 1. 保持用户原始查询的核心意图不变。
+// 2. 尽可能简短地添加额外的信息到用户的查询中，而不是替换原有的内容。
+// 3. 目标是生成一个更加具体、相关性更高的查询版本，以帮助获取更多相似的问题或答案。
+// 示例处理流程：
+// - 用户输入：“周末有什么活动？”
+// - 增强后输出：“${time_range}中的具体周末有哪些活动？”
+// 注意事项：
+// - 确保最终输出既保留了用户的原意，又增加了有助于搜索的相关细节。
+// - 不要改变用户提问的基本结构，仅在其基础上做必要的补充和调整。
+// 请基于以上规则告诉我经过处理后的用户语句，注意，我会直接使用你处理后的语句来进行RAG流程的下一步，请不要在响应中添加任何与任务无关的内容。`
+
+const PROMPT_ENHANCE_QUERY_CN = `
+## 你的任务
+你作为一个向量检索助手，你的任务是结合历史记录，从不同角度，为“原问题”生成个不同版本的“检索词”，从而提高向量检索的语义丰富度，提高向量检索的精度。
+生成的问题要求指向对象清晰明确，并与“原问题语言相同”。
+
+## 基于我现在的时间线参考
+${time_range}
+
+## 参考示例
+
+历史记录: 
+"""
+null
+"""
+原问题: 介绍下剧情。
+检索词: ["介绍下故事的背景。","故事的主题是什么？","介绍下故事的主要人物。"]
+----------------
+历史记录: 
+"""
+user: 对话背景。
+assistant: 当前对话是关于 Nginx 的介绍和使用等。
+"""
+原问题: 怎么下载
+检索词: ["Nginx 如何下载？","下载 Nginx 需要什么条件？","有哪些渠道可以下载 Nginx？"]
+----------------
+历史记录: 
+"""
+user: 对话背景。
+assistant: 当前对话是关于 Nginx 的介绍和使用等。
+user: 报错 "no connection"
+assistant: 报错"no connection"可能是因为……
+"""
+原问题: 怎么解决
+检索词: ["Nginx报错"no connection"如何解决？","造成'no connection'报错的原因。","Nginx提示'no connection'，要怎么办？"]
+----------------
+历史记录: 
+"""
+user: How long is the maternity leave?
+assistant: The number of days of maternity leave depends on the city in which the employee is located. Please provide your city so that I can answer your questions.
+"""
+原问题: ShenYang
+检索词: ["How many days is maternity leave in Shenyang?","Shenyang's maternity leave policy.","The standard of maternity leave in Shenyang."]
+----------------
+历史记录: 
+"""
+user: 作者是谁？
+assistant: ${title} 的作者是 boyce。
+"""
+原问题: Tell me about him
+检索词: ["Introduce labring, the author of ${title}." ," Background information on author boyce." "," Why does boyce do ${title}?"]
+----------------
+历史记录:
+"""
+user: 对话背景。
+assistant: 关于 ${title} 的介绍和使用等问题。
+"""
+原问题: 你好。
+检索词: ["你好"]
+----------------
+历史记录:
+"""
+null
+"""
+原问题: 我昨天干啥了？
+检索词: ["我昨天做了哪些事情","昨天{参考时间表获取对应日期}做了什么事情"]
+----------------
+
+## 输出要求
+
+1. 输出格式为 JSON 数组，不需要使用markdown语法，数组中每个元素为字符串。无需对输出进行任何解释。
+2. 输出语言与原问题相同。原问题为中文则输出中文；原问题为英文则输出英文。
+
+## 开始任务
+
+历史记录:
+"""
+${histories}
+"""
+原问题: ${query}
+检索词: 
+`
 
 const PROMPT_ENHANCE_QUERY_EN = `You are a query enhancer. You must enhance the user's statements to make them more relevant to the content the user might be searching for. You can refer to the following timeline to understand the user's question:
-{time_range}
+${time_range}
 If the user mentions time, you can replace the time description with specific dates based on the provided reference timeline. If any locations are mentioned, please add them to the query as well. You need to perform synonym transformations on some common phrases in the user's query, such as "干啥" can also be described as "做什么." Keep your responses as brief as possible. Add to the user's query without replacing it.`
 
 func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) {
@@ -273,9 +391,25 @@ func (s *EnhanceOptions) EnhanceQuery(query string) (EnhanceQueryResult, error) 
 			s.prompt = PROMPT_ENHANCE_QUERY_EN
 		}
 	}
-	s.prompt = ReplaceVarWithLang(s.prompt, s._driver.Lang())
 
-	return s._driver.EnhanceQuery(s.ctx, s.prompt, query)
+	for k, v := range s.vars {
+		s.prompt = strings.ReplaceAll(s.prompt, k, v)
+	}
+
+	s.prompt = strings.ReplaceAll(s.prompt, PROMPT_VAR_QUERY, query)
+
+	res, err := s._driver.EnhanceQuery(s.ctx, []openai.ChatCompletionMessage{
+		{
+			Role:    types.USER_ROLE_USER.String(),
+			Content: s.prompt,
+		},
+	})
+	if err != nil {
+		return res, err
+	}
+
+	res.Original = query
+	return res, nil
 }
 
 func (s *QueryOptions) Query() (GenerateResponse, error) {
@@ -292,6 +426,8 @@ func (s *QueryOptions) Query() (GenerateResponse, error) {
 	for k, v := range s.vars {
 		s.prompt = strings.ReplaceAll(s.prompt, k, v)
 	}
+
+	s.prompt += APPEND_PROMPT_CN
 
 	if len(s.query) > 0 && s.query[0].Role != types.USER_ROLE_SYSTEM {
 		s.query = append([]*types.MessageContext{
@@ -326,6 +462,8 @@ func (s *QueryOptions) QueryStream() (*openai.ChatCompletionStream, error) {
 	for k, v := range s.vars {
 		s.prompt = strings.ReplaceAll(s.prompt, k, v)
 	}
+
+	s.prompt += APPEND_PROMPT_CN
 
 	if len(s.query) > 0 {
 		if s.query[0].Role != types.USER_ROLE_SYSTEM {
@@ -502,7 +640,12 @@ func BuildRAGPrompt(tpl string, docs Docs, driver Lang) string {
 	tpl = ReplaceVarWithLang(tpl, driver.Lang())
 
 	d := docs.ConvertPassageToPromptText(driver.Lang())
-	tpl = strings.ReplaceAll(tpl, "{relevant_passage}", d)
+	if d == "" {
+		d = "null"
+	}
+	tpl = strings.ReplaceAll(tpl, PROMPT_VAR_RELEVANT_PASSAGE, d)
+
+	tpl += APPEND_PROMPT_CN
 	return tpl
 }
 
@@ -517,14 +660,14 @@ func ReplaceVarWithLang(tpl, lang string) string {
 }
 
 func ReplaceVarCN(tpl string) string {
-	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowCN())
-	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
+	tpl = strings.ReplaceAll(tpl, PROMPT_VAR_TIME_RANGE, GenerateTimeListAtNowCN())
+	tpl = strings.ReplaceAll(tpl, PROMPT_VAR_SYMBOL, CurrentSymbols)
 	return tpl
 }
 
 func ReplaceVarEN(tpl string) string {
-	tpl = strings.ReplaceAll(tpl, "{time_range}", GenerateTimeListAtNowEN())
-	tpl = strings.ReplaceAll(tpl, "{symbol}", CurrentSymbols)
+	tpl = strings.ReplaceAll(tpl, PROMPT_VAR_TIME_RANGE, GenerateTimeListAtNowEN())
+	tpl = strings.ReplaceAll(tpl, PROMPT_VAR_SYMBOL, CurrentSymbols)
 	return tpl
 }
 
@@ -550,8 +693,6 @@ func NewDocs(list []*types.PassageInfo) Docs {
 		docs: list,
 	}
 }
-
-var CurrentSymbols = strings.Join([]string{"$hidden[]"}, ",")
 
 func convertPassageToPromptTextCN(docs []*types.PassageInfo) string {
 	s := strings.Builder{}
@@ -663,6 +804,19 @@ type EnhanceQueryResult struct {
 	News     []string      `json:"news"`
 	Model    string        `json:"model"`
 	Usage    *openai.Usage `json:"-"`
+}
+
+func (e EnhanceQueryResult) ResultQuery() string {
+	b := strings.Builder{}
+	b.WriteString(e.Original)
+	for i, item := range e.News {
+		if i != 0 {
+			b.WriteString(" ")
+		}
+		b.WriteString(item)
+	}
+
+	return b.String()
 }
 
 type Usage struct {

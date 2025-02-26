@@ -164,8 +164,12 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		}
 	})
 
+	containsAgent := types.FilterAgent(msgArgs.Message)
+	if containsAgent == types.AGENT_TYPE_NONE {
+		containsAgent = msgArgs.Agent
+	}
 	// check agents call
-	switch types.FilterAgent(msgArgs.Message) {
+	switch containsAgent {
 	case types.AGENT_TYPE_BUTLER:
 		go safe.Run(func() {
 			if err := ButlerSessionHandle(l.core, receiver, msg); err != nil {
@@ -181,7 +185,11 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	case types.AGENT_TYPE_NORMAL:
 		// else rag handler
 		go safe.Run(func() {
-			docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, msg.Message, resourceQuery)
+			enhanceResult, _ := EnhanceChatQuery(l.ctx, l.core, msg.Message, msg.SpaceID, msg.SessionID, msg.ID)
+
+			process.NewRecordChatUsageRequest(enhanceResult.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msg.ID, enhanceResult.Usage)
+
+			docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, enhanceResult.ResultQuery(), resourceQuery)
 			if len(usages) > 0 {
 				for _, v := range usages {
 					process.NewRecordChatUsageRequest(v.Usage.Model, v.Subject, msgArgs.ID, v.Usage.Usage)

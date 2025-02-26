@@ -17,7 +17,7 @@ const (
 	// 定义权限ID
 	PermissionAdmin = "admin"
 	PermissionEdit  = "edit"
-PermissionView  = "view"
+	PermissionView  = "view"
 
 	BusinessUser = "bu"
 	ClientUser   = "cu"
@@ -118,17 +118,14 @@ type RoleUser interface {
 
 // 如果是管理端用户，则只检测权限，如果是C端用户，则检测资源是否属于该用户
 func (a *RBACSrv) Check(user RoleUser, obj RoleObject, permissionID string) *errors.CustomizedError {
-	if user.GetRoleType() == BusinessUser {
-		if !a.CheckPermission(user.GetRole(), permissionID) {
-			return errors.New("RBACSrv.Check.BusinessUser", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+	if !a.CheckPermission(user.GetRole(), permissionID) {
+		resourceUser, err := obj.GetUser()
+		if err != nil {
+			return errors.Trace("RBACSrv.Check", err)
 		}
-	}
-	resourceUser, err := obj.GetUser()
-	if err != nil {
-		return errors.Trace("RBACSrv.Check", err)
-	}
-	if user.GetUser() != resourceUser {
-		return errors.New("RBACSrv.Check.ClientUser", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+		if user.GetUser() != resourceUser {
+			return errors.New("RBACSrv.Check.ClientUser", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+		}
 	}
 	return nil
 }

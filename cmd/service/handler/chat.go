@@ -182,6 +182,7 @@ type CreateChatMessageRequest struct {
 	MessageID string               `json:"message_id" binding:"required"`
 	Message   string               `json:"message" binding:"required"`
 	Resource  *types.ResourceQuery `json:"resource"`
+	Agent     string               `json:"agent"`
 }
 
 type CreateChatMessageResponse struct {
@@ -217,6 +218,7 @@ func (s *HttpSrv) CreateChatMessage(c *gin.Context) {
 	msgSequence, err := chatLogic.NewUserMessage(session, types.CreateChatMessageArgs{
 		ID:       req.MessageID,
 		Message:  req.Message,
+		Agent:    req.Agent,
 		MsgType:  types.MESSAGE_TYPE_TEXT,
 		SendTime: time.Now().Unix(),
 	}, req.Resource)

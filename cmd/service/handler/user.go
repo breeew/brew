@@ -41,6 +41,7 @@ func (s *HttpSrv) GetUser(c *gin.Context) {
 type UpdateUserProfileRequest struct {
 	UserName string `json:"user_name" form:"user_name" binding:"required,max=32"`
 	Email    string `json:"email" form:"email" binding:"required,email"`
+	Avatar   string `json:"avatar" form:"avatar" binding:"required,url"`
 }
 
 func (s *HttpSrv) UpdateUserProfile(c *gin.Context) {
@@ -53,7 +54,7 @@ func (s *HttpSrv) UpdateUserProfile(c *gin.Context) {
 		return
 	}
 
-	err = v1.NewAuthedUserLogic(c, s.Core).UpdateUserProfile(req.UserName, req.Email)
+	err = v1.NewAuthedUserLogic(c, s.Core).UpdateUserProfile(req.UserName, req.Email, req.Avatar)
 	if err != nil {
 		response.APIError(c, err)
 		return

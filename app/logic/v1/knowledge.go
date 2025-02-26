@@ -216,7 +216,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 		summary = append(summary, "title")
 	}
 
-	if args.Content, err = l.core.EncryptData(args.Content); err != nil {
+	if args.Content, err = l.core.EncryptData([]byte(args.Content.String())); err != nil {
 		return errors.New("KnowledgeLogic.Update.EncryptData", i18n.ERROR_INTERNAL, err)
 	}
 
@@ -265,6 +265,30 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 	return nil
 }
 
+func EnhanceChatQuery(ctx context.Context, core *core.Core, query string, spaceID, sessionID, messageID string) (ai.EnhanceQueryResult, error) {
+	histories, err := core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, spaceID, sessionID, messageID, 1, 3)
+	if err != nil {
+		slog.Error("Failed to get session message history", slog.String("space_id", spaceID), slog.String("session_id", sessionID),
+			slog.String("message_id", messageID), slog.String("error", err.Error()))
+	}
+
+	return EnhanceQuery(ctx, core, query, histories)
+}
+
+func EnhanceQuery(ctx context.Context, core *core.Core, query string, histories []*types.ChatMessage) (ai.EnhanceQueryResult, error) {
+	aiOpts := core.Srv().AI().NewEnhance(ctx)
+	resp, err := aiOpts.WithPrompt(core.Prompt().EnhanceQuery).
+		WithHistories(histories).
+		EnhanceQuery(query)
+	if err != nil {
+		slog.Error("failed to enhance user query", slog.String("query", query), slog.String("error", err.Error()))
+		// return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EnhanceQuery", i18n.ERROR_INTERNAL, err)
+	}
+
+	resp.Original = query
+	return resp, nil
+}
+
 type UsageItem struct {
 	Subject string
 	Usage   ai.Usage
@@ -275,30 +299,8 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		result types.RAGDocs
 		usages []UsageItem
 	)
-	aiOpts := l.core.Srv().AI().NewEnhance(l.ctx)
-	aiOpts.WithPrompt(l.core.Prompt().EnhanceQuery)
-	resp, err := aiOpts.EnhanceQuery(query)
-	if err != nil {
-		slog.Error("failed to enhance user query", slog.String("query", query), slog.String("error", err.Error()))
-		// return nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EnhanceQuery", i18n.ERROR_INTERNAL, err)
-	}
 
-	if resp.Usage != nil {
-		usages = append(usages, UsageItem{
-			Usage: ai.Usage{
-				Model: resp.Model,
-				Usage: resp.Usage,
-			},
-			Subject: types.USAGE_SUB_TYPE_QUERY_ENHANCE,
-		})
-	}
-
-	queryStrs := []string{query}
-	if len(resp.News) > 0 {
-		queryStrs = append(queryStrs, resp.News...)
-	}
-
-	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{strings.Join(queryStrs, " ")})
+	vector, err := l.core.Srv().AI().EmbeddingForQuery(l.ctx, []string{query})
 	if err != nil || len(vector.Data) == 0 {
 		return types.RAGDocs{}, nil, errors.New("KnowledgeLogic.GetRelevanceKnowledges.AI.EmbeddingForQuery", i18n.ERROR_INTERNAL, err)
 	}
@@ -318,17 +320,19 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 	}
 
 	// rerank
-
 	var (
 		knowledgeIDs []string
 		cosLimit     float32 = 0.5
 	)
 
-	if len(refs) > 10 {
-		cosLimit = refs[0].Cos + 0.15
+	if len(refs) > 10 && refs[0].Cos < 0.6 {
+		cosLimit = refs[0].Cos - 0.1
 	}
 	for i, v := range refs {
-		if i > 0 && (v.Cos > cosLimit && v.OriginalLength > 150) {
+		if i > 0 && (v.Cos < cosLimit && v.OriginalLength > 200) {
+			if len(result.Refs) > 15 {
+				break
+			}
 			// TODO：more and more verify best ratio
 			continue
 		}
@@ -438,8 +442,12 @@ func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQu
 		err    error
 	)
 
+	containsAgent := types.FilterAgent(msgArgs.Message)
+	if containsAgent == types.AGENT_TYPE_NONE {
+		containsAgent = agent
+	}
 	// check agents call
-	switch lo.If(agent != "", agent).Else(types.FilterAgent(msgArgs.Message)) {
+	switch containsAgent {
 	case types.AGENT_TYPE_BUTLER:
 		err = ButlerHandle(l.core, receiver, msgArgs)
 		if err != nil {
@@ -451,6 +459,11 @@ func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQu
 			slog.Error("Failed to handle journal message", slog.String("msg_id", msgArgs.ID), slog.String("error", err.Error()))
 		}
 	case types.AGENT_TYPE_NORMAL:
+
+		enhanceResult, _ := EnhanceChatQuery(l.ctx, l.core, msgArgs.Message, msgArgs.SpaceID, msgArgs.SessionID, msgArgs.ID)
+
+		process.NewRecordChatUsageRequest(enhanceResult.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msgArgs.ID, enhanceResult.Usage)
+
 		docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(msgArgs.SpaceID, l.GetUserInfo().User, msgArgs.Message, resource)
 		if len(usages) > 0 {
 			for _, v := range usages {
@@ -577,7 +590,8 @@ func (l *KnowledgeLogic) insertContent(isSync bool, spaceID, resource string, ki
 		err         error
 		encryptData []byte
 	)
-	if encryptData, err = l.core.EncryptData(content); err != nil {
+
+	if encryptData, err = l.core.EncryptData([]byte(content.String())); err != nil {
 		return "", errors.New("KnowledgeLogic.InsertContent.EncryptDatae", i18n.ERROR_INTERNAL, err)
 	}
 

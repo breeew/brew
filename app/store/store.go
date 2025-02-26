@@ -96,7 +96,7 @@ type SpaceStore interface {
 	sqlstore.SqlCommons
 	Create(ctx context.Context, data types.Space) error
 	GetSpace(ctx context.Context, spaceID string) (*types.Space, error)
-	Update(ctx context.Context, spaceID, title, desc string) error
+	Update(ctx context.Context, spaceID, title, desc, basePrompt, chatPrompt string) error
 	Delete(ctx context.Context, spaceID string) error
 	List(ctx context.Context, spaceIDs []string, page, pageSize uint64) ([]types.Space, error)
 }
@@ -116,7 +116,7 @@ type UserStore interface {
 	Create(ctx context.Context, data types.User) error
 	GetUser(ctx context.Context, appid, id string) (*types.User, error)
 	GetByEmail(ctx context.Context, appid, email string) (*types.User, error)
-	UpdateUserProfile(ctx context.Context, appid, id, userName, email string) error
+	UpdateUserProfile(ctx context.Context, appid, id, userName, email, avatar string) error
 	UpdateUserPassword(ctx context.Context, appid, id, salt, password string) error
 	Delete(ctx context.Context, appid, id string) error
 	ListUsers(ctx context.Context, opts types.ListUserOptions, page, pageSize uint64) ([]types.User, error)

@@ -132,81 +132,32 @@ func (s *Driver) MsgIsOverLimit(msgs []*types.MessageContext) bool {
 	return tokenNum > 8000
 }
 
-type EnhanceQueryResult struct {
-	Querys []string `json:"querys"`
-}
-
-func (s *Driver) EnhanceQuery(ctx context.Context, prompt, query string) (ai.EnhanceQueryResult, error) {
+func (s *Driver) EnhanceQuery(ctx context.Context, messages []openai.ChatCompletionMessage) (ai.EnhanceQueryResult, error) {
 	slog.Debug("EnhanceQuery", slog.String("driver", NAME))
-	// describe the function & its inputs
-	params := jsonschema.Definition{
-		Type: jsonschema.Object,
-		Properties: map[string]jsonschema.Definition{
-			"querys": {
-				Type:        jsonschema.Array,
-				Description: "将用户可能的查询问题列出在该字段中",
-				Items: &jsonschema.Definition{
-					Type: jsonschema.String,
-				},
-			},
-		},
-		Required: []string{"querys"},
-	}
-
-	f := openai.FunctionDefinition{
-		Name:        "enhance_query",
-		Description: "增强用户提问的信息，获取更多相同的提问方式",
-		Parameters:  params,
-	}
-	t := openai.Tool{
-		Type:     openai.ToolTypeFunction,
-		Function: &f,
-	}
-	// if prompt == "" {
-	// 	prompt = fmt.Sprintf("%s\n你可以基于以下时间参考表来理解用户的问题：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNow())
-	// }
-	if prompt == "" {
-		prompt = fmt.Sprintf("%s\n：\n%s", ai.PROMPT_ENHANCE_QUERY_CN, ai.GenerateTimeListAtNowCN())
-	}
 
 	req := openai.ChatCompletionRequest{
-		Model: s.model.ChatModel,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    types.USER_ROLE_SYSTEM.String(),
-				Content: prompt,
-			},
-			{
-				Role:    types.USER_ROLE_USER.String(),
-				Content: query,
-			},
-		},
-		Tools:     []openai.Tool{t},
-		MaxTokens: 200,
+		Model:       s.model.ChatModel,
+		Messages:    messages,
+		Temperature: 0.1,
+		MaxTokens:   200,
 	}
 
 	var (
-		funcCallResult EnhanceQueryResult
-		result         ai.EnhanceQueryResult
+		result ai.EnhanceQueryResult
 	)
+
 	resp, err := s.client.CreateChatCompletion(ctx, req)
 	if err != nil || len(resp.Choices) != 1 {
 		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,
 			len(resp.Choices))
 	}
 
-	for _, v := range resp.Choices[0].Message.ToolCalls {
-		if v.Function.Name != "enhance_query" {
-			continue
-		}
-		if err = json.Unmarshal([]byte(v.Function.Arguments), &funcCallResult); err != nil {
-			return result, fmt.Errorf("failed to unmarshal func call arguments of ChunkResult, %w", err)
-		}
-
-		result.News = funcCallResult.Querys
+	var enhanceQuerys []string
+	if err = json.Unmarshal([]byte(resp.Choices[0].Message.Content), &enhanceQuerys); err != nil {
+		return result, fmt.Errorf("failed to unmarshal query enhance result, %w", err)
 	}
 
-	result.Original = query
+	result.News = enhanceQuerys
 	result.Model = resp.Model
 	result.Usage = &resp.Usage
 	return result, nil

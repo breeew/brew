@@ -29,6 +29,8 @@ type Space struct {
 	SpaceID     string `json:"space_id" db:"space_id"` // 空间ID
 	Title       string `json:"title" db:"title"`
 	Description string `json:"description" db:"description"`
+	BasePrompt  string `json:"base_prompt" db:"base_prompt"`
+	ChatPrompt  string `json:"chat_prompt" db:"chat_prompt"`
 	CreatedAt   int64  `json:"created_at" db:"created_at"` // 创建时间，存储为时间戳
 }
 
@@ -38,5 +40,7 @@ type UserSpaceDetail struct {
 	Role        string `json:"role"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	BasePrompt  string `json:"base_prompt"`
+	ChatPrompt  string `json:"chat_prompt"`
 	CreatedAt   int64  `json:"created_at"`
 }

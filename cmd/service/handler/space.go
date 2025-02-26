@@ -28,6 +28,8 @@ func (s *HttpSrv) ListUserSpaces(c *gin.Context) {
 type CreateUserSpaceRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
+	BasePrompt  string `json:"base_prompt"`
+	ChatPrompt  string `json:"chat_prompt"`
 }
 
 type CreateUserSpaceResponse struct {
@@ -44,7 +46,7 @@ func (s *HttpSrv) CreateUserSpace(c *gin.Context) {
 		return
 	}
 
-	spaceID, err := v1.NewSpaceLogic(c, s.Core).CreateUserSpace(req.Title, req.Description)
+	spaceID, err := v1.NewSpaceLogic(c, s.Core).CreateUserSpace(req.Title, req.Description, req.BasePrompt, req.ChatPrompt)
 	if err != nil {
 		response.APIError(c, err)
 		return
@@ -121,7 +123,7 @@ func (s *HttpSrv) UpdateSpace(c *gin.Context) {
 		return
 	}
 	spaceID, _ := v1.InjectSpaceID(c)
-	err = v1.NewSpaceLogic(c, s.Core).UpdateSpace(spaceID, req.Title, req.Description)
+	err = v1.NewSpaceLogic(c, s.Core).UpdateSpace(spaceID, req.Title, req.Description, req.BasePrompt, req.ChatPrompt)
 	if err != nil {
 		response.APIError(c, err)
 		return

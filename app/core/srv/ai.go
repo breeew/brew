@@ -231,20 +231,20 @@ func (cfg *QWen) Install(root *AI) {
 type AI struct {
 	chatDrivers    map[string]ChatAI
 	embedDrivers   map[string]EmbeddingAI
-	enhanceDrivers map[string]EnhanceAI
+	enhanceDrivers map[string]ai.Enhance
 	visionDrivers  map[string]VisionAI
 	readerDrivers  map[string]ReaderAI
 	rerankDrivers  map[string]RerankAI
 
 	chatUsage    map[string]ChatAI
-	enhanceUsage map[string]EnhanceAI
+	enhanceUsage map[string]ai.Enhance
 	embedUsage   map[string]EmbeddingAI
 	readerUsage  map[string]ReaderAI
 	visionUsage  map[string]VisionAI
 	rerankUsage  map[string]RerankAI
 
 	chatDefault    ChatAI
-	enhanceDefault EnhanceAI
+	enhanceDefault ai.Enhance
 	embedDefault   EmbeddingAI
 	readerDefault  ReaderAI
 	visionDefault  VisionAI
@@ -309,9 +309,9 @@ func (s *AI) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error) {
 
 func (s *AI) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
 	if d := s.enhanceUsage["enhance_query"]; d != nil {
-		return d.NewEnhance(ctx)
+		return ai.NewEnhance(ctx, d)
 	}
-	return s.enhanceDefault.NewEnhance(ctx)
+	return ai.NewEnhance(ctx, s.enhanceDefault)
 }
 
 func (s *AI) MsgIsOverLimit(msgs []*types.MessageContext) bool {
@@ -344,7 +344,7 @@ func installAI(a *AI, name string, driver any) {
 		a.embedDrivers[name] = d
 	}
 
-	if d, ok := driver.(EnhanceAI); ok {
+	if d, ok := driver.(ai.Enhance); ok {
 		a.enhanceDrivers[name] = d
 	}
 
@@ -365,8 +365,8 @@ func SetupAI(cfg AIConfig) (*AI, error) {
 	a := &AI{
 		chatDrivers:    make(map[string]ChatAI),
 		chatUsage:      make(map[string]ChatAI),
-		enhanceDrivers: make(map[string]EnhanceAI),
-		enhanceUsage:   make(map[string]EnhanceAI),
+		enhanceDrivers: make(map[string]ai.Enhance),
+		enhanceUsage:   make(map[string]ai.Enhance),
 		embedDrivers:   make(map[string]EmbeddingAI),
 		embedUsage:     make(map[string]EmbeddingAI),
 		readerDrivers:  make(map[string]ReaderAI),

@@ -30,13 +30,15 @@ func NewSpaceLogic(ctx context.Context, core *core.Core) *SpaceLogic {
 	return l
 }
 
-func (l *SpaceLogic) CreateUserSpace(title, desc string) (string, error) {
+func (l *SpaceLogic) CreateUserSpace(title, desc, basePrompt, chatPrompt string) (string, error) {
 	user := l.GetUserInfo()
 	spaceID := utils.GenRandomID()
 	return spaceID, l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
 		err := l.core.Store().SpaceStore().Create(ctx, types.Space{
 			SpaceID:     spaceID,
 			Title:       title,
+			BasePrompt:  basePrompt,
+			ChatPrompt:  chatPrompt,
 			Description: desc,
 			CreatedAt:   time.Now().Unix(),
 		})
@@ -127,7 +129,7 @@ func (l *SpaceLogic) ListSpaceUsers(spaceID string, page, pageSize uint64) ([]ty
 	return list, total, nil
 }
 
-func (l *SpaceLogic) UpdateSpace(spaceID, title, desc string) error {
+func (l *SpaceLogic) UpdateSpace(spaceID, title, desc, basePrompt, chatPrompt string) error {
 	user := l.GetUserInfo()
 
 	userSpace, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, user.User, spaceID)
@@ -148,7 +150,7 @@ func (l *SpaceLogic) UpdateSpace(spaceID, title, desc string) error {
 		return errors.New("SpaceLogic.UpdateSpace.SpaceStore.GetSpace", i18n.ERROR_INTERNAL, nil).Code(http.StatusNotFound)
 	}
 
-	if err = l.core.Store().SpaceStore().Update(l.ctx, spaceID, title, desc); err != nil {
+	if err = l.core.Store().SpaceStore().Update(l.ctx, spaceID, title, desc, basePrompt, chatPrompt); err != nil {
 		return errors.New("SpaceLogic.UpdateSpace.SpaceStore.Update", i18n.ERROR_INTERNAL, err)
 	}
 
@@ -284,6 +286,8 @@ func (l *SpaceLogic) ListUserSpace() ([]types.UserSpaceDetail, error) {
 			Title:       v.Title,
 			Role:        spaceRoleMap[v.SpaceID],
 			Description: v.Description,
+			BasePrompt:  v.BasePrompt,
+			ChatPrompt:  v.ChatPrompt,
 			CreatedAt:   v.CreatedAt,
 		})
 	}

@@ -46,6 +46,7 @@ type CreateChatMessageArgs struct {
 	Message  string
 	MsgType  MessageType
 	SendTime int64
+	Agent string 
 }
 
 type MessageUserRole int8

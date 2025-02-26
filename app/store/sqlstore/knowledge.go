@@ -294,7 +294,7 @@ func (s *KnowledgeStore) ListLiteKnowledges(ctx context.Context, opts types.GetK
 
 // ListKnowledges 分页获取知识记录列表
 func (s *KnowledgeStore) ListKnowledges(ctx context.Context, opts types.GetKnowledgeOptions, page, pageSize uint64) ([]*types.Knowledge, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).OrderBy("updated_at DESC")
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).OrderBy("created_at DESC")
 	if page != 0 || pageSize != 0 {
 		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
 	}

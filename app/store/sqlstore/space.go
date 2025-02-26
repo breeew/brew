@@ -26,7 +26,7 @@ func NewSpaceStore(provider SqlProviderAchieve) *SpaceStore {
 	repo := &SpaceStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_SPACE)
-	repo.SetAllColumns("space_id", "title", "description", "created_at")
+	repo.SetAllColumns("space_id", "title", "base_prompt", "chat_prompt", "description", "created_at")
 	return repo
 }
 
@@ -36,8 +36,8 @@ func (s *SpaceStore) Create(ctx context.Context, data types.Space) error {
 		data.CreatedAt = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("space_id", "title", "description", "created_at").
-		Values(data.SpaceID, data.Title, data.Description, data.CreatedAt)
+		Columns("space_id", "title", "base_prompt", "chat_prompt", "description", "created_at").
+		Values(data.SpaceID, data.Title, data.BasePrompt, data.ChatPrompt, data.Description, data.CreatedAt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -66,7 +66,7 @@ func (s *SpaceStore) GetSpace(ctx context.Context, spaceID string) (*types.Space
 	return &res, nil
 }
 
-func (s *SpaceStore) Update(ctx context.Context, spaceID, title, desc string) error {
+func (s *SpaceStore) Update(ctx context.Context, spaceID, title, desc, basePrompt, chatPrompt string) error {
 	if title == "" && desc == "" {
 		return nil
 	}
@@ -78,6 +78,8 @@ func (s *SpaceStore) Update(ctx context.Context, spaceID, title, desc string) er
 	if desc != "" {
 		query = query.Set("desc", desc)
 	}
+
+	query = query.Set("base_prompt", basePrompt).Set("chat_prompt", chatPrompt)
 	queryString, args, err := query.ToSql()
 	if err != nil {
 		return ErrorSqlBuild(err)

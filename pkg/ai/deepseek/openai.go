@@ -294,3 +294,38 @@ func (s *Driver) Chunk(ctx context.Context, doc *string) (ai.ChunkResult, error)
 	result.Usage = &resp.Usage
 	return result, nil
 }
+
+func (s *Driver) NewEnhance(ctx context.Context) *ai.EnhanceOptions {
+	return ai.NewEnhance(ctx, s)
+}
+
+func (s *Driver) EnhanceQuery(ctx context.Context, messages []openai.ChatCompletionMessage) (ai.EnhanceQueryResult, error) {
+	slog.Debug("EnhanceQuery", slog.String("driver", NAME))
+
+	req := openai.ChatCompletionRequest{
+		Model:       s.model.ChatModel,
+		Messages:    messages,
+		Temperature: 0.1,
+		MaxTokens:   200,
+	}
+
+	var (
+		result ai.EnhanceQueryResult
+	)
+
+	resp, err := s.client.CreateChatCompletion(ctx, req)
+	if err != nil || len(resp.Choices) != 1 {
+		return result, fmt.Errorf("Completion error: err:%v len(choices):%v\n", err,
+			len(resp.Choices))
+	}
+
+	var enhanceQuerys []string
+	if err = json.Unmarshal([]byte(resp.Choices[0].Message.Content), &enhanceQuerys); err != nil {
+		return result, fmt.Errorf("failed to unmarshal query enhance result, %w", err)
+	}
+
+	result.News = enhanceQuerys
+	result.Model = resp.Model
+	result.Usage = &resp.Usage
+	return result, nil
+}

@@ -20,7 +20,7 @@ func init() {
 
 func new() *openai.Driver {
 	return openai.New(os.Getenv("BREW_API_AI_DEEPSEEK_TOKEN"), os.Getenv("BREW_API_AI_DEEPSEEK_ENDPOINT"), ai.ModelName{
-		ChatModel: "deepseek-chat",
+		ChatModel: os.Getenv("BREW_API_AI_DEEPSEEK_CHAT_MODEL"),
 	})
 }
 
@@ -38,12 +38,12 @@ func Test_Generate(t *testing.T) {
 	prompt := ai.BuildRAGPrompt(`
 		以下是关于回答用户提问的“参考内容”，这些内容都是历史记录，其中提到的时间点无法与当前时间进行参照：
 		--------------------------------------
-		{relevant_passage}
+		${relevant_passage}
 		--------------------------------------
 		你需要结合“参考内容”来回答用户的提问，
 		注意，“参考内容”中可能有部分内容描述的是同一件事情，但是发生的时间不同，当你无法选择应该参考哪一天的内容时，可以结合用户提出的问题进行分析。
 		如果你从上述内容中找到了用户想要的答案，可以结合内容相关的属性来给到用户更多的帮助，比如参考“事件发生时间”来告诉用户这件事发生在哪天。
-		请你使用 {lang} 语言，以Markdown格式回复用户。
+		请你使用 ${lang} 语言，以Markdown格式回复用户。
 	`, ai.NewDocs([]*types.PassageInfo{
 		{
 			ID:       "xcjoijoijo12",
@@ -105,4 +105,17 @@ pgvector/pgvector:pg16
 	}
 
 	t.Log(resp)
+}
+
+func Test_EnhanceQuery(t *testing.T) {
+	query := "喝小红有什么作用？"
+
+	d := new()
+	opts := ai.NewEnhance(context.Background(), d)
+	opts.WithPrompt(ai.PROMPT_ENHANCE_QUERY_CN)
+	res, err := opts.EnhanceQuery(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(res, res.Usage)
 }

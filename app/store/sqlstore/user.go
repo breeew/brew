@@ -81,10 +81,11 @@ func (s *UserStore) GetByEmail(ctx context.Context, appid, email string) (*types
 }
 
 // Update 更新用户信息
-func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, email string) error {
+func (s *UserStore) UpdateUserProfile(ctx context.Context, appid, id, userName, email, avatar string) error {
 	query := sq.Update(s.GetTable()).
 		Set("name", userName).
 		Set("email", email).
+		Set("avatar", avatar).
 		Set("updated_at", time.Now().Unix()).
 		Where(sq.Eq{"appid": appid, "id": id})
 
