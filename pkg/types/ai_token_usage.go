@@ -36,6 +36,7 @@ const (
 	USAGE_TYPE_KNOWLEDGE = "knowledge"
 	USAGE_TYPE_CHAT      = "chat"
 	USAGE_TYPE_SYSTEM    = "system"
+	USAGE_TYPE_USER      = "user"
 
 	USAGE_SUB_TYPE_EMBEDDING     = "embedding"
 	USAGE_SUB_TYPE_SUMMARY       = "summary"
@@ -44,6 +45,7 @@ const (
 	USAGE_SUB_TYPE_NAMED_CHAT    = "named_chat"
 	USAGE_SUB_TYPE_QUERY_ENHANCE = "query_enhance"
 	USAGE_SUB_TYPE_RERANK        = "rerank"
+	USAGE_SUB_TYPE_READ          = "read"
 
 	USAGE_SUB_TYPE_DESCRIBE_IMAGE = "describe_image"
 )

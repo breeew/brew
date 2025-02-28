@@ -221,18 +221,9 @@ func requestAI(ctx context.Context, core *core.Core, isStream bool, sessionConte
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg, ok := <-respChan:
-			// slog.Debug("got ai response", slog.Any("msg", msg), slog.Bool("status", ok))
-			if !ok || msg.FinishReason != "" {
-				done(int32(len(sended)))
-				if msg.FinishReason != "" && msg.FinishReason != "stop" {
-					slog.Error("AI srv unexpected exit", slog.String("error", msg.FinishReason), slog.String("id", msg.ID))
-					return errors.New("requestAI.Srv.AI.Query", i18n.ERROR_INTERNAL, fmt.Errorf("%s", msg.FinishReason))
-				}
-				if !ok {
-					return nil
-				}
+			if !ok {
+				return nil
 			}
-
 			if msg.Error != nil {
 				return err
 			}
@@ -242,6 +233,17 @@ func requestAI(ctx context.Context, core *core.Core, isStream bool, sessionConte
 					return errors.New("ChatGPTLogic.RequestChatGPT.for.respChan.receive", i18n.ERROR_INTERNAL, err)
 				}
 				sended = append(sended, []rune(msg.Message)...)
+			}
+
+			// slog.Debug("got ai response", slog.Any("msg", msg), slog.Bool("status", ok))
+			if msg.FinishReason != "" {
+				if err = done(int32(len(sended))); err != nil {
+					slog.Error("Failed to set message done", slog.String("error", err.Error()), slog.String("msg_id", msg.ID))
+				}
+				if msg.FinishReason != "" && msg.FinishReason != "stop" {
+					slog.Error("AI srv unexpected exit", slog.String("error", msg.FinishReason), slog.String("id", msg.ID))
+					return errors.New("requestAI.Srv.AI.Query", i18n.ERROR_INTERNAL, fmt.Errorf("%s", msg.FinishReason))
+				}
 			}
 
 			if msg.Usage != nil {
@@ -384,14 +386,19 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 			return err
 		}
 	} else {
+		userChatMessage := &types.MessageContext{
+			Role: types.USER_ROLE_USER,
+		}
+		if len(reqMsg.Attach) > 0 {
+			userChatMessage.MultiContent = reqMsg.Attach.ToMultiContent(reqMsg.Message)
+		} else {
+			userChatMessage.Content = reqMsg.Message
+		}
 		sessionContext = &SessionContext{
 			Prompt:    prompt,
 			MessageID: reqMsg.ID,
 			MessageContext: []*types.MessageContext{
-				{
-					Role:    types.USER_ROLE_USER,
-					Content: reqMsg.Message,
-				},
+				userChatMessage,
 			},
 		}
 	}
@@ -431,7 +438,7 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 	}
 
 	if err = requestAI(ctx, s.core, s.receiver.IsStream(), sessionContext, marks, receiveFunc, doneFunc); err != nil {
-		slog.Error("failed to request AI", slog.String("error", err.Error()))
+		slog.Error("NormalAssistant: failed to request AI", slog.String("error", err.Error()))
 		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 	return nil
@@ -445,7 +452,7 @@ func NewBulterAssistant(core *core.Core, agentType string, receiver types.Receiv
 	return &ButlerAssistant{
 		core:      core,
 		agentType: agentType,
-		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model),
+		client:    butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model, core.Cfg().AI.Agent.VlModel),
 		receiver:  receiver,
 	}
 }
@@ -472,29 +479,33 @@ func (s *ButlerAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage) error {
-	nextReq, usage, err := s.client.Query(reqMsgWithDocs.UserID, reqMsgWithDocs.Message)
+func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsg *types.ChatMessage) error {
+	nextReq, usage, err := s.client.Query(reqMsg.UserID, reqMsg.Message, reqMsg.Attach.ToMultiContent(reqMsg.Message))
 	if err != nil {
-		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 
 	if usage != nil {
-		process.NewRecordUsageRequest(s.client.Model, "Agents", "Butler", reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, usage)
+		process.NewRecordUsageRequest(s.client.Model, "Agents", "Butler", reqMsg.SpaceID, reqMsg.UserID, usage)
 	}
-	// type SessionContext struct {
-	// 	MessageID      string
-	// 	SessionID      string
-	// 	MessageContext []*types.MessageContext
-	// 	Prompt         string
-	// }
+
+	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)
+	receiveFunc := s.receiver.GetReceiveFunc()
+	doneFunc := s.receiver.GetDoneFunc(nil)
+
+	if len(nextReq) == 1 {
+		defer doneFunc(int32(len(nextReq[0].Content)))
+		return receiveFunc(0, &types.TextMessage{Text: nextReq[0].Content}, types.MESSAGE_PROGRESS_COMPLETE)
+	}
 
 	chatSessionContext := &SessionContext{
-		MessageID: reqMsgWithDocs.ID,
-		SessionID: reqMsgWithDocs.SessionID,
+		MessageID: reqMsg.ID,
+		SessionID: reqMsg.SessionID,
 		MessageContext: lo.Map(nextReq, func(item openai.ChatCompletionMessage, _ int) *types.MessageContext {
 			return &types.MessageContext{
-				Role:    types.GetMessageUserRole(item.Role),
-				Content: item.Content,
+				Role:         types.GetMessageUserRole(item.Role),
+				Content:      item.Content,
+				MultiContent: item.MultiContent,
 			}
 		}),
 		Prompt: butler.BuildButlerPrompt("", s.core.Srv().AI()),
@@ -503,9 +514,6 @@ func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
 	defer cancel()
 
-	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)
-	receiveFunc := s.receiver.GetReceiveFunc()
-	doneFunc := s.receiver.GetDoneFunc(nil)
 	// doneFunc := getStreamDoneFunc(ctx, s.core, recvMsgInfo, nil)
 
 	marks := make(map[string]string)
@@ -517,7 +525,7 @@ func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 
 	if err = requestAI(ctx, s.core, s.receiver.IsStream(), chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
-		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 	return nil
 }
@@ -557,20 +565,25 @@ func (s *JournalAssistant) GenSessionContext(ctx context.Context, prompt string,
 // RequestAssistant 向智能助理发起请求
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
-func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsgWithDocs *types.ChatMessage) error {
+func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsg *types.ChatMessage) error {
+	userChatMessage := openai.ChatCompletionMessage{
+		Role: types.USER_ROLE_USER.String(),
+	}
+	if len(reqMsg.Attach) > 0 {
+		userChatMessage.MultiContent = reqMsg.Attach.ToMultiContent(reqMsg.Message)
+	} else {
+		userChatMessage.Content = reqMsg.Message
+	}
 	baseReq := []openai.ChatCompletionMessage{
 		{
 			Role:    types.USER_ROLE_SYSTEM.String(),
 			Content: journal.BuildJournalPrompt("", s.core.Srv().AI()),
 		},
-		{
-			Role:    types.USER_ROLE_USER.String(),
-			Content: reqMsgWithDocs.Message,
-		},
+		userChatMessage,
 	}
-	nextReq, usage, err := s.agent.HandleUserRequest(reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, baseReq)
+	nextReq, usage, err := s.agent.HandleUserRequest(reqMsg.SpaceID, reqMsg.UserID, baseReq)
 	if err != nil {
-		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 
 	if len(nextReq) == 0 {
@@ -578,7 +591,7 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 	}
 
 	if usage != nil {
-		process.NewRecordUsageRequest(s.agent.Model, "Agents", "Journal", reqMsgWithDocs.SpaceID, reqMsgWithDocs.UserID, usage)
+		process.NewRecordUsageRequest(s.agent.Model, "Agents", "Journal", reqMsg.SpaceID, reqMsg.UserID, usage)
 	}
 	// type SessionContext struct {
 	// 	MessageID      string
@@ -588,12 +601,13 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 	// }
 
 	chatSessionContext := &SessionContext{
-		MessageID: reqMsgWithDocs.ID,
-		SessionID: reqMsgWithDocs.SessionID,
+		MessageID: reqMsg.ID,
+		SessionID: reqMsg.SessionID,
 		MessageContext: lo.Map(nextReq, func(item openai.ChatCompletionMessage, _ int) *types.MessageContext {
 			return &types.MessageContext{
-				Role:    types.GetMessageUserRole(item.Role),
-				Content: item.Content,
+				Role:         types.GetMessageUserRole(item.Role),
+				Content:      item.Content,
+				MultiContent: item.MultiContent,
 			}
 		}),
 	}
@@ -614,7 +628,7 @@ func (s *JournalAssistant) RequestAssistant(ctx context.Context, docs types.RAGD
 
 	if err = requestAI(ctx, s.core, s.receiver.IsStream(), chatSessionContext, marks, receiveFunc, doneFunc); err != nil {
 		slog.Error("failed to request AI", slog.String("error", err.Error()))
-		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsgWithDocs, err)
+		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 	return nil
 }
@@ -818,15 +832,24 @@ ReGen:
 		}
 
 		contextIndex++
-		message := v.Message
 		if v.ID == reqMsgWithDocs.ID {
-			message = reqMsgWithDocs.Message
+			userChatMessage := &types.MessageContext{
+				Role: v.Role,
+			}
+			if len(reqMsgWithDocs.Attach) > 0 {
+				userChatMessage.MultiContent = reqMsgWithDocs.Attach.ToMultiContent(reqMsgWithDocs.Message)
+			} else {
+				userChatMessage.Content = reqMsgWithDocs.Message
+			}
+
+			reqMsg = append(reqMsg, userChatMessage)
+		} else {
+			reqMsg = append(reqMsg, &types.MessageContext{
+				Role:    v.Role,
+				Content: v.Message,
+			})
 		}
 
-		reqMsg = append(reqMsg, &types.MessageContext{
-			Role:    v.Role,
-			Content: message,
-		})
 	}
 
 	if contextIndex > 0 {

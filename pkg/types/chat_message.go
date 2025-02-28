@@ -1,22 +1,69 @@
 package types
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/breeew/brew-api/pkg/utils"
+	"github.com/samber/lo"
+	"github.com/sashabaranov/go-openai"
 )
 
 type ChatMessage struct {
-	ID        string          `db:"id" json:"id"`
-	SpaceID   string          `db:"space_id" json:"space_id"`
-	SessionID string          `db:"session_id" json:"session_id"`
-	UserID    string          `db:"user_id" json:"user_id"`
-	Role      MessageUserRole `db:"role" json:"role"`
-	Message   string          `db:"message" json:"message"`
-	MsgType   MessageType     `db:"msg_type" json:"msg_type"`
-	IsEncrypt int             `db:"is_encrypt" json:"is_encrypt"`
-	SendTime  int64           `db:"send_time" json:"send_time"`
-	Complete  MessageProgress `db:"complete" json:"complete"`
-	Sequence  int64           `db:"sequence" json:"sequence"`
-	MsgBlock  int64           `db:"msg_block" json:"msg_block"`
+	ID        string            `db:"id" json:"id"`
+	SpaceID   string            `db:"space_id" json:"space_id"`
+	SessionID string            `db:"session_id" json:"session_id"`
+	UserID    string            `db:"user_id" json:"user_id"`
+	Role      MessageUserRole   `db:"role" json:"role"`
+	Message   string            `db:"message" json:"message"`
+	MsgType   MessageType       `db:"msg_type" json:"msg_type"`
+	IsEncrypt int               `db:"is_encrypt" json:"is_encrypt"`
+	SendTime  int64             `db:"send_time" json:"send_time"`
+	Complete  MessageProgress   `db:"complete" json:"complete"`
+	Sequence  int64             `db:"sequence" json:"sequence"`
+	MsgBlock  int64             `db:"msg_block" json:"msg_block"`
+	Attach    ChatMessageAttach `db:"attach" json:"attach"`
+}
+
+type ChatMessageAttach []ChatAttach
+
+func (s ChatMessageAttach) ToMultiContent(text string) []openai.ChatMessagePart {
+	return lo.Map(s, func(item ChatAttach, _ int) openai.ChatMessagePart {
+		return openai.ChatMessagePart{
+			Type: openai.ChatMessagePartTypeImageURL,
+			Text: text,
+			ImageURL: &openai.ChatMessageImageURL{
+				URL: item.URL,
+			},
+		}
+	})
+}
+
+func (s *ChatMessageAttach) String() string {
+	raw, _ := json.Marshal(s)
+	return string(raw)
+}
+
+func (a *ChatMessageAttach) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	case nil:
+		*a = nil
+		return nil
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to ChatMessageAttach", src)
+}
+
+func (a *ChatMessageAttach) scanBytes(src []byte) error {
+	if len(src) == 0 {
+		a = &ChatMessageAttach{}
+		return nil
+	}
+	return json.Unmarshal(src, a)
 }
 
 const (
@@ -42,11 +89,17 @@ type Undo interface {
 }
 
 type CreateChatMessageArgs struct {
-	ID       string
-	Message  string
-	MsgType  MessageType
-	SendTime int64
-	Agent string 
+	ID         string
+	Message    string
+	MsgType    MessageType
+	SendTime   int64
+	Agent      string
+	ChatAttach []ChatAttach
+}
+
+type ChatAttach struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
 }
 
 type MessageUserRole int8
@@ -141,6 +194,7 @@ type MessageMeta struct {
 	Complete    MessageProgress `json:"complete"`
 	MessageType MessageType     `json:"message_type"`
 	Message     MessageTypeImpl `json:"message"`
+	Attach      []ChatAttach    `json:"attach"`
 }
 
 type MessageTypeImpl struct {

@@ -25,7 +25,7 @@ func NewChatMessageStore(provider SqlProviderAchieve) *ChatMessageStore {
 	repo := &ChatMessageStore{}
 	repo.SetProvider(provider)
 	repo.SetTable(types.TABLE_CHAT_MESSAGE)
-	repo.SetAllColumns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "is_encrypt")
+	repo.SetAllColumns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "attach", "is_encrypt")
 	return repo
 }
 
@@ -34,8 +34,8 @@ func (s *ChatMessageStore) Create(ctx context.Context, data *types.ChatMessage) 
 		data.SendTime = time.Now().Unix()
 	}
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "is_encrypt").
-		Values(data.ID, data.SpaceID, data.UserID, data.Role, data.Message, data.MsgType, data.SendTime, data.SessionID, data.Complete, data.Sequence, data.MsgBlock, data.IsEncrypt)
+		Columns("id", "space_id", "user_id", "role", "message", "msg_type", "send_time", "session_id", "complete", "sequence", "msg_block", "attach", "is_encrypt").
+		Values(data.ID, data.SpaceID, data.UserID, data.Role, data.Message, data.MsgType, data.SendTime, data.SessionID, data.Complete, data.Sequence, data.MsgBlock, data.Attach.String(), data.IsEncrypt)
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -109,6 +109,7 @@ func (s *ChatMessageStore) UpdateMessageCompleteStatus(ctx context.Context, sess
 	if err != nil {
 		return ErrorSqlBuild(err)
 	}
+
 	_, err = s.GetMaster(ctx).Exec(queryString, args...)
 	if err != nil {
 		return err

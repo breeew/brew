@@ -23,7 +23,7 @@ func newBulter() *butler.ButlerAgent {
 	cfg.BaseURL = core.Cfg().AI.Agent.Endpoint
 
 	cli := openai.NewClientWithConfig(cfg)
-	return butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model)
+	return butler.NewButlerAgent(core, cli, core.Cfg().AI.Agent.Model, core.Cfg().AI.Agent.VlModel)
 }
 
 func TestBulter(t *testing.T) {
@@ -32,7 +32,7 @@ func TestBulter(t *testing.T) {
 		t.Fatal("failed to create bulter")
 	}
 
-	nextMessage, usage, err := b.Query("tester", "我今天买了 小柴胡颗粒，有效期到 2027年1月20日，请帮我记一下")
+	nextMessage, usage, err := b.Query("tester", "我今天买了 小柴胡颗粒，有效期到 2027年1月20日，请帮我记一下", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

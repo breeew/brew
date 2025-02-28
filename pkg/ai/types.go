@@ -1032,7 +1032,14 @@ type ResponseChoice struct {
 }
 
 type ReaderResult struct {
-	Content string `json:"content"`
+	Warning     string `json:"warning"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Url         string `json:"url"`
+	Content     string `json:"content"`
+	Usage       struct {
+		Tokens int `json:"tokens"`
+	} `json:"usage"`
 }
 
 func NumTokens(messages []openai.ChatCompletionMessage, model string) (numTokens int, err error) {

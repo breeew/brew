@@ -106,6 +106,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 			msgBlockID++
 		}
 	}
+
 	msg := &types.ChatMessage{
 		ID:        msgArgs.ID,
 		UserID:    l.GetUserInfo().User,
@@ -117,6 +118,7 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		MsgBlock:  msgBlockID,
 		Role:      types.USER_ROLE_USER,
 		Complete:  types.MESSAGE_PROGRESS_COMPLETE,
+		Attach:    msgArgs.ChatAttach,
 	}
 
 	if msg.Sequence == 0 {
@@ -168,6 +170,17 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 	if containsAgent == types.AGENT_TYPE_NONE {
 		containsAgent = msgArgs.Agent
 	}
+
+	if len(msg.Attach) > 0 {
+		for i := range msg.Attach {
+			url, err := l.core.FileStorage().GenGetObjectPreSignURL(msg.Attach[i].URL)
+			if err != nil {
+				return 0, errors.New("ChatLogic.NewUserMessageSend.FileStorage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
+			}
+			msg.Attach[i].URL = url
+		}
+	}
+
 	// check agents call
 	switch containsAgent {
 	case types.AGENT_TYPE_BUTLER:
@@ -187,7 +200,9 @@ func (l *ChatLogic) NewUserMessage(chatSession *types.ChatSession, msgArgs types
 		go safe.Run(func() {
 			enhanceResult, _ := EnhanceChatQuery(l.ctx, l.core, msg.Message, msg.SpaceID, msg.SessionID, msg.ID)
 
-			process.NewRecordChatUsageRequest(enhanceResult.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msg.ID, enhanceResult.Usage)
+			if enhanceResult.Usage != nil {
+				process.NewRecordChatUsageRequest(enhanceResult.Model, types.USAGE_SUB_TYPE_QUERY_ENHANCE, msg.ID, enhanceResult.Usage)
+			}
 
 			docs, usages, err := NewKnowledgeLogic(l.ctx, l.core).GetQueryRelevanceKnowledges(chatSession.SpaceID, l.GetUserInfo().User, enhanceResult.ResultQuery(), resourceQuery)
 			if len(usages) > 0 {
@@ -418,6 +433,7 @@ func chatMsgToTextMsg(msg *types.ChatMessage) *types.MessageMeta {
 		Message: types.MessageTypeImpl{
 			Text: msg.Message,
 		},
+		Attach:   msg.Attach,
 		Complete: msg.Complete,
 	}
 }

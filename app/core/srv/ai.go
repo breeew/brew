@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/samber/lo"
+	oai "github.com/sashabaranov/go-openai"
+
 	"github.com/breeew/brew-api/pkg/ai"
 	"github.com/breeew/brew-api/pkg/ai/azure_openai"
 	"github.com/breeew/brew-api/pkg/ai/deepseek"
@@ -52,6 +55,7 @@ type AIDriver interface {
 	ReaderAI
 	VisionAI
 	RerankAI
+	DescribeImage(ctx context.Context, lang, imageURL string) (ai.GenerateResponse, error)
 }
 
 type AIConfig struct {
@@ -77,6 +81,7 @@ type AgentDriver struct {
 	Token    string `toml:"token"`
 	Endpoint string `toml:"endpoint"`
 	Model    string `toml:"model"`
+	VlModel  string `toml:"vl_model"`
 }
 
 type Jina struct {
@@ -249,6 +254,31 @@ type AI struct {
 	readerDefault  ReaderAI
 	visionDefault  VisionAI
 	rerankDefault  RerankAI
+}
+
+func (s *AI) DescribeImage(ctx context.Context, lang, imageURL string) (ai.GenerateResponse, error) {
+	opts := s.NewVisionQuery(ctx, []*types.MessageContext{
+		{
+			Role: types.USER_ROLE_USER,
+			MultiContent: []oai.ChatMessagePart{
+				{
+					Type: oai.ChatMessagePartTypeImageURL,
+					ImageURL: &oai.ChatMessageImageURL{
+						URL: imageURL,
+					},
+				},
+			},
+		},
+	})
+
+	opts.WithPrompt(lo.If(s.Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
+	opts.WithVar("${lang}", lang)
+	resp, err := opts.Query()
+	if err != nil {
+		return resp, err
+	}
+
+	return resp, nil
 }
 
 func (s *AI) NewQuery(ctx context.Context, query []*types.MessageContext) *ai.QueryOptions {

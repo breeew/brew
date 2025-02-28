@@ -11,6 +11,7 @@ CREATE TABLE bw_chat_message (
     complete SMALLINT NOT NULL, -- 数据是否完整，1 表示完整，2 表示不完整
     sequence BIGINT NOT NULL, -- 消息的顺序，用于排序
     msg_block BIGINT NOT NULL, -- 消息所属的块编号，用于大消息的分块处理
+    attach TEXT NOT NULL, -- 消息内容
     is_encrypt INT NOT NULL DEFAULT 0 -- 消息是否已加密
 );
 
@@ -33,4 +34,5 @@ COMMENT ON COLUMN bw_chat_message.send_time IS '消息发送时间，存储为 U
 COMMENT ON COLUMN bw_chat_message.complete IS '数据是否完整，1 表示完整，2 表示不完整';
 COMMENT ON COLUMN bw_chat_message.sequence IS '消息的顺序，用于排序';
 COMMENT ON COLUMN bw_chat_message.msg_block IS '消息所属的块编号，用于大消息的分块处理';
+COMMENT ON COLUMN bw_chat_message.attach IS '附件列表';
 COMMENT ON COLUMN bw_chat_message.is_encrypt IS '消息是否已加密';

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -19,13 +20,14 @@ import (
 )
 
 type ButlerAgent struct {
-	core   *core.Core
-	client *openai.Client
-	Model  string
+	core    *core.Core
+	client  *openai.Client
+	Model   string
+	VlModel string
 }
 
-func NewButlerAgent(core *core.Core, client *openai.Client, model string) *ButlerAgent {
-	return &ButlerAgent{core: core, client: client, Model: model}
+func NewButlerAgent(core *core.Core, client *openai.Client, model, vlModel string) *ButlerAgent {
+	return &ButlerAgent{core: core, client: client, Model: model, VlModel: vlModel}
 }
 
 var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
@@ -69,7 +71,7 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 		},
 	},
 	{
-		Name:        "modifyTable",
+		Name:        "updateTable",
 		Description: "如果已经存在相关的数据表，则使用该方法来对数据表内容进行变更，包括增、删、改",
 		Parameters: jsonschema.Definition{
 			Type: jsonschema.Object,
@@ -92,7 +94,7 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 	}
 })
 
-func (b *ButlerAgent) Query(userID string, message string) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
+func (b *ButlerAgent) Query(userID string, message string, attach []openai.ChatMessagePart) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -114,25 +116,58 @@ func (b *ButlerAgent) Query(userID string, message string) ([]openai.ChatComplet
 
 	req := []openai.ChatCompletionMessage{
 		{
-			Role:    "system",
+			Role:    types.USER_ROLE_SYSTEM.String(),
 			Content: BUTLER_PROMPT_CN,
 		},
 		{
-			Role:    "system",
+			Role:    types.USER_ROLE_SYSTEM.String(),
 			Content: ai.GenerateTimeListAtNowCN(),
 		},
 		{
-			Role:    "system",
+			Role:    types.USER_ROLE_SYSTEM.String(),
 			Content: fmt.Sprintf("这是用户当前所有的数据表情况：\n%s\n，如果已经存在相同的表，请不要再创建，而是需要修改", lo.If(userData != "", userData).Else("用户当前没有任何数据")),
 		},
 		{
-			Role:    "user",
+			Role:    types.USER_ROLE_USER.String(),
 			Content: message,
 		},
 	}
+
+	var imageUsage openai.Usage
+	if len(attach) > 0 {
+		for _, v := range attach {
+			if v.Type != openai.ChatMessagePartTypeImageURL {
+				continue
+			}
+			resp, err := b.core.Srv().AI().DescribeImage(ctx, "中文", v.ImageURL.URL)
+			if err != nil {
+				return nil, resp.Usage, err
+			}
+
+			if resp.Usage != nil {
+				imageUsage.PromptTokens += resp.Usage.PromptTokens
+				imageUsage.CompletionTokens += resp.Usage.CompletionTokens
+			}
+
+			req = append(req, openai.ChatCompletionMessage{
+				Role:    types.USER_ROLE_SYSTEM.String(),
+				Content: resp.Message(),
+			})
+		}
+	}
 	appendMessage, usage, err := b.HandleUserRequest(userID, req)
+	if usage != nil {
+		imageUsage.PromptTokens += usage.PromptTokens
+		imageUsage.CompletionTokens += usage.CompletionTokens
+	}
+
+	usage = lo.If(imageUsage.CompletionTokens != 0 || imageUsage.PromptTokens != 0, &imageUsage).Else(nil)
 	if err != nil {
 		return nil, usage, err
+	}
+
+	if appendMessage[0].Role == types.USER_ROLE_ASSISTANT.String() {
+		return appendMessage, usage, nil
 	}
 
 	return append(req, appendMessage...), usage, nil
@@ -179,7 +214,7 @@ func (b *ButlerAgent) HandleUserRequest(userID string, messages []openai.ChatCom
 				}
 				res, err := b.QueryTable(params.TableID, messages)
 				return res, &resp.Usage, err
-			case "modifyTable":
+			case "updateTable":
 				var params struct {
 					TableID string `json:"tableID"`
 				}
@@ -201,7 +236,14 @@ func (b *ButlerAgent) HandleUserRequest(userID string, messages []openai.ChatCom
 			}
 		}
 	}
-	return nil, nil, fmt.Errorf("Unknown function call.")
+
+	slog.Warn("Butler: unknown function call", slog.Any("response", resp))
+	return []openai.ChatCompletionMessage{
+		{
+			Role:    types.USER_ROLE_ASSISTANT.String(),
+			Content: message.Content,
+		},
+	}, nil, nil
 }
 
 func (b *ButlerAgent) CreateTable(userID, tableName, tableDescription, data string) ([]openai.ChatCompletionMessage, error) {
@@ -241,7 +283,6 @@ func (b *ButlerAgent) QueryTable(tableID string, messages []openai.ChatCompletio
 
 func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
 	// 创建表格
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -249,6 +290,13 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 	if err != nil {
 		return nil, nil, err
 	}
+
+	_, userMessageIndex, ok := lo.FindIndexOf(messages, func(item openai.ChatCompletionMessage) bool {
+		if item.Role == types.USER_ROLE_USER.String() {
+			return true
+		}
+		return false
+	})
 	reqMessages := []openai.ChatCompletionMessage{
 		{
 			Role:    "system",
@@ -262,11 +310,11 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 			Role:    "system",
 			Content: fmt.Sprintf("这是用户当前的数据表情况：\n%s", table.TableData),
 		},
-		{
-			Role:    "user",
-			Content: messages[len(messages)-1].Content,
-		},
 	}
+	if ok {
+		reqMessages = append(reqMessages, messages[userMessageIndex:]...)
+	}
+
 	resp, err := b.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{

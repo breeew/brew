@@ -2,6 +2,7 @@ package jina
 
 // provider for https://jina.ai/
 // - reader
+// - rerank
 
 import (
 	"bytes"
@@ -37,7 +38,14 @@ func New(token string, models map[string]string) *Driver {
 
 func (s *Driver) applyBaseHeader(req *http.Request) {
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+s.token)
+}
+
+type ReaderResponse struct {
+	Code   int             `json:"code"`
+	Status int             `json:"status"`
+	Data   ai.ReaderResult `json:"data"`
 }
 
 func (s *Driver) Reader(ctx context.Context, endpoint string) (*ai.ReaderResult, error) {
@@ -50,14 +58,21 @@ func (s *Driver) Reader(ctx context.Context, endpoint string) (*ai.ReaderResult,
 		return nil, fmt.Errorf("Failed to request jina reader: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Failed to request jina reader, %s", resp.Status)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+	var result ReaderResponse
+	if err = json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("Failed to unmarshal response, %w", err)
+	}
 
-	return &ai.ReaderResult{
-		Content: string(body),
-	}, nil
+	return &result.Data, nil
 }
 
 type RerankRequestBody struct {

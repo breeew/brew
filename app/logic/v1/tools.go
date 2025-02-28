@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/samber/lo"
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/breeew/brew-api/app/core"
@@ -45,6 +44,10 @@ func (l *ReaderLogic) Reader(endpoint string) (*ai.ReaderResult, error) {
 		return nil, errors.New("ReaderLogic.Reader.Srv.AI.Reader", errMsg, err).Code(code)
 	}
 
+	process.NewRecordUsageRequest("", types.USAGE_TYPE_USER, types.USAGE_SUB_TYPE_READ, "", l.GetUserInfo().User, &openai.Usage{
+		CompletionTokens: res.Usage.Tokens,
+	})
+
 	return res, nil
 }
 
@@ -53,28 +56,39 @@ func (l *ReaderLogic) DescribeImage(imageURL string) (string, error) {
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
 	}
-	opts := l.core.Srv().AI().NewQuery(l.ctx, []*types.MessageContext{
-		{
-			Role: types.USER_ROLE_USER,
-			MultiContent: []openai.ChatMessagePart{
-				{
-					Type: openai.ChatMessagePartTypeImageURL,
-					ImageURL: &openai.ChatMessageImageURL{
-						URL: url,
-					},
-				},
-			},
-		},
-	})
 
-	opts.WithPrompt(lo.If(l.core.Srv().AI().Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
-	opts.WithVar("{lang}", GetContentByClientLanguage(l.ctx, "English", "中文"))
-	resp, err := opts.Query()
+	resp, err := l.core.Srv().AI().DescribeImage(l.ctx, GetContentByClientLanguage(l.ctx, "English", "中文"), url)
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.Query", i18n.ERROR_INTERNAL, err)
 	}
-
-	process.NewRecordUsageRequest(resp.Model, types.USAGE_TYPE_SYSTEM, types.USAGE_SUB_TYPE_DESCRIBE_IMAGE, "", l.GetUserInfo().User, resp.Usage)
+	if resp.Usage != nil {
+		process.NewRecordUsageRequest(resp.Model, types.USAGE_TYPE_SYSTEM, types.USAGE_SUB_TYPE_DESCRIBE_IMAGE, "", l.GetUserInfo().User, resp.Usage)
+	}
 
 	return resp.Message(), nil
 }
+
+// func describeImage(ctx context.Context, driver srv.VisionAI, imageURL string) (ai.GenerateResponse, error) {
+// 	opts := driver.NewVisionQuery(ctx, []*types.MessageContext{
+// 		{
+// 			Role: types.USER_ROLE_USER,
+// 			MultiContent: []openai.ChatMessagePart{
+// 				{
+// 					Type: openai.ChatMessagePartTypeImageURL,
+// 					ImageURL: &openai.ChatMessageImageURL{
+// 						URL: imageURL,
+// 					},
+// 				},
+// 			},
+// 		},
+// 	})
+
+// 	opts.WithPrompt(lo.If(driver.Lang() == ai.MODEL_BASE_LANGUAGE_CN, ai.IMAGE_GENERATE_PROMPT_CN).Else(ai.IMAGE_GENERATE_PROMPT_EN))
+// 	opts.WithVar("{lang}", GetContentByClientLanguage(ctx, "English", "中文"))
+// 	resp, err := opts.Query()
+// 	if err != nil {
+// 		return resp, err
+// 	}
+
+// 	return resp, nil
+// }

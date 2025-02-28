@@ -272,6 +272,12 @@ func EnhanceChatQuery(ctx context.Context, core *core.Core, query string, spaceI
 			slog.String("message_id", messageID), slog.String("error", err.Error()))
 	}
 
+	if len(histories) <= 1 {
+		return ai.EnhanceQueryResult{
+			Original: query,
+		}, nil
+	}
+
 	return EnhanceQuery(ctx, core, query, histories)
 }
 
@@ -325,7 +331,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		cosLimit     float32 = 0.5
 	)
 
-	if len(refs) > 10 && refs[0].Cos < 0.6 {
+	if len(refs) > 10 && refs[0].Cos < 0.5 {
 		cosLimit = refs[0].Cos - 0.1
 	}
 	for i, v := range refs {
@@ -446,6 +452,7 @@ func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQu
 	if containsAgent == types.AGENT_TYPE_NONE {
 		containsAgent = agent
 	}
+	
 	// check agents call
 	switch containsAgent {
 	case types.AGENT_TYPE_BUTLER:
