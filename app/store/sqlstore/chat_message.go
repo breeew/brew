@@ -117,6 +117,20 @@ func (s *ChatMessageStore) UpdateMessageCompleteStatus(ctx context.Context, sess
 	return nil
 }
 
+func (s *ChatMessageStore) UpdateMessageAttach(ctx context.Context, sessionID, id string, attach types.ChatMessageAttach) error {
+	query := sq.Update(s.GetTable()).Set("attach", attach.String()).Where(sq.Eq{"session_id": sessionID, "id": id})
+	queryString, args, err := query.ToSql()
+	if err != nil {
+		return ErrorSqlBuild(err)
+	}
+
+	_, err = s.GetMaster(ctx).Exec(queryString, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ChatMessageStore) DeleteSessionMessage(ctx context.Context, spaceID, sessionID string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"space_id": spaceID, "session_id": sessionID})
 	queryString, args, err := query.ToSql()

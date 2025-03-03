@@ -9,6 +9,7 @@ import (
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/ai/agents/butler"
 	"github.com/breeew/brew-api/pkg/plugins"
+	"github.com/breeew/brew-api/pkg/types"
 )
 
 func newCore() *core.Core {
@@ -32,7 +33,9 @@ func TestBulter(t *testing.T) {
 		t.Fatal("failed to create bulter")
 	}
 
-	nextMessage, usage, err := b.Query("tester", "我今天买了 小柴胡颗粒，有效期到 2027年1月20日，请帮我记一下", nil)
+	nextMessage, usage, err := b.Query("tester", &types.ChatMessage{
+		Message: "我今天买了 小柴胡颗粒，有效期到 2027年1月20日，请帮我记一下",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

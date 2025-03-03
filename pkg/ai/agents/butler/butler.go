@@ -15,6 +15,7 @@ import (
 
 	"github.com/breeew/brew-api/app/core"
 	"github.com/breeew/brew-api/pkg/ai"
+	"github.com/breeew/brew-api/pkg/safe"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
 )
@@ -94,7 +95,7 @@ var FunctionDefine = lo.Map([]*openai.FunctionDefinition{
 	}
 })
 
-func (b *ButlerAgent) Query(userID string, message string, attach []openai.ChatMessagePart) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
+func (b *ButlerAgent) Query(userID string, reqMsg *types.ChatMessage) ([]openai.ChatCompletionMessage, []*openai.Usage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -114,6 +115,15 @@ func (b *ButlerAgent) Query(userID string, message string, attach []openai.ChatM
 
 	userData := userTables.String()
 
+	// 获取session 历史记录
+	list, err := b.core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, reqMsg.SpaceID, reqMsg.SessionID, reqMsg.ID, 0, 10)
+	if err != nil {
+		slog.Error("Butler: failed to load session history message", slog.String("error", err.Error()), slog.String("session_id", reqMsg.SessionID))
+		list = append(list, reqMsg)
+	}
+
+	list = lo.Reverse(list)
+
 	req := []openai.ChatCompletionMessage{
 		{
 			Role:    types.USER_ROLE_SYSTEM.String(),
@@ -125,52 +135,85 @@ func (b *ButlerAgent) Query(userID string, message string, attach []openai.ChatM
 		},
 		{
 			Role:    types.USER_ROLE_SYSTEM.String(),
-			Content: fmt.Sprintf("这是用户当前所有的数据表情况：\n%s\n，如果已经存在相同的表，请不要再创建，而是需要修改", lo.If(userData != "", userData).Else("用户当前没有任何数据")),
-		},
-		{
-			Role:    types.USER_ROLE_USER.String(),
-			Content: message,
+			Content: fmt.Sprintf("这是用户当前所有的数据表情况：\n%s\n，如果已经存在相同的表，请不要再创建，而是需要修改", lo.If(userData != "", userData).Else("用户当前没有任何数据表")),
 		},
 	}
 
-	var imageUsage openai.Usage
-	if len(attach) > 0 {
-		for _, v := range attach {
+	req = append(req, lo.Map(list, func(item *types.ChatMessage, _ int) openai.ChatCompletionMessage {
+		if len(item.Attach) > 0 {
+			if item.Attach[0].AIDescription != "" {
+				imageAIDescriptions := strings.Join(lo.Map(item.Attach, func(item types.ChatAttach, i int) string {
+					return fmt.Sprintf("第%d副图：%s", i, item.AIDescription)
+				}), "\n")
+				return openai.ChatCompletionMessage{
+					Role:    item.Role.String(),
+					Content: fmt.Sprintf("%s\n%s", item.Message, imageAIDescriptions),
+				}
+			}
+			return openai.ChatCompletionMessage{
+				Role:         item.Role.String(),
+				MultiContent: item.Attach.ToMultiContent(item.Message),
+			}
+		}
+		return openai.ChatCompletionMessage{
+			Role:    item.Role.String(),
+			Content: item.Message,
+		}
+	})...)
+
+	var (
+		usages                []*openai.Usage
+		needToUpdateMsgAttach bool
+	)
+	if len(reqMsg.Attach) > 0 {
+		for i, v := range reqMsg.Attach.ToMultiContent(reqMsg.Message) {
 			if v.Type != openai.ChatMessagePartTypeImageURL {
 				continue
 			}
 			resp, err := b.core.Srv().AI().DescribeImage(ctx, "中文", v.ImageURL.URL)
-			if err != nil {
-				return nil, resp.Usage, err
-			}
-
 			if resp.Usage != nil {
-				imageUsage.PromptTokens += resp.Usage.PromptTokens
-				imageUsage.CompletionTokens += resp.Usage.CompletionTokens
+				usages = append(usages, resp.Usage)
+			}
+			if err != nil {
+				return nil, usages, err
 			}
 
 			req = append(req, openai.ChatCompletionMessage{
 				Role:    types.USER_ROLE_SYSTEM.String(),
 				Content: resp.Message(),
 			})
+
+			reqMsg.Attach[i].AIDescription = resp.Message()
+			needToUpdateMsgAttach = true
 		}
 	}
+
+	if needToUpdateMsgAttach {
+		go safe.Run(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+			defer cancel()
+			if err := b.core.Store().ChatMessageStore().UpdateMessageAttach(ctx, reqMsg.SessionID, reqMsg.ID, reqMsg.Attach); err != nil {
+				slog.Error("Failed to update message attach for ai description", slog.String("error", err.Error()), slog.String("msg_id", reqMsg.ID))
+			}
+		})
+	}
+
 	appendMessage, usage, err := b.HandleUserRequest(userID, req)
 	if usage != nil {
-		imageUsage.PromptTokens += usage.PromptTokens
-		imageUsage.CompletionTokens += usage.CompletionTokens
+		usages = append(usages, usage)
 	}
 
-	usage = lo.If(imageUsage.CompletionTokens != 0 || imageUsage.PromptTokens != 0, &imageUsage).Else(nil)
 	if err != nil {
-		return nil, usage, err
+		return nil, usages, err
 	}
 
-	if appendMessage[0].Role == types.USER_ROLE_ASSISTANT.String() {
-		return appendMessage, usage, nil
+	if len(appendMessage) > 0 {
+		if appendMessage[0].Role == types.USER_ROLE_ASSISTANT.String() {
+			return appendMessage, usages, nil
+		}
 	}
 
-	return append(req, appendMessage...), usage, nil
+	return append(req, appendMessage...), usages, nil
 }
 
 func (b *ButlerAgent) HandleUserRequest(userID string, messages []openai.ChatCompletionMessage) ([]openai.ChatCompletionMessage, *openai.Usage, error) {
@@ -275,9 +318,10 @@ func (b *ButlerAgent) QueryTable(tableID string, messages []openai.ChatCompletio
 	if err != nil {
 		return nil, err
 	}
+
 	return []openai.ChatCompletionMessage{{
 		Role:    "system",
-		Content: fmt.Sprintf("查询到的数据表情况如下：\n表名：%s\n表描述：%s\n表内容：\n%s", data.TableName, data.TableDescription, data.TableData),
+		Content: fmt.Sprintf("查询到的数据表情况如下：\n表名：%s\n表描述：%s\n表内容：\n%s", data.TableName, data.TableDescription, lo.If(len(strings.Split(data.TableData, "\n")) >= 3, data.TableData).Else("空")),
 	}}, nil
 }
 
@@ -315,6 +359,8 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 		reqMessages = append(reqMessages, messages[userMessageIndex:]...)
 	}
 
+	fmt.Println(reqMessages)
+
 	resp, err := b.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -323,7 +369,7 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 			Tools: []openai.Tool{
 				{
 					Function: &openai.FunctionDefinition{
-						Name:        "modify",
+						Name:        "update",
 						Description: "修改结果",
 						Parameters: jsonschema.Definition{
 							Type: jsonschema.Object,
@@ -343,7 +389,7 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to request ai: %w", err)
 	}
-
+	fmt.Println(resp)
 	message := resp.Choices[0].Message
 	if len(message.ToolCalls) > 0 {
 		for _, v := range message.ToolCalls {

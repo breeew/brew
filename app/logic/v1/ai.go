@@ -480,13 +480,13 @@ func (s *ButlerAssistant) GenSessionContext(ctx context.Context, prompt string, 
 // reqMsgInfo 用户请求的内容
 // recvMsgInfo 用于承载ai回复的内容，会预先在数据库中为ai响应的数据创建出对应的记录
 func (s *ButlerAssistant) RequestAssistant(ctx context.Context, docs types.RAGDocs, reqMsg *types.ChatMessage) error {
-	nextReq, usage, err := s.client.Query(reqMsg.UserID, reqMsg.Message, reqMsg.Attach.ToMultiContent(reqMsg.Message))
+	nextReq, usages, err := s.client.Query(reqMsg.UserID, reqMsg)
 	if err != nil {
 		return handleAndNotifyAssistantFailed(s.core, s.receiver, reqMsg, err)
 	}
 
-	if usage != nil {
-		process.NewRecordUsageRequest(s.client.Model, "Agents", "Butler", reqMsg.SpaceID, reqMsg.UserID, usage)
+	for _, v := range usages {
+		process.NewRecordUsageRequest(s.client.Model, "Agents", "Butler", reqMsg.SpaceID, reqMsg.UserID, v)
 	}
 
 	// receiveFunc := getStreamReceiveFunc(ctx, s.core, recvMsgInfo)

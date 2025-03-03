@@ -98,8 +98,9 @@ type CreateChatMessageArgs struct {
 }
 
 type ChatAttach struct {
-	Type string `json:"type"`
-	URL  string `json:"url"`
+	Type          string `json:"type"`
+	URL           string `json:"url"`
+	AIDescription string `json:"ai_desc"`
 }
 
 type MessageUserRole int8

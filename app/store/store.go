@@ -147,6 +147,7 @@ type ChatMessageStore interface {
 	RewriteMessage(ctx context.Context, spaceID, sessionID, id string, message json.RawMessage, complete int32) error
 	AppendMessage(ctx context.Context, spaceID, sessionID, id string, message json.RawMessage, complete int32) error
 	UpdateMessageCompleteStatus(ctx context.Context, sessionID, id string, complete int32) error
+	UpdateMessageAttach(ctx context.Context, sessionID, id string, attach types.ChatMessageAttach) error
 	DeleteMessage(ctx context.Context, id string) error
 	DeleteAll(ctx context.Context, spaceID string) error
 	DeleteSessionMessage(ctx context.Context, spaceID, sessionID string) error
