@@ -20,7 +20,7 @@ func init() {
 		&goeditorjs.ListHandler{},
 		&goeditorjs.CodeBoxHandler{},
 		&goeditorjs.CodeHandler{},
-		&QuotaHandler{},
+		&QuoteHandler{},
 		&ImageHandler{},
 		&goeditorjs.TableHandler{},
 		&VideoHandler{},
@@ -338,48 +338,48 @@ func (h *ImageHandler) generateHTML(image *image) (string, error) {
 	return fmt.Sprintf(`<img src="%s" alt="%s" %s/>`, image.File.URL, image.Caption, class), nil
 }
 
-type quota struct {
+type quote struct {
 	Alignment string `json:"alignment"`
 	Caption   string `json:"caption"`
 	Text      string `json:"text"`
 }
 
-type QuotaHandler struct{}
+type QuoteHandler struct{}
 
-func (*QuotaHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*quota, error) {
-	data := &quota{}
+func (*QuoteHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*quote, error) {
+	data := &quote{}
 	return data, json.Unmarshal(editorJSBlock.Data, data)
 }
 
 // Type "delimiter"
-func (*QuotaHandler) Type() string {
-	return "QuotaHandler"
+func (*QuoteHandler) Type() string {
+	return "quote"
 }
 
-func renderQuotaHtml(data *quota) (string, error) {
+func renderQuoteHtml(data *quote) (string, error) {
 	return fmt.Sprintf("<blockquote class=\"ce-quota cdx-block\">%s%s</blockquote>", data.Text, lo.If(data.Caption != "", fmt.Sprintf("<p><cite>%s</cite></p>", data.Caption)).Else("")), nil
 }
 
 // GenerateHTML generates html for ListBlocks
-func (h *QuotaHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+func (h *QuoteHandler) GenerateHTML(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
 	line, err := h.parse(editorJSBlock)
 	if err != nil {
 		return "", err
 	}
 
-	return renderQuotaHtml(line)
+	return renderQuoteHtml(line)
 }
 
-func renderQuotaMarkdown(data *quota) (string, error) {
+func renderQuoteMarkdown(data *quote) (string, error) {
 	return fmt.Sprintf("> %s", data.Text), nil
 }
 
 // GenerateMarkdown generates markdown for ListBlocks
-func (h *QuotaHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
+func (h *QuoteHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (string, error) {
 	data, err := h.parse(editorJSBlock)
 	if err != nil {
 		return "", err
 	}
 
-	return renderQuotaMarkdown(data)
+	return renderQuoteMarkdown(data)
 }
