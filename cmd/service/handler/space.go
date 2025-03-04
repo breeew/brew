@@ -58,8 +58,8 @@ func (s *HttpSrv) CreateUserSpace(c *gin.Context) {
 }
 
 type ListSpaceUsersRequest struct {
-	Page     uint64 `json:"page" binding:"required"`
-	PageSize uint64 `json:"pagesize" binding:"required,lte=50"`
+	Page     uint64 `json:"page" form:"page" binding:"required"`
+	PageSize uint64 `json:"pagesize" form:"pagesize" binding:"required,lte=50"`
 }
 
 type ListSpaceUsersResponse struct {
