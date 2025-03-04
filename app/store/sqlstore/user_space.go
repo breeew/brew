@@ -109,7 +109,7 @@ func (s *UserSpaceStore) DeleteAll(ctx context.Context, spaceID string) error {
 
 // List 分页获取用户与空间关系记录
 func (s *UserSpaceStore) List(ctx context.Context, opts types.ListUserSpaceOptions, page, pageSize uint64) ([]types.UserSpace, error) {
-	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).OrderBy("created_at")
+	query := sq.Select(s.GetAllColumns()...).From(s.GetTable()).OrderBy("created_at DESC")
 	if page != 0 && pageSize != 0 {
 		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
 	}

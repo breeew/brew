@@ -63,8 +63,8 @@ type ListSpaceUsersRequest struct {
 }
 
 type ListSpaceUsersResponse struct {
-	List  []types.User `json:"list"`
-	Total int64        `json:"total"`
+	List  []v1.SpaceUser `json:"list"`
+	Total int64          `json:"total"`
 }
 
 func (s *HttpSrv) ListSpaceUsers(c *gin.Context) {

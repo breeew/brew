@@ -12,6 +12,7 @@ import (
 	"github.com/breeew/brew-api/pkg/i18n"
 	"github.com/breeew/brew-api/pkg/types"
 	"github.com/breeew/brew-api/pkg/utils"
+	"github.com/samber/lo"
 )
 
 type SpaceLogic struct {
@@ -102,31 +103,59 @@ func (l *SpaceLogic) SetUserSpaceRole(spaceID, userID, role string) error {
 	return nil
 }
 
-func (l *SpaceLogic) ListSpaceUsers(spaceID string, page, pageSize uint64) ([]types.User, int64, error) {
+type SpaceUser struct {
+	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
+	Avatar    string `json:"avatar"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+func (l *SpaceLogic) ListSpaceUsers(spaceID string, page, pageSize uint64) ([]SpaceUser, int64, error) {
 	user := l.GetUserInfo()
 	if !l.core.Srv().RBAC().CheckPermission(user.GetRole(), srv.PermissionAdmin) {
 		return nil, 0, errors.New("SpaceLogic.ListSpaceUsers.CheckPermission", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
 	}
 
-	userIDs, err := l.core.Store().UserSpaceStore().ListSpaceUsers(l.ctx, spaceID)
+	opts := types.ListUserSpaceOptions{
+		SpaceID: spaceID,
+	}
+
+	spaceUsers, err := l.core.Store().UserSpaceStore().List(l.ctx, opts, page, pageSize)
 	if err != nil {
 		return nil, 0, errors.New("SpaceLogic.ListSpaceUsers.UserSpaceStore.ListSpaceUsers", i18n.ERROR_INTERNAL, err)
 	}
 
-	opts := types.ListUserOptions{
-		IDs: userIDs,
-	}
-	list, err := l.core.Store().UserStore().ListUsers(l.ctx, opts, page, pageSize)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, 0, errors.New("SpaceLogic.ListSpaceUsers.UserStore.ListUsers", i18n.ERROR_INTERNAL, err)
-	}
-
-	total, err := l.core.Store().UserStore().Total(l.ctx, opts)
+	total, err := l.core.Store().UserSpaceStore().Total(l.ctx, opts)
 	if err != nil {
 		return nil, 0, errors.New("SpaceLogic.ListSpaceUsers.UserStore.Total", i18n.ERROR_INTERNAL, err)
 	}
 
-	return list, total, nil
+	list, err := l.core.Store().UserStore().ListUsers(l.ctx, types.ListUserOptions{
+		IDs: lo.Map(spaceUsers, func(item types.UserSpace, _ int) string {
+			return item.UserID
+		}),
+	}, types.NO_PAGING, types.NO_PAGING)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, 0, errors.New("SpaceLogic.ListSpaceUsers.UserStore.ListUsers", i18n.ERROR_INTERNAL, err)
+	}
+
+	userMap := lo.SliceToMap(list, func(item types.User) (string, types.User) {
+		return item.ID, item
+	})
+
+	return lo.Map(spaceUsers, func(item types.UserSpace, _ int) SpaceUser {
+		user := userMap[item.UserID]
+		return SpaceUser{
+			UserID:    item.UserID,
+			Role:      item.Role,
+			CreatedAt: item.CreatedAt,
+			Avatar:    user.Avatar,
+			Email:     user.Email,
+			Name:      user.Name,
+		}
+	}), total, nil
 }
 
 func (l *SpaceLogic) UpdateSpace(spaceID, title, desc, basePrompt, chatPrompt string) error {
