@@ -327,8 +327,9 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 
 	// rerank
 	var (
-		knowledgeIDs []string
-		cosLimit     float32 = 0.5
+		knowledgeIDs       []string
+		cosLimit           float32 = 0.5
+		highScoreKnowledge []types.QueryResult
 	)
 
 	if len(refs) > 10 && refs[0].Cos < 0.5 {
@@ -341,6 +342,10 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 			}
 			// TODO：more and more verify best ratio
 			continue
+		}
+
+		if i < 3 {
+			highScoreKnowledge = append(highScoreKnowledge, v)
 		}
 
 		result.Refs = append(result.Refs, v)
@@ -392,6 +397,21 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		slog.Error("Failed to request rerank api", slog.String("error", err.Error()))
 		// return result, usage, errors.New("KnowledgeLogic.Query.Rerank", i18n.ERROR_INTERNAL, err)
 		rankList = knowledges
+	}
+
+	// TODO: improve
+	for _, v := range highScoreKnowledge {
+		_, exist := lo.Find(rankList, func(item *types.Knowledge) bool {
+			return item.ID == v.KnowledgeID
+		})
+		if !exist {
+			result, exist := lo.Find(knowledges, func(item *types.Knowledge) bool {
+				return item.ID == v.KnowledgeID
+			})
+			if exist {
+				rankList = append(rankList, result)
+			}
+		}
 	}
 
 	slog.Debug("rerank result", slog.Int("knowledge_length", len(rankList)))
@@ -452,7 +472,7 @@ func (l *KnowledgeLogic) Query(spaceID, agent string, resource *types.ResourceQu
 	if containsAgent == types.AGENT_TYPE_NONE {
 		containsAgent = agent
 	}
-	
+
 	// check agents call
 	switch containsAgent {
 	case types.AGENT_TYPE_BUTLER:
