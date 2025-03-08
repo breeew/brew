@@ -399,7 +399,7 @@ func (l *KnowledgeLogic) GetQueryRelevanceKnowledges(spaceID, userID, query stri
 		rankList = knowledges
 	}
 
-	// TODO: improve
+	// TODO: improve: map index
 	for _, v := range highScoreKnowledge {
 		_, exist := lo.Find(rankList, func(item *types.Knowledge) bool {
 			return item.ID == v.KnowledgeID
