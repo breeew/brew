@@ -239,3 +239,14 @@ type ButlerTableStore interface {
 	Delete(ctx context.Context, id int64) error
 	ListButlerTables(ctx context.Context, userID string) ([]types.ButlerTable, error)
 }
+
+type SpaceApplicationStore interface {
+	sqlstore.SqlCommons
+	Create(ctx context.Context, data *types.SpaceApplication) error
+	Get(ctx context.Context, spaceID, userID string) (*types.SpaceApplication, error)
+	GetByID(ctx context.Context, id string) (*types.SpaceApplication, error)
+	UpdateStatus(ctx context.Context, id, status string) error
+	Delete(ctx context.Context, spaceID, userID string) error
+	Total(ctx context.Context, spaceID string) (int64, error)
+	List(ctx context.Context, spaceID string, page, pagesize uint64) ([]types.SpaceApplication, error)
+}

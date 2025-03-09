@@ -33,6 +33,7 @@ const (
 	ERROR_ALREADY_SAVED              = "error.already_saved"
 	ERROR_INEFFECTIVE                = "error.ineffective"
 	ERROR_REDEEM_MUST_NEW_USER       = "error.redeem.must_new_user"
+	ERROR_ALREADY_APPLIED            = "error.already_applied"
 
 	ERROR_INVALID_TOKEN   = "error.invalid.token"
 	ERROR_INVALID_ACCOUNT = "error.invalid.account"

@@ -31,6 +31,7 @@ type Space struct {
 	Description string `json:"description" db:"description"`
 	BasePrompt  string `json:"base_prompt" db:"base_prompt"`
 	ChatPrompt  string `json:"chat_prompt" db:"chat_prompt"`
+	JoinLeaf    int64  `json:"join_leaf" db:"join_leaf"`
 	CreatedAt   int64  `json:"created_at" db:"created_at"` // 创建时间，存储为时间戳
 }
 

@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
@@ -31,6 +32,9 @@ type ShareTokenStoreImpl struct {
 
 // Create 创建新的文章分享链接
 func (s *ShareTokenStoreImpl) Create(ctx context.Context, link *types.ShareToken) error {
+	if link.CreatedAt == 0 {
+		link.CreatedAt = time.Now().Unix()
+	}
 	query := sq.Insert(s.GetTable()).
 		Columns("appid", "space_id", "object_id", "share_user_id", "embedding_url", "type", "token", "expire_at", "created_at").
 		Values(link.Appid, link.SpaceID, link.ObjectID, link.ShareUserID, link.EmbeddingURL, link.Type, link.Token, link.ExpireAt, link.CreatedAt)
@@ -40,7 +44,6 @@ func (s *ShareTokenStoreImpl) Create(ctx context.Context, link *types.ShareToken
 		return ErrorSqlBuild(err)
 	}
 
-	// 执行 SQL 并获取返回的自增 ID
 	_, err = s.GetMaster(ctx).Exec(sql, args...)
 	return err
 }

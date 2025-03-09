@@ -45,6 +45,7 @@ type Stores struct {
 	store.FileManagementStore
 	store.AITokenUsageStore
 	store.ShareTokenStore
+	store.SpaceApplicationStore
 	store.JournalStore
 	store.ButlerTableStore
 }
@@ -173,4 +174,8 @@ func (p *Provider) ChatSessionPinStore() store.ChatSessionPinStore {
 
 func (p *Provider) BulterTableStore() store.ButlerTableStore {
 	return p.stores.ButlerTableStore
+}
+
+func (p *Provider) SpaceApplicationStore() store.SpaceApplicationStore {
+	return p.stores.SpaceApplicationStore
 }

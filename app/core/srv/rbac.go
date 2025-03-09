@@ -13,11 +13,13 @@ const (
 	RoleAdmin  = "role-admin"
 	RoleEditor = "role-editor"
 	RoleViewer = "role-viewer"
+	RoleMember = "role-member"
 
 	// 定义权限ID
-	PermissionAdmin = "admin"
-	PermissionEdit  = "edit"
-	PermissionView  = "view"
+	PermissionAdmin  = "admin"
+	PermissionEdit   = "edit"
+	PermissionView   = "view"
+	PermissionMember = "member"
 
 	BusinessUser = "bu"
 	ClientUser   = "cu"
@@ -31,6 +33,7 @@ func SetupRBACSrv() *RBACSrv {
 	pAdmin := gorbac.NewStdPermission(PermissionAdmin)
 	pEdit := gorbac.NewStdPermission(PermissionEdit)
 	pView := gorbac.NewStdPermission(PermissionView)
+	pMember := gorbac.NewStdPermission(PermissionMember)
 
 	// 创建角色并分配权限
 	roleAdmin := gorbac.NewStdRole(RoleAdmin)
@@ -42,14 +45,20 @@ func SetupRBACSrv() *RBACSrv {
 	roleViewer := gorbac.NewStdRole(RoleViewer)
 	roleViewer.Assign(pView)
 
+	roleMember := gorbac.NewStdRole(RoleMember)
+	roleMember.Assign(pMember)
+
 	// 将角色添加到RBAC实例
 	rbac.Add(roleAdmin)
 	rbac.Add(roleEditor)
 	rbac.Add(roleViewer)
+	rbac.Add(roleMember)
 
 	// 设置角色继承关系
+	rbac.SetParent(RoleViewer, RoleMember)
 	rbac.SetParent(RoleEditor, RoleViewer) // 编辑者继承预览者的权限
 	rbac.SetParent(RoleAdmin, RoleEditor)  // 管理者继承编辑者的权限
+
 	return &RBACSrv{
 		rbac: rbac,
 	}

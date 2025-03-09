@@ -15,7 +15,8 @@ type ShareToken struct {
 }
 
 const (
-	SHARE_TYPE_KNOWLEDGE = "knowledge"
-	SHARE_TYPE_SESSION   = "session"
-	SHARE_TYPE_MESSAGE   = "message"
+	SHARE_TYPE_KNOWLEDGE    = "knowledge"
+	SHARE_TYPE_SESSION      = "session"
+	SHARE_TYPE_MESSAGE      = "message"
+	SHARE_TYPE_SPACE_INVITE = "space_invite"
 )
