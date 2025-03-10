@@ -247,6 +247,6 @@ type SpaceApplicationStore interface {
 	GetByID(ctx context.Context, id string) (*types.SpaceApplication, error)
 	UpdateStatus(ctx context.Context, id, status string) error
 	Delete(ctx context.Context, spaceID, userID string) error
-	Total(ctx context.Context, spaceID string) (int64, error)
-	List(ctx context.Context, spaceID string, page, pagesize uint64) ([]types.SpaceApplication, error)
+	Total(ctx context.Context, spaceID string, opts types.ListSpaceApplicationOptions) (int64, error)
+	List(ctx context.Context, spaceID string, opts types.ListSpaceApplicationOptions, page, pagesize uint64) ([]types.SpaceApplication, error)
 }

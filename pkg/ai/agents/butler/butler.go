@@ -116,7 +116,7 @@ func (b *ButlerAgent) Query(userID string, reqMsg *types.ChatMessage) ([]openai.
 	userData := userTables.String()
 
 	// 获取session 历史记录
-	list, err := b.core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, reqMsg.SpaceID, reqMsg.SessionID, reqMsg.ID, 0, 10)
+	list, err := b.core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, reqMsg.SpaceID, reqMsg.SessionID, reqMsg.ID, 1, 10)
 	if err != nil {
 		slog.Error("Butler: failed to load session history message", slog.String("error", err.Error()), slog.String("session_id", reqMsg.SessionID))
 		list = append(list, reqMsg)
@@ -273,7 +273,8 @@ func (b *ButlerAgent) HandleUserRequest(userID string, messages []openai.ChatCom
 				}
 				return res, &resp.Usage, err
 			case "chat":
-				fmt.Println("continue chat")
+				slog.Warn("Butler: continue chat")
+				// TODO
 			default:
 
 			}
@@ -359,8 +360,6 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 		reqMessages = append(reqMessages, messages[userMessageIndex:]...)
 	}
 
-	fmt.Println(reqMessages)
-
 	resp, err := b.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -389,12 +388,12 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to request ai: %w", err)
 	}
-	fmt.Println(resp)
+
 	message := resp.Choices[0].Message
 	if len(message.ToolCalls) > 0 {
 		for _, v := range message.ToolCalls {
 			switch v.Function.Name {
-			case "modify":
+			case "update":
 				var params struct {
 					Data string `json:"data"`
 				}
@@ -417,5 +416,6 @@ func (b *ButlerAgent) ModifyTable(tableID string, messages []openai.ChatCompleti
 		}
 	}
 
+	slog.Info("Butler: unknown function call", slog.Any("request", reqMessages), slog.Any("response", resp))
 	return nil, nil, fmt.Errorf("Unknown function call.")
 }

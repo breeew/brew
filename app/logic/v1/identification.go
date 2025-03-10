@@ -31,7 +31,6 @@ func (u *_userInfo) Identification(roler srv.RoleObject, permission string) erro
 }
 
 // 通过eventid获取该event对应的用户id
-
 func (u *_userInfo) lazyRolerFromKnowledgeID(spaceID, id string) *srv.LazyRoler {
 	return srv.NewRolerWithLazyload(func() (string, error) {
 		e, err := u.core.Store().KnowledgeStore().GetKnowledge(u.ctx, spaceID, id)

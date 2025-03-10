@@ -40,8 +40,8 @@ func (s *SpaceApplicationImpl) Create(ctx context.Context, data *types.SpaceAppl
 	}
 
 	query := sq.Insert(s.GetTable()).
-		Columns("id", "space_id", "user_id", "desc", "updated_at", "created_at").
-		Values(data.ID, data.SpaceID, data.UserID, data.Desc, data.UpdatedAt, data.CreatedAt)
+		Columns("id", "space_id", "user_id", "user_name", "user_email", "desc", "updated_at", "created_at").
+		Values(data.ID, data.SpaceID, data.UserID, data.UserName, data.UserEmail, data.Desc, data.UpdatedAt, data.CreatedAt)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *SpaceApplicationImpl) GetByID(ctx context.Context, id string) (*types.S
 	return &data, nil
 }
 
-func (s *SpaceApplicationImpl) List(ctx context.Context, spaceID string, page, pagesize uint64) ([]types.SpaceApplication, error) {
+func (s *SpaceApplicationImpl) List(ctx context.Context, spaceID string, opts types.ListSpaceApplicationOptions, page, pagesize uint64) ([]types.SpaceApplication, error) {
 	query := sq.Select(s.GetAllColumns()...).
 		From(s.GetTable()).
 		Where(sq.Eq{"space_id": spaceID})
@@ -100,6 +100,8 @@ func (s *SpaceApplicationImpl) List(ctx context.Context, spaceID string, page, p
 	if page != types.NOT_DELETE || pagesize != types.NOT_DELETE {
 		query = query.Limit(pagesize).Offset((page - 1) * pagesize)
 	}
+
+	opts.Apply(&query)
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -115,7 +117,7 @@ func (s *SpaceApplicationImpl) List(ctx context.Context, spaceID string, page, p
 	return data, nil
 }
 
-func (s *SpaceApplicationImpl) Total(ctx context.Context, spaceID string) (int64, error) {
+func (s *SpaceApplicationImpl) Total(ctx context.Context, spaceID string, opts types.ListSpaceApplicationOptions) (int64, error) {
 	query := sq.Select("COUNT(*)").
 		From(s.GetTable()).
 		Where(sq.Eq{"space_id": spaceID})
@@ -124,6 +126,8 @@ func (s *SpaceApplicationImpl) Total(ctx context.Context, spaceID string) (int64
 	if err != nil {
 		return 0, ErrorSqlBuild(err)
 	}
+
+	opts.Apply(&query)
 
 	var data int64
 	err = s.GetReplica(ctx).Get(&data, sql, args...)
