@@ -140,6 +140,11 @@ func (b *ButlerAgent) Query(userID string, reqMsg *types.ChatMessage) ([]openai.
 	}
 
 	req = append(req, lo.Map(list, func(item *types.ChatMessage, _ int) openai.ChatCompletionMessage {
+		var msgContent = item.Message
+		if item.IsEncrypt == types.MESSAGE_IS_ENCRYPT {
+			msg, _ := b.core.DecryptData([]byte(item.Message))
+			msgContent = string(msg)
+		}
 		if len(item.Attach) > 0 {
 			if item.Attach[0].AIDescription != "" {
 				imageAIDescriptions := strings.Join(lo.Map(item.Attach, func(item types.ChatAttach, i int) string {
@@ -147,17 +152,17 @@ func (b *ButlerAgent) Query(userID string, reqMsg *types.ChatMessage) ([]openai.
 				}), "\n")
 				return openai.ChatCompletionMessage{
 					Role:    item.Role.String(),
-					Content: fmt.Sprintf("%s\n%s", item.Message, imageAIDescriptions),
+					Content: fmt.Sprintf("%s\n%s", msgContent, imageAIDescriptions),
 				}
 			}
 			return openai.ChatCompletionMessage{
 				Role:         item.Role.String(),
-				MultiContent: item.Attach.ToMultiContent(item.Message),
+				MultiContent: item.Attach.ToMultiContent(msgContent),
 			}
 		}
 		return openai.ChatCompletionMessage{
 			Role:    item.Role.String(),
-			Content: item.Message,
+			Content: msgContent,
 		}
 	})...)
 

@@ -218,7 +218,9 @@ func (fs *S3FileStorage) GenGetObjectPreSignURL(_url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fs.S3.GenGetObjectPreSignURL(res.RequestURI())
+
+	_url, _ = url.QueryUnescape(res.RequestURI())
+	return fs.S3.GenGetObjectPreSignURL(_url)
 }
 
 type Assistant interface {

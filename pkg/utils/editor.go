@@ -247,7 +247,7 @@ func (h *LineHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) (
 	return renderLineMarkdown(list)
 }
 
-type image struct {
+type editorImage struct {
 	File           file   `json:"file"`
 	Caption        string `json:"caption"`
 	WithBorder     bool   `json:"withBorder"`
@@ -278,8 +278,8 @@ var DefaultImageHandlerOptions = &ImageHandlerOptions{
 	BorderClass:     "image-tool--withBorder",
 	BackgroundClass: "image-tool--withBackground"}
 
-func (*ImageHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*image, error) {
-	image := &image{}
+func (*ImageHandler) parse(editorJSBlock goeditorjs.EditorJSBlock) (*editorImage, error) {
+	image := &editorImage{}
 	return image, json.Unmarshal(editorJSBlock.Data, image)
 }
 
@@ -312,7 +312,7 @@ func (h *ImageHandler) GenerateMarkdown(editorJSBlock goeditorjs.EditorJSBlock) 
 
 }
 
-func (h *ImageHandler) generateHTML(image *image) (string, error) {
+func (h *ImageHandler) generateHTML(image *editorImage) (string, error) {
 	if h.Options == nil {
 		h.Options = DefaultImageHandlerOptions
 	}

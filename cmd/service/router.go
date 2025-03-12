@@ -83,10 +83,10 @@ func setupHttpRouter(s *handler.HttpSrv) {
 		authed := apiV1.Group("")
 		authed.Use(middleware.Authorization(s.Core))
 
-		spaceShare := authed.Group("/space/:token")
+		spaceShare := authed.Group("/space/application/:token")
 		{
-			spaceShare.GET("/application/landing", s.GetSpaceApplicationLandingDetail)
-			spaceShare.POST("apply", s.ApplySpace)
+			spaceShare.GET("/landing", s.GetSpaceApplicationLandingDetail)
+			spaceShare.POST("/apply", s.ApplySpace)
 		}
 
 		user := authed.Group("/user")
@@ -108,7 +108,7 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.Use(middleware.VerifySpaceIDPermission(s.Core, srv.PermissionAdmin))
 			space.DELETE("/:spaceid", s.DeleteUserSpace)
 			space.PUT("/:spaceid", userLimit("modify_space"), s.UpdateSpace)
-			space.POST("/:spaceid/application/handler", )
+			space.POST("/:spaceid/application/handler")
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
 			// share

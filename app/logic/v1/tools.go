@@ -52,15 +52,56 @@ func (l *ReaderLogic) Reader(endpoint string) (*ai.ReaderResult, error) {
 }
 
 func (l *ReaderLogic) DescribeImage(imageURL string) (string, error) {
-	url, err := l.core.FileStorage().GenGetObjectPreSignURL(imageURL)
+	imageResponse, err := http.Get(imageURL)
 	if err != nil {
-		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_INTERNAL, err)
+		return "", errors.New("KnowledgeLogic.DescribeImage.Get", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+	}
+	defer imageResponse.Body.Close()
+	if imageResponse.StatusCode != http.StatusOK {
+		imageURL, err = l.core.FileStorage().GenGetObjectPreSignURL(imageURL)
+		if err != nil {
+			return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+		}
 	}
 
-	resp, err := l.core.Srv().AI().DescribeImage(l.ctx, GetContentByClientLanguage(l.ctx, "English", "中文"), url)
+	// if strings.Contains(imageURL, ".svg") {
+	// 	url, err := url.Parse(imageURL)
+	// 	if err != nil {
+	// 		return "", errors.New("KnowledgeLogic.DescribeImage.Parse", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+	// 	}
+
+	// 	ctx, cancel := context.WithTimeout(l.ctx, time.Minute)
+	// 	defer cancel()
+	// 	obj, err := l.core.FileStorage().DownloadFile(ctx, url.RequestURI())
+	// 	if err != nil {
+	// 		return "", errors.New("KnowledgeLogic.DescribeImage.FileStorage.DownloadFile", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+	// 	}
+
+	// 	pngImage, err := utils.ConvertSVGToPNG(obj.File)
+	// 	if err != nil {
+	// 		return "", errors.New("KnowledgeLogic.DescribeImage.SvgToPng", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+	// 	}
+
+	// 	encodeImage := base64.StdEncoding.EncodeToString(pngImage)
+	// 	imageURL = fmt.Sprintf("data:image/png;base64,%s", encodeImage)
+	// 	// if err = l.core.FileStorage().SaveFile("/tmp/convert/", utils.MD5(url.RequestURI())+".png", pngImage); err != nil {
+	// 	// 	return "", err
+	// 	// }
+	// 	// path := fmt.Sprintf("/tmp/convert/%s", utils.MD5(url.RequestURI())+".png")
+	// 	// fmt.Println(path)
+	// 	imageURL, err = l.core.FileStorage().GenGetObjectPreSignURL("/tmp/convert/Ollama (1).png")
+	// 	if err != nil {
+	// 		return "", errors.New("KnowledgeLogic.DescribeImage.GenGetObjectPreSignURL", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
+	// 	}
+
+	// 	// fmt.Println(imageURL)
+	// }
+
+	resp, err := l.core.Srv().AI().DescribeImage(l.ctx, GetContentByClientLanguage(l.ctx, "English", "中文"), imageURL)
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.Query", i18n.ERROR_INTERNAL, err)
 	}
+
 	if resp.Usage != nil {
 		process.NewRecordUsageRequest(resp.Model, types.USAGE_TYPE_SYSTEM, types.USAGE_SUB_TYPE_DESCRIBE_IMAGE, "", l.GetUserInfo().User, resp.Usage)
 	}

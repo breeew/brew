@@ -67,7 +67,8 @@ func (a *ChatMessageAttach) scanBytes(src []byte) error {
 }
 
 const (
-	MESSAGE_IS_ENCRYPT int = 1
+	MESSAGE_IS_ENCRYPT  int = 1
+	MESSAGE_NOT_ENCRYPT int = 0
 )
 
 type RAGDocs struct {

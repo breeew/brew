@@ -215,7 +215,7 @@ const GENERATE_PROMPT_TPL_NONE_CONTENT_CN = `
 
 const IMAGE_GENERATE_PROMPT_CN = `
 请帮我分析出图片中的重要信息，使用一段话告诉我。
-请使用 ${lang} 语言来回答我。
+一定要使用 ${lang} 来进行回复。
 `
 
 const IMAGE_GENERATE_PROMPT_EN = `

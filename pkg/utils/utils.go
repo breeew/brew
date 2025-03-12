@@ -1,12 +1,16 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
 	crand "crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"math"
 	"math/rand"
@@ -20,6 +24,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/holdno/snowFlakeByGo"
+	"github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
 
 	"github.com/breeew/brew-api/pkg/errors"
 	"github.com/breeew/brew-api/pkg/i18n"
@@ -254,4 +260,35 @@ func MaskString(s string, preLen, postLen int) string {
 	}
 
 	return pre + "******" + post
+}
+
+func ConvertSVGToPNG(in []byte) ([]byte, error) {
+	// 解析SVG文件
+	icon, err := oksvg.ReadIconStream(bytes.NewReader(in))
+	if err != nil {
+		return nil, fmt.Errorf("SVG format error, %w", err)
+	}
+
+	width, height := int(icon.ViewBox.W), int(icon.ViewBox.H)
+
+	// 创建目标图像
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// 初始化扫描器和绘制器
+	scanner := rasterx.NewScannerGV(width, height, img, img.Bounds())
+	rasterizer := rasterx.NewDasher(width, height, scanner)
+
+	// 设置SVG渲染的目标区域
+	icon.SetTarget(0, 0, float64(width), float64(height))
+
+	// 将SVG绘制到图像上
+	icon.Draw(rasterizer, 1.0)
+
+	var f bytes.Buffer
+
+	if err = png.Encode(bufio.NewWriter(&f), img); err != nil {
+		return nil, err
+	}
+
+	return f.Bytes(), nil
 }

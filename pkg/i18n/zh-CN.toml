@@ -1,3 +1,7 @@
+['error.image.read_file']
+one = "无法读取图片"
+other = "无法读取图片"
+
 ['error.moreThanMax']
 one = "超出最大上限"
 other = "超出最大上限"
