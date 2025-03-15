@@ -151,3 +151,26 @@ func (s *HttpSrv) LeaveSpace(c *gin.Context) {
 	}
 	response.APISuccess(c, nil)
 }
+
+type RemoveSpaceUserRequest struct {
+	UserID string `json:"user_id" binding:"required"`
+}
+
+func (s *HttpSrv) RemoveSpaceUser(c *gin.Context) {
+	var (
+		err error
+		req RemoveSpaceUserRequest
+	)
+
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	spaceID, _ := v1.InjectSpaceID(c)
+	if err = v1.NewSpaceLogic(c, s.Core).DeleteSpaceUser(spaceID, req.UserID); err != nil {
+		response.APIError(c, err)
+		return
+	}
+	response.APISuccess(c, nil)
+}

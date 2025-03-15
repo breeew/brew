@@ -386,20 +386,38 @@ func (s *NormalAssistant) RequestAssistant(ctx context.Context, docs types.RAGDo
 			return err
 		}
 	} else {
-		userChatMessage := &types.MessageContext{
-			Role: types.USER_ROLE_USER,
-		}
+		var userChatMessage []*types.MessageContext
+
 		if len(reqMsg.Attach) > 0 {
-			userChatMessage.MultiContent = reqMsg.Attach.ToMultiContent(reqMsg.Message)
-		} else {
-			userChatMessage.Content = reqMsg.Message
+			item := &types.MessageContext{
+				Role: types.USER_ROLE_USER,
+			}
+			item.MultiContent = reqMsg.Attach.ToMultiContent("")
+			userChatMessage = append(userChatMessage, item)
 		}
+
+		userChatMessage = append(userChatMessage, &types.MessageContext{
+			Role:    types.USER_ROLE_USER,
+			Content: reqMsg.Message,
+		})
 		sessionContext = &SessionContext{
-			Prompt:    prompt,
-			MessageID: reqMsg.ID,
-			MessageContext: []*types.MessageContext{
-				userChatMessage,
-			},
+			Prompt:         prompt,
+			MessageID:      reqMsg.ID,
+			MessageContext: userChatMessage,
+		}
+	}
+
+	for _, v := range sessionContext.MessageContext {
+		if len(v.MultiContent) > 0 {
+			for i, vv := range v.MultiContent {
+				if vv.ImageURL != nil {
+					url, err := s.core.FileStorage().GenGetObjectPreSignURL(vv.ImageURL.URL)
+					if err != nil {
+						return err
+					}
+					v.MultiContent[i].ImageURL.URL = url
+				}
+			}
 		}
 	}
 
@@ -832,23 +850,37 @@ ReGen:
 		}
 
 		contextIndex++
-		if v.ID == reqMsgWithDocs.ID {
-			userChatMessage := &types.MessageContext{
-				Role: v.Role,
-			}
-			if len(reqMsgWithDocs.Attach) > 0 {
-				userChatMessage.MultiContent = reqMsgWithDocs.Attach.ToMultiContent(reqMsgWithDocs.Message)
-			} else {
-				userChatMessage.Content = reqMsgWithDocs.Message
-			}
 
-			reqMsg = append(reqMsg, userChatMessage)
-		} else {
-			reqMsg = append(reqMsg, &types.MessageContext{
-				Role:    v.Role,
-				Content: v.Message,
-			})
+		if len(v.Attach) > 0 {
+			item := &types.MessageContext{
+				Role: types.USER_ROLE_USER,
+			}
+			item.MultiContent = v.Attach.ToMultiContent("")
+			reqMsg = append(reqMsg, item)
 		}
+
+		reqMsg = append(reqMsg, &types.MessageContext{
+			Role:    types.USER_ROLE_USER,
+			Content: v.Message,
+		})
+
+		// if v.ID == reqMsgWithDocs.ID {
+		// 	userChatMessage := &types.MessageContext{
+		// 		Role: v.Role,
+		// 	}
+		// 	if len(reqMsgWithDocs.Attach) > 0 {
+		// 		userChatMessage.MultiContent = reqMsgWithDocs.Attach.ToMultiContent(reqMsgWithDocs.Message)
+		// 	} else {
+		// 		userChatMessage.Content = reqMsgWithDocs.Message
+		// 	}
+
+		// 	reqMsg = append(reqMsg, userChatMessage)
+		// } else {
+		// 	reqMsg = append(reqMsg, &types.MessageContext{
+		// 		Role:    v.Role,
+		// 		Content: v.Message,
+		// 	})
+		// }
 
 	}
 

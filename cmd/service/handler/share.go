@@ -197,3 +197,42 @@ func (s *HttpSrv) CopyKnowledge(c *gin.Context) {
 	}
 	response.APISuccess(c, nil)
 }
+
+type CreateSpaceShareTokenRequest struct {
+	EmbeddingURL string `json:"embedding_url" binding:"required"`
+}
+
+type CreateSpaceShareTokenResponse struct {
+	Token string `json:"token"`
+	URL   string `json:"url"`
+}
+
+func (s *HttpSrv) CreateSpaceShareToken(c *gin.Context) {
+	var (
+		err error
+		req CreateSpaceShareTokenRequest
+	)
+	if err = utils.BindArgsWithGin(c, &req); err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	spaceID, _ := v1.InjectSpaceID(c)
+	res, err := v1.NewManageShareLogic(c, s.Core).CreateSpaceShareToken(spaceID, req.EmbeddingURL)
+	if err != nil {
+		response.APIError(c, err)
+		return
+	}
+
+	var shareURL string
+	if s.Core.Cfg().Site.Share.Domain != "" {
+		shareURL = genSessionShareURL(s.Core.Cfg().Site.Share.Domain, res.Token)
+	} else {
+		shareURL = strings.ReplaceAll(req.EmbeddingURL, "{token}", res.Token)
+	}
+
+	response.APISuccess(c, CreateSpaceShareTokenResponse{
+		Token: res.Token,
+		URL:   shareURL,
+	})
+}

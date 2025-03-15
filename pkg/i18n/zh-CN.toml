@@ -1,3 +1,7 @@
+['error.image.type.unsupport']
+one = "暂不支持当前图片格式"
+other = "暂不支持当前图片格式"
+
 ['error.image.read_file']
 one = "无法读取图片"
 other = "无法读取图片"

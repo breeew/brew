@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -258,15 +257,12 @@ func (s *EnhanceOptions) WithHistories(messages []*types.ChatMessage) *EnhanceOp
 		return s
 	}
 
-	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].SendTime < messages[j].SendTime
-	})
 	str := strings.Builder{}
 	for _, v := range messages {
 		str.WriteString(v.Role.String())
 		str.WriteString(":")
-		if v.Role == types.USER_ROLE_ASSISTANT && len([]rune(v.Message)) > 20 {
-			str.WriteString(string([]rune(v.Message)[:20]))
+		if v.Role == types.USER_ROLE_ASSISTANT && len([]rune(v.Message)) > 40 {
+			str.WriteString(string([]rune(v.Message)[:40]))
 			str.WriteString("......")
 		} else {
 			str.WriteString(v.Message)

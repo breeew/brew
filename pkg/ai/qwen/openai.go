@@ -119,11 +119,11 @@ func convertModelToVLModel(model string) string {
 	}
 	switch model {
 	case "qwen-plus":
-		return "qwen-vl-plus"
+		return "qwen-vl-plus-latest"
 	case "qwen-max":
 		return "qwen-vl-max"
 	default:
-		return "qwen-vl-plus"
+		return "qwen-vl-plus-latest"
 	}
 }
 

@@ -344,11 +344,6 @@ func (l *ShareLogic) CopyKnowledgeByShareToken(token, toSpaceID, toResource stri
 		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge.nil", i18n.ERROR_NOT_FOUND, nil).Code(http.StatusNoContent)
 	}
 
-	originKnowledgeVector, err := l.core.Store().VectorStore().GetVector(l.ctx, originKnowledge.SpaceID, originKnowledge.ID)
-	if err != nil {
-		return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.GetVector", i18n.ERROR_INTERNAL, err)
-	}
-
 	knowledgeID := utils.MD5(originKnowledge.UserID + originKnowledge.ID)
 
 	alreadyCopied, err := l.core.Store().KnowledgeStore().GetKnowledge(l.ctx, toSpaceID, knowledgeID)
@@ -358,6 +353,14 @@ func (l *ShareLogic) CopyKnowledgeByShareToken(token, toSpaceID, toResource stri
 
 	if alreadyCopied != nil {
 		return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.GetKnowledge", i18n.ERROR_ALREADY_SAVED, nil).Code(http.StatusForbidden)
+	}
+
+	originKnowledgeVectors, err := l.core.Store().VectorStore().ListVectors(l.ctx, types.GetVectorsOptions{
+		SpaceID:     originKnowledge.SpaceID,
+		KnowledgeID: originKnowledge.ID,
+	}, types.NO_PAGING, types.NO_PAGING)
+	if err != nil {
+		return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.GetVector", i18n.ERROR_INTERNAL, err)
 	}
 
 	return l.core.Store().Transaction(l.ctx, func(ctx context.Context) error {
@@ -372,15 +375,74 @@ func (l *ShareLogic) CopyKnowledgeByShareToken(token, toSpaceID, toResource stri
 			return errors.New("ShareLogic.CopyKnowledgeByShareToken.KnowledgeStore.Create", i18n.ERROR_INTERNAL, err)
 		}
 
-		newVector := *originKnowledgeVector
-		newVector.ID = utils.GenUniqIDStr()
-		newVector.KnowledgeID = newKnowledge.ID
-		newVector.SpaceID = toSpaceID
-		newVector.Resource = toResource
-		if err = l.core.Store().VectorStore().Create(ctx, newVector); err != nil {
-			return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.Create", i18n.ERROR_INTERNAL, err)
+		for _, originKnowledgeVector := range originKnowledgeVectors {
+			newVector := originKnowledgeVector
+			newVector.ID = utils.GenUniqIDStr()
+			newVector.UserID = reqUser.User
+			newVector.KnowledgeID = newKnowledge.ID
+			newVector.SpaceID = toSpaceID
+			newVector.Resource = toResource
+			if err = l.core.Store().VectorStore().Create(ctx, newVector); err != nil {
+				return errors.New("ShareLogic.CopyKnowledgeByShareToken.VectorStore.Create", i18n.ERROR_INTERNAL, err)
+			}
 		}
 
 		return nil
 	})
+}
+
+type CreateSpaceShareTokenResult struct {
+	Token string `json:"token"`
+	URL   string `json:"url"`
+}
+
+func (l *ManageShareLogic) CreateSpaceShareToken(spaceID, embeddingURL string) (CreateSpaceShareTokenResult, error) {
+	res := CreateSpaceShareTokenResult{}
+
+	userSpaceRole, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, l.GetUserInfo().User, spaceID)
+	if err != nil && err != sql.ErrNoRows {
+		return res, errors.New("ManageShareLogic.CreateSpaceShareToken.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
+	}
+
+	if userSpaceRole == nil || userSpaceRole.Role != srv.RoleAdmin {
+		return res, errors.New("ManageShareLogic.CreateSpaceShareToken.Role.Check", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+	}
+
+	link, err := l.core.Store().ShareTokenStore().Get(l.ctx, types.SHARE_TYPE_SPACE_INVITE, spaceID, "")
+	if err != nil && err != sql.ErrNoRows {
+		return res, errors.New("ManageShareLogic.CreateSpaceShareToken.ShareTokenStore.Get", i18n.ERROR_INTERNAL, err)
+	}
+
+	if link != nil {
+		if link.ExpireAt != 0 && link.ExpireAt < time.Now().AddDate(0, 0, -1).Unix() {
+			// update link expire time
+			if err = l.core.Store().ShareTokenStore().UpdateExpireTime(l.ctx, link.ID, time.Now().AddDate(0, 0, 7).Unix()); err != nil {
+				slog.Error("Failed to update share link expire time", slog.String("error", err.Error()), slog.String("space_id", spaceID))
+			}
+		}
+
+		res.Token = link.Token
+		res.URL = link.EmbeddingURL
+		return res, nil
+	}
+
+	res.Token = utils.MD5(fmt.Sprintf("%s_%d", spaceID, utils.GenUniqID()))
+	res.URL = strings.ReplaceAll(embeddingURL, "{token}", res.Token)
+
+	err = l.core.Store().ShareTokenStore().Create(l.ctx, &types.ShareToken{
+		Appid:        l.GetUserInfo().Appid,
+		Type:         types.SHARE_TYPE_SPACE_INVITE,
+		SpaceID:      spaceID,
+		ObjectID:     "",
+		Token:        res.Token,
+		ShareUserID:  l.GetUserInfo().User,
+		EmbeddingURL: res.URL,
+		ExpireAt:     0,
+		CreatedAt:    time.Now().Unix(),
+	})
+	if err != nil {
+		return res, errors.New("ManageShareLogic.CreateSpaceShareToken.ShareTokenStore.Create", i18n.ERROR_INTERNAL, err)
+	}
+
+	return res, nil
 }

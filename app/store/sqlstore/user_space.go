@@ -83,7 +83,7 @@ func (s *UserSpaceStore) Update(ctx context.Context, userID, spaceID, role strin
 }
 
 // Delete 删除用户与空间关系
-func (s *UserSpaceStore) Delete(ctx context.Context, spaceID, userID string) error {
+func (s *UserSpaceStore) Delete(ctx context.Context, userID, spaceID string) error {
 	query := sq.Delete(s.GetTable()).Where(sq.Eq{"user_id": userID, "space_id": spaceID})
 
 	queryString, args, err := query.ToSql()

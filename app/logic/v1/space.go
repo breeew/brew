@@ -210,7 +210,7 @@ func (l *SpaceLogic) LeaveSpace(spaceID string) error {
 		return nil
 	}
 
-	if err = l.core.Store().UserSpaceStore().Delete(l.ctx, spaceID, user.User); err != nil {
+	if err = l.core.Store().UserSpaceStore().Delete(l.ctx, user.User, spaceID); err != nil {
 		return errors.New("SpaceLogic.LeaveSpace.UserSpaceStore.Delete", i18n.ERROR_INTERNAL, err)
 	}
 	return nil
@@ -322,4 +322,41 @@ func (l *SpaceLogic) ListUserSpace() ([]types.UserSpaceDetail, error) {
 	}
 
 	return result, nil
+}
+
+func (l *SpaceLogic) DeleteSpaceUser(spaceID, userID string) error {
+	if userID == l.GetUserInfo().User {
+		return errors.New("SpaceLogic.DeleteSpaceUser.DoNotForSelf", i18n.ERROR_FORBIDDEN, nil).Code(http.StatusForbidden)
+	}
+
+	userSpace, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, l.GetUserInfo().User, spaceID)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.New("SpaceLogic.DeleteSpaceUser.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
+	}
+
+	if userSpace == nil || !l.core.Srv().RBAC().CheckPermission(userSpace.Role, srv.PermissionAdmin) {
+		return errors.New("SpaceLogic.DeleteSpaceUser.RBAC.CheckPermission", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+	}
+
+	if userSpace.Role != srv.RoleChief {
+		// 检查目标用户权限
+		targetUserRole, err := l.core.Store().UserSpaceStore().GetUserSpaceRole(l.ctx, userID, spaceID)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.New("SpaceLogic.DeleteSpaceUser.UserSpaceStore.GetUserSpaceRole", i18n.ERROR_INTERNAL, err)
+		}
+
+		switch targetUserRole.Role {
+		case srv.RoleChief:
+			fallthrough
+		case srv.RoleAdmin:
+			return errors.New("SpaceLogic.DeleteSpaceUser.Fail", i18n.ERROR_PERMISSION_DENIED, nil).Code(http.StatusForbidden)
+		default:
+		}
+	}
+
+	if err = l.core.Store().UserSpaceStore().Delete(l.ctx, userID, spaceID); err != nil {
+		return errors.New("SpaceLogic.DeleteSpaceUser.UserSpaceStore.Delete", i18n.ERROR_INTERNAL, nil)
+	}
+
+	return nil
 }

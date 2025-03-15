@@ -111,9 +111,11 @@ func setupHttpRouter(s *handler.HttpSrv) {
 			space.POST("/:spaceid/application/handler")
 			space.PUT("/:spaceid/user/role", userLimit("modify_space"), s.SetUserSpaceRole)
 			space.GET("/:spaceid/users", s.ListSpaceUsers)
+			space.DELETE("/:spaceid/user/remove", s.RemoveSpaceUser)
 			// share
 			space.POST("/:spaceid/knowledge/share", middleware.PaymentRequired, s.CreateKnowledgeShareToken)
 			space.POST("/:spaceid/session/share", middleware.PaymentRequired, s.CreateSessionShareToken)
+			space.POST("/:spaceid/share", middleware.PaymentRequired, s.CreateSpaceShareToken)
 
 			object := space.Group("/:spaceid/object")
 			{

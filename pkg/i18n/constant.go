@@ -35,6 +35,7 @@ const (
 	ERROR_REDEEM_MUST_NEW_USER       = "error.redeem.must_new_user"
 	ERROR_ALREADY_APPLIED            = "error.already_applied"
 	ERROR_IMAGE_READ_FAIL            = "error.image.read_file"
+	ERROR_IMAGE_TYPE_UNSUPPORT       = "error.image.type.unsupport"
 
 	ERROR_INVALID_TOKEN   = "error.invalid.token"
 	ERROR_INVALID_ACCOUNT = "error.invalid.account"

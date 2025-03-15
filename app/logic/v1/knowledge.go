@@ -266,7 +266,7 @@ func (l *KnowledgeLogic) Update(spaceID, id string, args types.UpdateKnowledgeAr
 }
 
 func EnhanceChatQuery(ctx context.Context, core *core.Core, query string, spaceID, sessionID, messageID string) (ai.EnhanceQueryResult, error) {
-	histories, err := core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, spaceID, sessionID, messageID, 1, 3)
+	histories, err := core.Store().ChatMessageStore().ListSessionMessageUpToGivenID(ctx, spaceID, sessionID, messageID, 1, 6)
 	if err != nil {
 		slog.Error("Failed to get session message history", slog.String("space_id", spaceID), slog.String("session_id", sessionID),
 			slog.String("message_id", messageID), slog.String("error", err.Error()))
@@ -278,7 +278,20 @@ func EnhanceChatQuery(ctx context.Context, core *core.Core, query string, spaceI
 		}, nil
 	}
 
+	histories = lo.Reverse(histories)[:len(histories)-1]
+
+	decryptMessageLists(core, histories)
+
 	return EnhanceQuery(ctx, core, query, histories)
+}
+
+func decryptMessageLists(core *core.Core, messages []*types.ChatMessage) {
+	for _, v := range messages {
+		if v.IsEncrypt == types.MESSAGE_IS_ENCRYPT {
+			value, _ := core.DecryptData([]byte(v.Message))
+			v.Message = string(value)
+		}
+	}
 }
 
 func EnhanceQuery(ctx context.Context, core *core.Core, query string, histories []*types.ChatMessage) (ai.EnhanceQueryResult, error) {

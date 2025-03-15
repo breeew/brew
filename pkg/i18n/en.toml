@@ -1,3 +1,7 @@
+['error.image.type.unsupport']
+one = "Unsupport image type"
+other = "Unsupport image type"
+
 ['error.image.read_file']
 one = "Unable to read image"
 other = "Unable to read image"

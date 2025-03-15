@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/sashabaranov/go-openai"
 
@@ -52,10 +53,15 @@ func (l *ReaderLogic) Reader(endpoint string) (*ai.ReaderResult, error) {
 }
 
 func (l *ReaderLogic) DescribeImage(imageURL string) (string, error) {
+	if strings.Contains(imageURL, ".svg") || strings.Contains(imageURL, ".gif") {
+		return "", errors.New("KnowledgeLogic.DescribeImage.Get", i18n.ERROR_IMAGE_TYPE_UNSUPPORT, nil).Code(http.StatusBadRequest)
+	}
+
 	imageResponse, err := http.Get(imageURL)
 	if err != nil {
 		return "", errors.New("KnowledgeLogic.DescribeImage.Get", i18n.ERROR_IMAGE_READ_FAIL, err).Code(http.StatusBadRequest)
 	}
+
 	defer imageResponse.Body.Close()
 	if imageResponse.StatusCode != http.StatusOK {
 		imageURL, err = l.core.FileStorage().GenGetObjectPreSignURL(imageURL)
